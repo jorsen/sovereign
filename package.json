@@ -1,0 +1,16 @@
+{
+  "name": "sovereign-crusade",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sovereign — crusade roster and diamond-payout tracker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "cookie": "^0.7.1",
+    "express": "^4.19.2"
+  }
+}
