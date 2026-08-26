@@ -1075,7 +1075,7 @@ function renderTeamDetail(n) {
         <td><input type="checkbox" class="crusade-attended-check admin-disable" data-participant-id="${p.id}" ${p.attended ? 'checked' : ''}></td>
         <td>${crusadeFormatDiamonds(attendanceAmount)}</td>
         ${isDefense ? '' : `<td>${crusadeFormatDiamonds(bidShare)}</td>`}
-        <td style="font-weight:600;">${crusadeFormatDiamonds(total)}</td>
+        <td style="font-weight:600;">${crusadeFormatDiamonds(total + (p.manualDiamonds || 0))}</td>
         <td class="admin-only"><input type="checkbox" class="crusade-paid-check admin-disable" data-participant-id="${p.id}" ${p.paid ? 'checked' : ''}></td>
         <td class="admin-only crusade-roster-actions-cell">
           <button type="button" class="icon-btn" data-edit-participant="${p.id}" title="Edit">✎</button>
@@ -1756,7 +1756,7 @@ function renderCrusadeGuildSummary(rows, containerId, formatFn, extraByGuild) {
     const key = p.guildName || 'Unassigned';
     if (!byGuild.has(key)) byGuild.set(key, { total: 0, count: 0 });
     const g = byGuild.get(key);
-    g.total += total;
+    g.total += total + (p.manualDiamonds || 0);
     g.count += 1;
   });
 
@@ -1774,7 +1774,7 @@ function renderCrusadeGuildSummary(rows, containerId, formatFn, extraByGuild) {
     return;
   }
 
-  const grandTotal = rows.reduce((sum, r) => sum + r.total, 0) + extraTotal;
+  const grandTotal = rows.reduce((sum, r) => sum + r.total + (r.participant.manualDiamonds || 0), 0) + extraTotal;
   const items = Array.from(byGuild.entries())
     .sort((a, b) => b[1].total - a[1].total)
     .map(([name, g]) => {
