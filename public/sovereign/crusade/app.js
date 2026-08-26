@@ -845,7 +845,6 @@ function renderPlayerSalaryCard(g) {
       <td>${feePercentCell}</td>
       <td>${crusadeFormatDiamonds(e.feeAmount)}</td>
       <td>${bonusShareCell}</td>
-      <td>${crusadeFormatDiamonds(e.manualDiamonds)}</td>
       <td style="font-weight:600;">${crusadeFormatDiamonds(e.total)}</td>
       ${itemCells}
     </tr>`;
@@ -855,7 +854,7 @@ function renderPlayerSalaryCard(g) {
     g.entries.reduce((sum, e) => sum + e.salary, 0)
   )}</td><td></td><td>${crusadeFormatDiamonds(g.entries.reduce((sum, e) => sum + e.feeAmount, 0))}</td><td>${crusadeFormatDiamonds(
     g.entries.reduce((sum, e) => sum + e.bonusShare, 0)
-  )}</td><td>${crusadeFormatDiamonds(g.entries.reduce((sum, e) => sum + e.manualDiamonds, 0))}</td><td>${crusadeFormatDiamonds(g.total)}</td>${CRUSADE_SUMMARY_ITEM_NAMES.map(
+  )}</td><td>${crusadeFormatDiamonds(g.total)}</td>${CRUSADE_SUMMARY_ITEM_NAMES.map(
     (name) => `<td>${crusadeFormatItemQty(g.entries.reduce((sum, e) => sum + e.itemTotals[name], 0))}</td>`
   ).join('')}</tr>`;
   return `
@@ -865,7 +864,7 @@ function renderPlayerSalaryCard(g) {
     </div>
     <div class="table-scroll">
       <table class="members-table">
-        <thead><tr><th>#</th><th>${t('sovereign.common.ign')}</th><th>${t('sovereign.salary.thMaxBid')}</th><th>${t('sovereign.salary.thPresent')}</th><th>${t('sovereign.common.salary')}</th><th>${t('sovereign.salary.thFeePercent')}</th><th>${t('sovereign.common.feeAmount')}</th><th>${t('sovereign.common.bonusShare')}</th><th>${t('sovereign.common.manualDiamonds')}</th><th>${t('sovereign.salary.thTotalSalary')}</th>${CRUSADE_SUMMARY_ITEM_NAMES.map((name) => `<th>${escapeHtml(crusadeItemLabel(name))}</th>`).join('')}</tr></thead>
+        <thead><tr><th>#</th><th>${t('sovereign.common.ign')}</th><th>${t('sovereign.salary.thMaxBid')}</th><th>${t('sovereign.salary.thPresent')}</th><th>${t('sovereign.common.salary')}</th><th>${t('sovereign.salary.thFeePercent')}</th><th>${t('sovereign.common.feeAmount')}</th><th>${t('sovereign.common.bonusShare')}</th><th>${t('sovereign.salary.thTotalSalary')}</th>${CRUSADE_SUMMARY_ITEM_NAMES.map((name) => `<th>${escapeHtml(crusadeItemLabel(name))}</th>`).join('')}</tr></thead>
         <tbody>${rows}${totalRow}</tbody>
       </table>
     </div>
@@ -901,7 +900,6 @@ function renderCrusadeGuildTotals(guilds) {
     const salary = g.entries.reduce((sum, e) => sum + e.salary, 0);
     const feeAmount = g.entries.reduce((sum, e) => sum + e.feeAmount, 0);
     const bonusShare = g.entries.reduce((sum, e) => sum + e.bonusShare, 0);
-    const manualDiamonds = g.entries.reduce((sum, e) => sum + e.manualDiamonds, 0);
     return `
     <tr>
       <td>${i + 1}</td>
@@ -909,7 +907,6 @@ function renderCrusadeGuildTotals(guilds) {
       <td>${crusadeFormatDiamonds(salary)}</td>
       <td>${crusadeFormatDiamonds(feeAmount)}</td>
       <td>${crusadeFormatDiamonds(bonusShare)}</td>
-      <td>${crusadeFormatDiamonds(manualDiamonds)}</td>
       <td style="font-weight:600;">${crusadeFormatDiamonds(g.total)}</td>
       ${CRUSADE_SUMMARY_ITEM_NAMES.map((name) => `<td>${crusadeFormatItemQty(g.entries.reduce((sum, e) => sum + e.itemTotals[name], 0))}</td>`).join('')}
     </tr>`;
@@ -920,12 +917,11 @@ function renderCrusadeGuildTotals(guilds) {
   const grandSalary = allEntries.reduce((sum, e) => sum + e.salary, 0);
   const grandFeeAmount = allEntries.reduce((sum, e) => sum + e.feeAmount, 0);
   const grandBonusShare = allEntries.reduce((sum, e) => sum + e.bonusShare, 0);
-  const grandManualDiamonds = allEntries.reduce((sum, e) => sum + e.manualDiamonds, 0);
   const grandTotal = guilds.reduce((sum, g) => sum + g.total, 0);
   const totalRow = guilds.length
     ? `<tr class="crusade-table-total-row"><td></td><td>${t('sovereign.common.total')}</td><td>${crusadeFormatDiamonds(grandSalary)}</td><td>${crusadeFormatDiamonds(
         grandFeeAmount
-      )}</td><td>${crusadeFormatDiamonds(grandBonusShare)}</td><td>${crusadeFormatDiamonds(grandManualDiamonds)}</td><td>${crusadeFormatDiamonds(grandTotal)}</td>${CRUSADE_SUMMARY_ITEM_NAMES.map(
+      )}</td><td>${crusadeFormatDiamonds(grandBonusShare)}</td><td>${crusadeFormatDiamonds(grandTotal)}</td>${CRUSADE_SUMMARY_ITEM_NAMES.map(
         (name) => `<td>${crusadeFormatItemQty(allEntries.reduce((sum, e) => sum + e.itemTotals[name], 0))}</td>`
       ).join('')}</tr>`
     : '';
