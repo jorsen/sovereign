@@ -691,7 +691,6 @@ function computeCrusadeGuildSalaryDetail() {
         feePercent: 0,
         feeAmount: 0,
         bonusShare: 0,
-        manualDiamonds: 0,
         bonusSources: [], // crusade names this player's bonusShare was paid out from (see below)
         itemTotals: Object.fromEntries(CRUSADE_SUMMARY_ITEM_NAMES.map((name) => [name, 0])),
       });
@@ -731,7 +730,6 @@ function computeCrusadeGuildSalaryDetail() {
         if (p.goldBid > 0) entry.maxBid = Math.max(entry.maxBid, p.goldBid);
       }
       entry.salary += total;
-      entry.manualDiamonds += p.manualDiamonds || 0;
     });
 
     (team.items || []).forEach((item) => {
@@ -790,7 +788,7 @@ function computeCrusadeGuildSalaryDetail() {
       // rather than shown as a row of zeroes.
       const entries = Array.from(players.values())
         .filter((e) => !(e.isParticipant && e.onlyLostTeams))
-        .map((e) => ({ ...e, total: e.salary + e.feeAmount + e.bonusShare + e.manualDiamonds }))
+        .map((e) => ({ ...e, total: e.salary + e.feeAmount + e.bonusShare }))
         .sort((a, b) => b.total - a.total);
       return {
         name,
@@ -1075,7 +1073,7 @@ function renderTeamDetail(n) {
         <td><input type="checkbox" class="crusade-attended-check admin-disable" data-participant-id="${p.id}" ${p.attended ? 'checked' : ''}></td>
         <td>${crusadeFormatDiamonds(attendanceAmount)}</td>
         ${isDefense ? '' : `<td>${crusadeFormatDiamonds(bidShare)}</td>`}
-        <td style="font-weight:600;">${crusadeFormatDiamonds(total + (p.manualDiamonds || 0))}</td>
+        <td style="font-weight:600;">${crusadeFormatDiamonds(total)}</td>
         <td class="admin-only"><input type="checkbox" class="crusade-paid-check admin-disable" data-participant-id="${p.id}" ${p.paid ? 'checked' : ''}></td>
         <td class="admin-only crusade-roster-actions-cell">
           <button type="button" class="icon-btn" data-edit-participant="${p.id}" title="Edit">✎</button>
@@ -1452,7 +1450,11 @@ function computeTeamDistribution(teamNumber) {
     return participants.map((p) => ({ participant: p, attendanceAmount: 0, bidShare: 0, total: 0 }));
   }
 
-  const netReward = Math.max(0, team.diamondReward - totalTeamFeeAmount(team));
+  // Manual diamonds are carved off the top and paid straight to whoever
+  // they're set on, guaranteed -- what's left of the pool is what actually
+  // gets split among attendance/bid the normal way, same as a fee.
+  const totalManualDiamonds = participants.reduce((sum, p) => sum + (p.manualDiamonds || 0), 0);
+  const netReward = Math.max(0, team.diamondReward - totalTeamFeeAmount(team) - totalManualDiamonds);
   const ownPool = isTeamDefenseWin(team) ? netReward * 0.6 : netReward;
   const noBidding = isDefenseStance(team);
   const attendancePool = noBidding ? ownPool : ownPool * (team.attendancePct / 100);
@@ -1465,7 +1467,7 @@ function computeTeamDistribution(teamNumber) {
   return participants.map((p) => {
     const attendanceAmount = p.attended ? attendanceShare : 0;
     const bidShare = !noBidding && p.goldBid > 0 && totalBid > 0 ? bidPool * (p.goldBid / totalBid) : 0;
-    return { participant: p, attendanceAmount, bidShare, total: attendanceAmount + bidShare };
+    return { participant: p, attendanceAmount, bidShare, total: attendanceAmount + bidShare + (p.manualDiamonds || 0) };
   });
 }
 
@@ -1756,7 +1758,7 @@ function renderCrusadeGuildSummary(rows, containerId, formatFn, extraByGuild) {
     const key = p.guildName || 'Unassigned';
     if (!byGuild.has(key)) byGuild.set(key, { total: 0, count: 0 });
     const g = byGuild.get(key);
-    g.total += total + (p.manualDiamonds || 0);
+    g.total += total;
     g.count += 1;
   });
 
@@ -1774,7 +1776,7 @@ function renderCrusadeGuildSummary(rows, containerId, formatFn, extraByGuild) {
     return;
   }
 
-  const grandTotal = rows.reduce((sum, r) => sum + r.total + (r.participant.manualDiamonds || 0), 0) + extraTotal;
+  const grandTotal = rows.reduce((sum, r) => sum + r.total, 0) + extraTotal;
   const items = Array.from(byGuild.entries())
     .sort((a, b) => b[1].total - a[1].total)
     .map(([name, g]) => {
