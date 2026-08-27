@@ -32,6 +32,11 @@ function crusadeGuildColor(guildName) {
 // server is what actually enforces the cap.
 const CRUSADE_PARTY_MAX_MEMBERS = 5;
 
+// A party slot no real party will ever use -- a scratch parking spot for one
+// half of a drag-and-drop swap between two full parties (see
+// wireCrusadeRosterDragAndDrop) so the two writes never collide mid-swap.
+const CRUSADE_PARTY_SWAP_SCRATCH_SLOT = 999999;
+
 // Kept in sync with the Item Name dropdown in the Add Item form (index.html)
 // -- the fixed set of items the Crusade Salary summary always shows one
 // column for, regardless of which of them any given team actually used.
@@ -1191,6 +1196,56 @@ function wireCrusadeRosterDragAndDrop(body, teamNumber) {
     });
   });
 
+  async function moveParticipant(participantId, targetSlot) {
+    const updated = await api(`/api/crusades/${sovereignState.crusadeId}/participants/${participantId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ partySlot: targetSlot }),
+    });
+    const idx = sovereignState.participants.findIndex((p) => p.id === participantId);
+    if (idx !== -1) sovereignState.participants[idx] = updated;
+  }
+
+  // Dropping directly on another row swaps the two -- this is what makes a
+  // full (5/5) party draggable at all, since there's never a free slot to
+  // just move into. The dragged participant is parked on a scratch slot no
+  // real party uses in between the two writes so the backend's per-party cap
+  // check (each move is validated independently) never sees both members
+  // occupying the same slot at once and rejects the swap.
+  body.querySelectorAll('[data-drag-participant]').forEach((row) => {
+    row.addEventListener('dragover', (e) => {
+      if (!draggedId || draggedId === row.getAttribute('data-drag-participant')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      row.classList.add('crusade-roster-row-drop-target');
+    });
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('crusade-roster-row-drop-target');
+    });
+    row.addEventListener('drop', async (e) => {
+      const targetId = row.getAttribute('data-drag-participant');
+      if (!draggedId || draggedId === targetId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      row.classList.remove('crusade-roster-row-drop-target');
+
+      const dragged = sovereignState.participants.find((p) => p.id === draggedId);
+      const target = sovereignState.participants.find((p) => p.id === targetId);
+      if (!dragged || !target) return;
+      const draggedSlot = dragged.partySlot;
+      const targetSlot = target.partySlot;
+      if (draggedSlot === targetSlot) return;
+
+      try {
+        await moveParticipant(draggedId, CRUSADE_PARTY_SWAP_SCRATCH_SLOT);
+        await moveParticipant(targetId, draggedSlot);
+        await moveParticipant(draggedId, targetSlot);
+        refreshAfterRosterChange();
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+
   body.querySelectorAll('[data-drop-party-slot]').forEach((card) => {
     card.addEventListener('dragover', (e) => {
       if (!draggedId) return;
@@ -1208,19 +1263,16 @@ function wireCrusadeRosterDragAndDrop(body, teamNumber) {
       const participant = sovereignState.participants.find((p) => p.id === participantId);
       if (!participant || participant.partySlot === targetSlot) return;
 
+      // Dropped on empty room in the card rather than on a specific row --
+      // just move in, same cap check the backend also enforces.
       const targetCount = sovereignState.participants.filter((p) => p.partyNumber === teamNumber && p.partySlot === targetSlot).length;
       if (targetCount >= CRUSADE_PARTY_MAX_MEMBERS) {
-        toast(`Party ${targetSlot} is already full`);
+        toast(`Party ${targetSlot} is already full — drop it directly on a member to swap instead`);
         return;
       }
 
       try {
-        const updated = await api(`/api/crusades/${sovereignState.crusadeId}/participants/${participantId}`, {
-          method: 'PUT',
-          body: JSON.stringify({ partySlot: targetSlot }),
-        });
-        const idx = sovereignState.participants.findIndex((p) => p.id === participantId);
-        if (idx !== -1) sovereignState.participants[idx] = updated;
+        await moveParticipant(participantId, targetSlot);
         refreshAfterRosterChange();
       } catch (err) {
         toast(err.message);

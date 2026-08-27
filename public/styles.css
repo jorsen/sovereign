@@ -906,6 +906,7 @@ select:focus, input:focus, textarea:focus {
 .crusade-roster-row-dragging { opacity: 0.4; }
 .crusade-party-card[data-drop-party-slot] { transition: outline-color 0.1s ease; outline: 2px solid transparent; outline-offset: 2px; }
 .crusade-party-dropzone-active { outline-color: var(--gold); }
+.crusade-roster-row-drop-target td { background: rgba(255, 215, 0, 0.18); }
 
 .crusade-status-badge {
   display: inline-block;
