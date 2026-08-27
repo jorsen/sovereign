@@ -776,11 +776,18 @@ function computeCrusadeGuildSalaryDetail() {
     // row (on any team), the fee just gets its own fee-only entry
     // (isParticipant stays false, decided once every team has been
     // processed).
-    (team.fees || []).forEach((fee) => {
-      const entry = ensureEntry(fee.guildName || 'Unassigned', fee.name.trim().toLowerCase(), fee.name);
-      entry.feePercent += Number(fee.percent) || 0;
-      entry.feeAmount += crusadeFeeAmount(fee, team);
-    });
+    // A lost team pays out nothing (crusadeFeeAmount already zeroes the
+    // diamond amount for it), so skip creating/updating an entry for its
+    // fees entirely -- otherwise a fee-only row (e.g. a guild leader who
+    // isn't on any roster) would still show up as a spurious 0-diamond row,
+    // or even a whole empty guild card, for a fight that earned nothing.
+    if (!isLostTeam) {
+      (team.fees || []).forEach((fee) => {
+        const entry = ensureEntry(fee.guildName || 'Unassigned', fee.name.trim().toLowerCase(), fee.name);
+        entry.feePercent += Number(fee.percent) || 0;
+        entry.feeAmount += crusadeFeeAmount(fee, team);
+      });
+    }
   });
 
   // Pass 2: Defense-win bonus, credited by name to whoever bid gold on the
