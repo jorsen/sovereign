@@ -902,6 +902,11 @@ select:focus, input:focus, textarea:focus {
 .crusade-party-card-header .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .crusade-party-card-header .icon-btn:disabled:hover { background: none; color: inherit; }
 
+.crusade-roster-row { cursor: grab; }
+.crusade-roster-row-dragging { opacity: 0.4; }
+.crusade-party-card[data-drop-party-slot] { transition: outline-color 0.1s ease; outline: 2px solid transparent; outline-offset: 2px; }
+.crusade-party-dropzone-active { outline-color: var(--gold); }
+
 .crusade-status-badge {
   display: inline-block;
   padding: 3px 10px;

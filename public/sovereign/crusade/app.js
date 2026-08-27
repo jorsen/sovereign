@@ -1097,7 +1097,7 @@ function renderTeamDetail(n) {
       const memberRows = rowsInParty
         .map(
           ({ participant: p, attendanceAmount, bidShare, total }, i) => `
-      <tr>
+      <tr class="crusade-roster-row admin-disable" draggable="true" data-drag-participant="${p.id}">
         <td>${i + 1}</td>
         <td class="crusade-roster-name-cell" style="font-weight:600;"><span class="crusade-roster-name-click" data-edit-participant="${p.id}" title="Click to edit">${escapeHtml(p.name)}</span></td>
         <td>${crusadeGuildBadge(p.guildName)}</td>
@@ -1116,7 +1116,7 @@ function renderTeamDetail(n) {
         )
         .join('');
       return `
-      <div class="crusade-party-card">
+      <div class="crusade-party-card" data-drop-party-slot="${slot}">
         <div class="crusade-party-card-header">
           <h3>${t('sovereign.common.party')} ${slot} — ${rowsInParty.length}/${CRUSADE_PARTY_MAX_MEMBERS}</h3>
           <button type="button" class="icon-btn admin-only" data-add-to-party-slot="${slot}" title="Add to Party ${slot}" ${full ? 'disabled' : ''}>+</button>
@@ -1157,6 +1157,8 @@ function renderTeamDetail(n) {
     btn.addEventListener('click', () => openCrusadeParticipantModal(null, n, Number(btn.getAttribute('data-add-to-party-slot'))));
   });
 
+  wireCrusadeRosterDragAndDrop(body, n);
+
   const feeCreditsByGuild = new Map();
   (team.fees || []).forEach((fee) => {
     const guildKey = fee.guildName || 'Unassigned';
@@ -1166,6 +1168,65 @@ function renderTeamDetail(n) {
   renderTeamItemTable(n);
   renderCrusadeItemList(n);
   renderCrusadeFeeList(n);
+}
+
+// Drag a roster row from one Party card and drop it on another to move that
+// participant into the target party slot -- an alternative to opening the
+// edit modal just to change the Party field. Blocked the same way every
+// other roster edit is for a view-only session (see the `admin-disable`
+// class on the row: CSS drops its pointer-events, so dragstart never fires).
+function wireCrusadeRosterDragAndDrop(body, teamNumber) {
+  let draggedId = null;
+
+  body.querySelectorAll('[data-drag-participant]').forEach((row) => {
+    row.addEventListener('dragstart', (e) => {
+      draggedId = row.getAttribute('data-drag-participant');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', draggedId);
+      row.classList.add('crusade-roster-row-dragging');
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('crusade-roster-row-dragging');
+      draggedId = null;
+    });
+  });
+
+  body.querySelectorAll('[data-drop-party-slot]').forEach((card) => {
+    card.addEventListener('dragover', (e) => {
+      if (!draggedId) return;
+      e.preventDefault();
+      card.classList.add('crusade-party-dropzone-active');
+    });
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('crusade-party-dropzone-active');
+    });
+    card.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      card.classList.remove('crusade-party-dropzone-active');
+      const participantId = e.dataTransfer.getData('text/plain');
+      const targetSlot = Number(card.getAttribute('data-drop-party-slot'));
+      const participant = sovereignState.participants.find((p) => p.id === participantId);
+      if (!participant || participant.partySlot === targetSlot) return;
+
+      const targetCount = sovereignState.participants.filter((p) => p.partyNumber === teamNumber && p.partySlot === targetSlot).length;
+      if (targetCount >= CRUSADE_PARTY_MAX_MEMBERS) {
+        toast(`Party ${targetSlot} is already full`);
+        return;
+      }
+
+      try {
+        const updated = await api(`/api/crusades/${sovereignState.crusadeId}/participants/${participantId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ partySlot: targetSlot }),
+        });
+        const idx = sovereignState.participants.findIndex((p) => p.id === participantId);
+        if (idx !== -1) sovereignState.participants[idx] = updated;
+        refreshAfterRosterChange();
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
 }
 
 async function toggleCrusadeParticipantFlag(checkbox, field) {
