@@ -238,6 +238,15 @@
           </label>
           <button type="submit" class="btn primary small admin-only" data-i18n="sovereign.common.save">Save</button>
         </form>
+        <form id="transferDiamondsForm" class="admin-only" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px;">
+          <label style="flex:1; min-width:160px;"><span data-i18n="sovereign.team.transferToLabel">Transfer diamonds to Team #</span>
+            <input type="number" name="toTeamNumber" min="1" step="1" required>
+          </label>
+          <label style="flex:1; min-width:120px;"><span data-i18n="sovereign.team.transferAmountLabel">Amount</span>
+            <input type="number" name="amount" min="0.01" step="0.01" required>
+          </label>
+          <button type="submit" class="btn small" data-i18n="sovereign.team.transferBtn">Transfer</button>
+        </form>
       </section>
 
       <section class="panel">

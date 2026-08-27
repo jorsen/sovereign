@@ -598,6 +598,32 @@ document.getElementById('teamDetailsForm').addEventListener('submit', async (e) 
   }
 });
 
+// Moves diamonds between two teams' reward pools (e.g. paying someone out of
+// a different team's pot) -- unlike manual diamonds, which only carve a
+// guaranteed share off a team's *own* pool, this actually debits the source
+// team's Diamond Reward and credits the destination's, so the crusade-wide
+// total stays conserved.
+document.getElementById('transferDiamondsForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const fromTeamNumber = sovereignState.activeTeam;
+  const toTeamNumber = Number(form.elements.toTeamNumber.value);
+  const amount = Number(form.elements.amount.value);
+  try {
+    await api(`/api/crusades/${sovereignState.crusadeId}/teams/${fromTeamNumber}/transfer-diamonds`, {
+      method: 'POST',
+      body: JSON.stringify({ toTeamNumber, amount }),
+    });
+    const crusade = await api(`/api/crusades/${sovereignState.crusadeId}`);
+    sovereignState.teams = crusade.teams;
+    form.reset();
+    renderTeamDetail(fromTeamNumber);
+    toast(`Transferred ${amount} diamonds to Team ${toTeamNumber}`);
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
 document.getElementById('deleteCrusadeBtn').addEventListener('click', async () => {
   const c = sovereignState.crusade;
   if (!confirm(`Delete crusade "${c.name}"? This also removes its entire roster.`)) return;
@@ -1479,7 +1505,9 @@ function computeTeamBonusShares(teamNumber) {
   const team = getTeamData(teamNumber);
   if (crusadeWasLost(team) || !isTeamDefenseWin(team)) return { pool: 0, perBidder: 0, bidders: [] };
 
-  const netReward = Math.max(0, team.diamondReward - totalTeamFeeAmount(team));
+  const participants = sovereignState.participants.filter((p) => p.partyNumber === teamNumber);
+  const totalManualDiamonds = participants.reduce((sum, p) => sum + (p.manualDiamonds || 0), 0);
+  const netReward = Math.max(0, team.diamondReward - totalTeamFeeAmount(team) - totalManualDiamonds);
   const pool = netReward * 0.4;
   const bidders = team.lastTeamBidders || [];
   const perBidder = bidders.length ? pool / bidders.length : 0;

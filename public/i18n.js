@@ -383,6 +383,9 @@ const TRANSLATIONS = {
     'sovereign.team.diamondRewardLabel': 'Diamond Reward',
     'sovereign.team.attendanceShareLabel': 'Attendance Share %',
     'sovereign.team.notesLabel': 'Notes',
+    'sovereign.team.transferToLabel': 'Transfer diamonds to Team #',
+    'sovereign.team.transferAmountLabel': 'Amount',
+    'sovereign.team.transferBtn': 'Transfer',
 
     'sovereign.members.hint': 'Everyone ever saved into a crusade team roster, grouped by guild — saving a participant here keeps this up to date automatically.',
     'sovereign.members.empty': 'No members saved yet — add a participant to a crusade roster to populate this list.',
