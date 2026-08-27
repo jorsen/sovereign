@@ -846,22 +846,7 @@ function computeCrusadeGuildSalaryDetail() {
 // 2.5% fee applied to 3 fights shows as a combined 7.5% and its total
 // diamond amount, not three separate numbers.
 function renderPlayerSalaryCard(g) {
-  // Round each player's own figures once, here, and build the card's
-  // heading/total row from those same rounded numbers -- rounding the
-  // header/total independently from the raw (fractional, split-across-
-  // attendees) figures can land it a diamond/pcs off from the sum of the
-  // rows actually shown, which reads as the card not adding up.
-  const roundedEntries = g.entries.map((e) => ({
-    ...e,
-    salary: Math.round(e.salary),
-    feeAmount: Math.round(e.feeAmount),
-    bonusShare: Math.round(e.bonusShare),
-    total: Math.round(e.total),
-    itemTotals: Object.fromEntries(CRUSADE_SUMMARY_ITEM_NAMES.map((name) => [name, Math.round(e.itemTotals[name])])),
-  }));
-  const roundedGuildTotal = roundedEntries.reduce((sum, e) => sum + e.total, 0);
-
-  const rows = roundedEntries
+  const rows = g.entries
     .map((e, i) => {
       const itemCells = CRUSADE_SUMMARY_ITEM_NAMES.map((name) => `<td>${crusadeFormatItemQty(e.itemTotals[name])}</td>`).join('');
       // The lost-team filter already drops anyone whose only appearance was
@@ -902,16 +887,16 @@ function renderPlayerSalaryCard(g) {
     })
     .join('');
   const totalRow = `<tr class="crusade-table-total-row"><td></td><td>${t('sovereign.common.total')}</td><td></td><td></td><td>${crusadeFormatDiamonds(
-    roundedEntries.reduce((sum, e) => sum + e.salary, 0)
-  )}</td><td></td><td>${crusadeFormatDiamonds(roundedEntries.reduce((sum, e) => sum + e.feeAmount, 0))}</td><td>${crusadeFormatDiamonds(
-    roundedEntries.reduce((sum, e) => sum + e.bonusShare, 0)
-  )}</td><td>${crusadeFormatDiamonds(roundedGuildTotal)}</td>${CRUSADE_SUMMARY_ITEM_NAMES.map(
-    (name) => `<td>${crusadeFormatItemQty(roundedEntries.reduce((sum, e) => sum + e.itemTotals[name], 0))}</td>`
+    g.entries.reduce((sum, e) => sum + e.salary, 0)
+  )}</td><td></td><td>${crusadeFormatDiamonds(g.entries.reduce((sum, e) => sum + e.feeAmount, 0))}</td><td>${crusadeFormatDiamonds(
+    g.entries.reduce((sum, e) => sum + e.bonusShare, 0)
+  )}</td><td>${crusadeFormatDiamonds(g.total)}</td>${CRUSADE_SUMMARY_ITEM_NAMES.map(
+    (name) => `<td>${crusadeFormatItemQty(g.entries.reduce((sum, e) => sum + e.itemTotals[name], 0))}</td>`
   ).join('')}</tr>`;
   return `
   <div class="crusade-party-card">
     <div class="crusade-party-card-header">
-      <h3>${g.name === 'Unassigned' ? t('sovereign.common.unassigned') : escapeHtml(g.name)} — ${crusadeFormatDiamonds(roundedGuildTotal)} (${g.memberCount} ${g.memberCount === 1 ? t('sovereign.common.member') : t('sovereign.common.members')})</h3>
+      <h3>${g.name === 'Unassigned' ? t('sovereign.common.unassigned') : escapeHtml(g.name)} — ${crusadeFormatDiamonds(g.total)} (${g.memberCount} ${g.memberCount === 1 ? t('sovereign.common.member') : t('sovereign.common.members')})</h3>
     </div>
     <div class="table-scroll">
       <table class="members-table">
@@ -947,48 +932,33 @@ function renderCrusadeGuildSalary() {
 function renderCrusadeGuildTotals(guilds) {
   document.getElementById('crusadeGuildTotalsEmptyState').classList.toggle('hidden', guilds.length !== 0);
 
-  // Round each guild's own figures once, here, and build the Total row by
-  // summing those already-rounded numbers -- rounding the grand total
-  // separately from the raw (fractional, split-across-attendees) figures
-  // can land it a pcs/diamond off from the sum of the rows actually shown
-  // above it, which reads as the totals just not adding up.
-  const guildRows = guilds.map((g) => ({
-    guild: g,
-    salary: Math.round(g.entries.reduce((sum, e) => sum + e.salary, 0)),
-    feeAmount: Math.round(g.entries.reduce((sum, e) => sum + e.feeAmount, 0)),
-    bonusShare: Math.round(g.entries.reduce((sum, e) => sum + e.bonusShare, 0)),
-    // Sum of each player's own rounded total, not Math.round(g.total) --
-    // matches the per-player card's total row (renderPlayerSalaryCard),
-    // which rounds per-player first for the same reason.
-    total: g.entries.reduce((sum, e) => sum + Math.round(e.total), 0),
-    items: Object.fromEntries(
-      CRUSADE_SUMMARY_ITEM_NAMES.map((name) => [name, Math.round(g.entries.reduce((sum, e) => sum + e.itemTotals[name], 0))])
-    ),
-  }));
-
-  const rows = guildRows.map(
-    ({ guild: g, salary, feeAmount, bonusShare, total, items }, i) => `
+  const rows = guilds.map((g, i) => {
+    const salary = g.entries.reduce((sum, e) => sum + e.salary, 0);
+    const feeAmount = g.entries.reduce((sum, e) => sum + e.feeAmount, 0);
+    const bonusShare = g.entries.reduce((sum, e) => sum + e.bonusShare, 0);
+    return `
     <tr>
       <td>${i + 1}</td>
       <td style="font-weight:600;">${g.name === 'Unassigned' ? t('sovereign.common.unassigned') : crusadeGuildBadge(g.name)}</td>
       <td>${crusadeFormatDiamonds(salary)}</td>
       <td>${crusadeFormatDiamonds(feeAmount)}</td>
       <td>${crusadeFormatDiamonds(bonusShare)}</td>
-      <td style="font-weight:600;">${crusadeFormatDiamonds(total)}</td>
-      ${CRUSADE_SUMMARY_ITEM_NAMES.map((name) => `<td>${crusadeFormatItemQty(items[name])}</td>`).join('')}
-    </tr>`
-  );
+      <td style="font-weight:600;">${crusadeFormatDiamonds(g.total)}</td>
+      ${CRUSADE_SUMMARY_ITEM_NAMES.map((name) => `<td>${crusadeFormatItemQty(g.entries.reduce((sum, e) => sum + e.itemTotals[name], 0))}</td>`).join('')}
+    </tr>`;
+  });
 
   // Grand total across every guild -- same columns, no guild badge.
-  const grandSalary = guildRows.reduce((sum, r) => sum + r.salary, 0);
-  const grandFeeAmount = guildRows.reduce((sum, r) => sum + r.feeAmount, 0);
-  const grandBonusShare = guildRows.reduce((sum, r) => sum + r.bonusShare, 0);
-  const grandTotal = guildRows.reduce((sum, r) => sum + r.total, 0);
+  const allEntries = guilds.flatMap((g) => g.entries);
+  const grandSalary = allEntries.reduce((sum, e) => sum + e.salary, 0);
+  const grandFeeAmount = allEntries.reduce((sum, e) => sum + e.feeAmount, 0);
+  const grandBonusShare = allEntries.reduce((sum, e) => sum + e.bonusShare, 0);
+  const grandTotal = guilds.reduce((sum, g) => sum + g.total, 0);
   const totalRow = guilds.length
     ? `<tr class="crusade-table-total-row"><td></td><td>${t('sovereign.common.total')}</td><td>${crusadeFormatDiamonds(grandSalary)}</td><td>${crusadeFormatDiamonds(
         grandFeeAmount
       )}</td><td>${crusadeFormatDiamonds(grandBonusShare)}</td><td>${crusadeFormatDiamonds(grandTotal)}</td>${CRUSADE_SUMMARY_ITEM_NAMES.map(
-        (name) => `<td>${crusadeFormatItemQty(guildRows.reduce((sum, r) => sum + r.items[name], 0))}</td>`
+        (name) => `<td>${crusadeFormatItemQty(allEntries.reduce((sum, e) => sum + e.itemTotals[name], 0))}</td>`
       ).join('')}</tr>`
     : '';
 
