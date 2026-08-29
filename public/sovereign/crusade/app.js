@@ -1996,7 +1996,7 @@ function renderMemberList() {
       .map((g) => {
         const m = groups.get(g)[i];
         if (!m) return '<td></td>';
-        return `<td style="white-space:nowrap;">${escapeHtml(m.name)} <button type="button" class="icon-btn admin-only" data-delete-member="${m.id}" title="Remove from member list">✕</button></td>`;
+        return `<td style="white-space:nowrap;"><span class="crusade-roster-name-click admin-disable" data-rename-member="${m.id}" title="Click to rename">${escapeHtml(m.name)}</span> <button type="button" class="icon-btn admin-only" data-delete-member="${m.id}" title="Remove from member list">✕</button></td>`;
       })
       .join('');
     rowsHtml.push(`<tr><td>${i + 1}</td>${cells}</tr>`);
@@ -2014,6 +2014,26 @@ function renderMemberList() {
         sovereignState.memberList = sovereignState.memberList.filter((m) => m.id !== id);
         renderMemberList();
         toast('Member removed');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+  body.querySelectorAll('[data-rename-member]').forEach((span) => {
+    span.addEventListener('click', async () => {
+      const id = span.getAttribute('data-rename-member');
+      const member = sovereignState.memberList.find((m) => m.id === id);
+      if (!member) return;
+      const nextName = prompt('Rename member:', member.name);
+      if (nextName === null) return; // cancelled
+      const trimmed = nextName.trim();
+      if (!trimmed || trimmed === member.name) return;
+      try {
+        const updated = await api(`/api/sovereign-members/${id}`, { method: 'PUT', body: JSON.stringify({ name: trimmed }) });
+        const idx = sovereignState.memberList.findIndex((m) => m.id === id);
+        if (idx !== -1) sovereignState.memberList[idx] = updated;
+        renderMemberList();
+        toast('Member renamed');
       } catch (err) {
         toast(err.message);
       }
