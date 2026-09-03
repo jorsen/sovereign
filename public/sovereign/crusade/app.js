@@ -359,7 +359,7 @@ function renderCrusadeDefaultFeeList() {
     .map(
       (fee) => `
       <li style="display:flex; gap:8px; align-items:center;" data-default-fee-id="${fee.id}">
-        <span style="flex:1; font-weight:600;">${escapeHtml(fee.name)}</span>
+        <span style="flex:1; font-weight:600;" class="crusade-roster-name-click" data-rename-default-fee="${fee.id}" title="Click to rename">${escapeHtml(fee.name)}</span>
         ${crusadeGuildBadge(fee.guildName)}
         <span style="color:var(--text-muted);">${fee.percent}%</span>
         <button type="button" class="icon-btn" data-delete-default-fee="${fee.id}" title="Remove default fee">✕</button>
@@ -377,6 +377,26 @@ function renderCrusadeDefaultFeeList() {
         sovereignState.defaultFees = sovereignState.defaultFees.filter((f) => f.id !== id);
         renderCrusadeDefaultFeeList();
         toast('Default fee removed');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+  list.querySelectorAll('[data-rename-default-fee]').forEach((span) => {
+    span.addEventListener('click', async () => {
+      const id = span.getAttribute('data-rename-default-fee');
+      const fee = fees.find((f) => f.id === id);
+      if (!fee) return;
+      const nextName = prompt('Rename this default fee\'s IGN:', fee.name);
+      if (nextName === null) return; // cancelled
+      const trimmed = nextName.trim();
+      if (!trimmed || trimmed === fee.name) return;
+      try {
+        const updated = await api(`/api/crusade-default-fees/${id}`, { method: 'PUT', body: JSON.stringify({ name: trimmed }) });
+        const idx = sovereignState.defaultFees.findIndex((f) => f.id === id);
+        if (idx !== -1) sovereignState.defaultFees[idx] = updated;
+        renderCrusadeDefaultFeeList();
+        toast('Default fee renamed');
       } catch (err) {
         toast(err.message);
       }
