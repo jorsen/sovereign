@@ -1783,7 +1783,7 @@ function renderCrusadeFeeList(n) {
     .map(
       (fee) => `
     <li style="display:flex; gap:8px; align-items:center;" data-fee-id="${fee.id}">
-      <span style="flex:1; font-weight:600;">${escapeHtml(fee.name)}</span>
+      <span style="flex:1; font-weight:600;" class="crusade-roster-name-click admin-disable" data-rename-fee="${fee.id}" title="Click to rename">${escapeHtml(fee.name)}</span>
       ${crusadeGuildBadge(fee.guildName)}
       <span style="color:var(--text-muted);">${fee.percent}% → ${crusadeFormatDiamonds(crusadeFeeAmount(fee, team))}</span>
       <button type="button" class="icon-btn admin-only" data-delete-fee="${fee.id}" title="Remove fee">✕</button>
@@ -1802,6 +1802,29 @@ function renderCrusadeFeeList(n) {
         if (teamState) teamState.fees = teamState.fees.filter((f) => f.id !== feeId);
         renderTeamDetail(n); // fee removal changes this team's pool, so recompute (also re-renders this list)
         toast('Fee removed');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+  list.querySelectorAll('[data-rename-fee]').forEach((span) => {
+    span.addEventListener('click', async () => {
+      const feeId = span.getAttribute('data-rename-fee');
+      const fee = fees.find((f) => f.id === feeId);
+      if (!fee) return;
+      const nextName = prompt('Rename this fee\'s IGN:', fee.name);
+      if (nextName === null) return; // cancelled
+      const trimmed = nextName.trim();
+      if (!trimmed || trimmed === fee.name) return;
+      try {
+        const updated = await api(`/api/crusades/${sovereignState.crusadeId}/teams/${n}/fees/${feeId}`, { method: 'PUT', body: JSON.stringify({ name: trimmed }) });
+        const teamState = sovereignState.teams.find((t) => t.teamNumber === n);
+        if (teamState) {
+          const idx = teamState.fees.findIndex((f) => f.id === feeId);
+          if (idx !== -1) teamState.fees[idx] = updated;
+        }
+        renderTeamDetail(n);
+        toast('Fee renamed');
       } catch (err) {
         toast(err.message);
       }
