@@ -833,6 +833,12 @@ function computeCrusadeGuildSalaryDetail() {
       const nameKey = bidder.name.trim().toLowerCase();
       const entry = findEntryByNameKey(nameKey) || ensureEntry(bidder.guildName || 'Unassigned', nameKey, bidder.name);
       entry.bonusShare += perBidder;
+      // A Defense-win bonus is a real payout regardless of how this same
+      // person's OWN roster spot fared -- without this, someone who bid on
+      // the capture team but is rostered on a team that lost this crusade
+      // gets their bonus computed correctly and then thrown away by the
+      // lost-team filter below (same class of bug the fee loop above had).
+      entry.onlyLostTeams = false;
       // Keyed on the exact source team (crusade + team number), not just the
       // crusade name -- one crusade can be the capture source for more than
       // one area/team, and each is a distinct source worth its own entry.
