@@ -811,6 +811,11 @@ function computeCrusadeGuildSalaryDetail() {
         const entry = ensureEntry(fee.guildName || 'Unassigned', fee.name.trim().toLowerCase(), fee.name);
         entry.feePercent += Number(fee.percent) || 0;
         entry.feeAmount += crusadeFeeAmount(fee, team);
+        // A fee earned from a winning team is a real payout -- even if this
+        // same person's only roster spot happens to be on a team that lost,
+        // don't let the lost-team filter below hide the row and bury the fee
+        // they're actually owed.
+        entry.onlyLostTeams = false;
       });
     }
   });
