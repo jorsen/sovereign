@@ -34,7 +34,7 @@ Fill in `.env`:
   the shared secret the bot uses to authenticate its API calls — anyone who
   has it could post fake submissions, so treat it like a password.
 
-## 3. Register the /growth slash command
+## 3. Register the /uniongr slash command
 
 ```
 npm install
@@ -55,7 +55,7 @@ npm start
 You should see `Logged in as <BotName> — watching channel ...` in the
 console. Members can now submit either way:
 
-- **`/growth`** — fills in `ign`, `class`, and `screenshot` as proper
+- **`/uniongr`** — fills in `ign`, `class`, and `screenshot` as proper
   command fields (recommended: no risk of a typo'd label or a forgotten
   attachment).
 - **Plain message** in the channel:

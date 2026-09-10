@@ -1,11 +1,11 @@
 // One-time (or whenever the command definition changes) setup script --
-// registers /growth with Discord. Run with: node register-commands.js
+// registers /uniongr with Discord. Run with: node register-commands.js
 require('dotenv').config();
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const commands = [
   new SlashCommandBuilder()
-    .setName('growth')
+    .setName('uniongr')
     .setDescription('Submit your growth rate to the Growth Rate list')
     .addStringOption((opt) => opt.setName('ign').setDescription('Your in-game name').setRequired(true))
     .addStringOption((opt) => opt.setName('class').setDescription('Your class').setRequired(true))
@@ -31,12 +31,12 @@ const rest = new REST().setToken(DISCORD_TOKEN);
     // Guild-scoped commands show up instantly -- use this while testing, or
     // permanently if the bot only ever lives in one server.
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-    console.log(`Registered /growth for guild ${GUILD_ID} (instant).`);
+    console.log(`Registered /uniongr for guild ${GUILD_ID} (instant).`);
   } else {
     // Global commands can take up to an hour to appear everywhere the bot
     // is installed.
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log('Registered /growth globally (can take up to an hour to show up).');
+    console.log('Registered /uniongr globally (can take up to an hour to show up).');
   }
 })().catch((err) => {
   console.error(err);

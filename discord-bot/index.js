@@ -14,14 +14,14 @@ if (!DISCORD_TOKEN || !API_BASE || !BOT_SECRET) {
 // MessageContent is a privileged intent -- it must also be turned on for
 // this bot application under Developer Portal > Bot > Privileged Gateway
 // Intents, or every message arrives with an empty .content. It's only
-// needed for the free-text channel flow below, not for the /growth slash
+// needed for the free-text channel flow below, not for the /uniongr slash
 // command (interactions always carry their option values regardless).
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   partials: [Partials.Message, Partials.Channel],
 });
 
-// Shared by both submission paths (the /growth slash command and the plain
+// Shared by both submission paths (the /uniongr slash command and the plain
 // free-text channel message) -- downloads the screenshot and POSTs
 // everything to the app under one discordMessageId, which is what the
 // upsert-on-conflict in POST /api/growth-submissions/bot keys on.
@@ -51,7 +51,7 @@ async function submitToApi({ discordMessageId, discordUserId, discordUsername, i
   }
 }
 
-// ---------- Path 1: /growth slash command ----------
+// ---------- Path 1: /uniongr slash command ----------
 // The bot posts a confirmation message (with the screenshot) into the
 // growth-rate channel itself, then uses THAT message's id as the
 // discordMessageId -- so if a mod deletes that confirmation post later, the
@@ -90,18 +90,18 @@ async function handleGrowthCommand(interaction) {
     });
     await interaction.editReply('✅ Saved — check the Growth Rate page.');
   } catch (err) {
-    console.error('Failed to submit a growth entry via /growth:', err);
+    console.error('Failed to submit a growth entry via /uniongr:', err);
     await posted.delete().catch(() => {});
     await interaction.editReply(`Something went wrong saving this: ${err.message}`);
   }
 }
 
 client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand() || interaction.commandName !== 'growth') return;
+  if (!interaction.isChatInputCommand() || interaction.commandName !== 'uniongr') return;
   try {
     await handleGrowthCommand(interaction);
   } catch (err) {
-    console.error('Unhandled error in /growth:', err);
+    console.error('Unhandled error in /uniongr:', err);
     const reply = { content: 'Something went wrong. Please try again.' };
     if (interaction.deferred || interaction.replied) await interaction.editReply(reply).catch(() => {});
     else await interaction.reply({ ...reply, ephemeral: true }).catch(() => {});
@@ -112,7 +112,7 @@ client.on('interactionCreate', async (interaction) => {
 // Matches "IGN: whatever" / "Class: whatever" anywhere in the message,
 // case-insensitive, in either order, one per line -- `.` already excludes
 // newlines in JS regex, so this naturally stops at end-of-line without
-// needing the /s flag. Kept alongside /growth for anyone who'd rather just
+// needing the /s flag. Kept alongside /uniongr for anyone who'd rather just
 // type it than fill in a command's fields.
 function parseSubmission(content) {
   const ignMatch = content.match(/ign\s*:\s*(.+)/i);
@@ -143,7 +143,7 @@ async function handleMessage(message) {
     try {
       await message.react('❌');
       await message.reply(
-        `Missing ${missing.join(', ')}. Use \`/growth\` instead, or post like:\n\`\`\`\nIGN: YourName\nClass: YourClass\n\`\`\`\n...with your Artifacts-tab growth rate screenshot attached.`
+        `Missing ${missing.join(', ')}. Use \`/uniongr\` instead, or post like:\n\`\`\`\nIGN: YourName\nClass: YourClass\n\`\`\`\n...with your Artifacts-tab growth rate screenshot attached.`
       );
     } catch (err) {
       console.error('Failed to notify about an incomplete submission:', err);
@@ -188,7 +188,7 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
 });
 
 // Deleting the source message (whether it was a free-text submission or the
-// bot's own /growth confirmation post) removes the growth-rate entry too,
+// bot's own /uniongr confirmation post) removes the growth-rate entry too,
 // rather than leaving an orphaned submission with no way to trace it back.
 client.on('messageDelete', async (message) => {
   if (message.channelId !== CHANNEL_ID) return;
