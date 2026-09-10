@@ -2301,18 +2301,30 @@ const WORLD_BOSS_NAMES = [
 let worldBossEditingId = null;
 
 async function loadWorldBossAttendance() {
-  const [events, members, guilds] = await Promise.all([
+  const [events, growthSubmissions, guilds] = await Promise.all([
     api('/api/world-boss-attendance'),
-    api('/api/sovereign-members'),
+    api('/api/growth-submissions'),
     api('/api/crusade-guilds'),
   ]);
   sovereignState.worldBossEvents = events;
-  sovereignState.memberList = members;
+  sovereignState.growthSubmissions = growthSubmissions;
   sovereignState.guilds = guilds;
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
   renderWorldBossSummary();
   renderWorldBossLog();
+}
+
+// Whoever's posted a Growth Rate submission (deduped by IGN, case-
+// insensitive) -- not the master Member List, since attendance here is
+// meant to track the same roster the Growth Rate page tracks.
+function getWorldBossCandidates() {
+  const byName = new Map();
+  (sovereignState.growthSubmissions || []).forEach((s) => {
+    const key = s.ign.trim().toLowerCase();
+    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName });
+  });
+  return Array.from(byName.values());
 }
 
 function populateWorldBossNameSelect() {
@@ -2325,7 +2337,7 @@ function populateWorldBossNameSelect() {
 // whichever names are already part of the event being edited.
 function renderWorldBossMemberGrid(selectedNames) {
   const grid = document.getElementById('worldBossMemberGrid');
-  const members = sovereignState.memberList || [];
+  const members = getWorldBossCandidates();
 
   const groups = new Map();
   members.forEach((m) => {
