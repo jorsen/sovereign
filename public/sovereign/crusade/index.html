@@ -388,8 +388,18 @@
         <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.growth.hint">Posted by the Discord bot from the growth-rate channel — post your IGN, Class, and an Artifacts-tab screenshot there and it shows up here automatically.</p>
       </div>
       <section class="panel">
+        <div class="crusade-growth-filters">
+          <input type="text" id="growthSearchInput" placeholder="Search by IGN…" data-i18n-placeholder="sovereign.growth.searchPlaceholder">
+          <select id="growthGuildFilter">
+            <option value="" data-i18n="sovereign.growth.allGuilds">All Guilds</option>
+          </select>
+          <select id="growthClassFilter">
+            <option value="" data-i18n="sovereign.growth.allClasses">All Classes</option>
+          </select>
+        </div>
         <div class="crusade-growth-grid" id="sovereignGrowthGrid"></div>
         <p id="sovereignGrowthEmptyState" class="empty-state hidden" data-i18n="sovereign.growth.empty">No submissions yet — post in the growth-rate Discord channel to show up here.</p>
+        <p id="sovereignGrowthNoMatchState" class="empty-state hidden" data-i18n="sovereign.growth.noMatch">No submissions match your search/filters.</p>
       </section>
     </div>
   </div>

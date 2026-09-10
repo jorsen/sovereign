@@ -2111,12 +2111,45 @@ async function loadGrowthSubmissions() {
   const [submissions, guilds] = await Promise.all([api('/api/growth-submissions'), api('/api/crusade-guilds')]);
   sovereignState.growthSubmissions = submissions;
   sovereignState.guilds = guilds;
+  populateGrowthFilterOptions(submissions);
   renderGrowthSubmissions();
 }
 
+// Options are derived from whatever's actually in the data (not a hardcoded
+// list), so a class/guild that's since been renamed or retired doesn't leave
+// a dead filter option, and a brand new one shows up automatically. Keeps
+// whichever value was already selected if it's still valid.
+function populateGrowthFilterOptions(submissions) {
+  const guildSelect = document.getElementById('growthGuildFilter');
+  const classSelect = document.getElementById('growthClassFilter');
+  const currentGuild = guildSelect.value;
+  const currentClass = classSelect.value;
+
+  const guildNames = Array.from(new Set(submissions.map((s) => s.guildName).filter(Boolean))).sort();
+  const classNames = Array.from(new Set(submissions.map((s) => s.class).filter(Boolean))).sort();
+
+  guildSelect.innerHTML = `<option value="">${t('sovereign.growth.allGuilds')}</option>` + guildNames.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+  classSelect.innerHTML = `<option value="">${t('sovereign.growth.allClasses')}</option>` + classNames.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+  guildSelect.value = guildNames.includes(currentGuild) ? currentGuild : '';
+  classSelect.value = classNames.includes(currentClass) ? currentClass : '';
+}
+
 function renderGrowthSubmissions() {
-  const submissions = sovereignState.growthSubmissions || [];
-  document.getElementById('sovereignGrowthEmptyState').classList.toggle('hidden', submissions.length !== 0);
+  const all = sovereignState.growthSubmissions || [];
+  const search = document.getElementById('growthSearchInput').value.trim().toLowerCase();
+  const guildFilter = document.getElementById('growthGuildFilter').value;
+  const classFilter = document.getElementById('growthClassFilter').value;
+
+  const submissions = all.filter((s) => {
+    if (search && !s.ign.toLowerCase().includes(search)) return false;
+    if (guildFilter && s.guildName !== guildFilter) return false;
+    if (classFilter && s.class !== classFilter) return false;
+    return true;
+  });
+
+  document.getElementById('sovereignGrowthEmptyState').classList.toggle('hidden', all.length !== 0);
+  document.getElementById('sovereignGrowthNoMatchState').classList.toggle('hidden', all.length === 0 || submissions.length !== 0);
 
   const grid = document.getElementById('sovereignGrowthGrid');
   grid.innerHTML = submissions
@@ -2156,6 +2189,7 @@ function renderGrowthSubmissions() {
       try {
         await api(`/api/growth-submissions/${id}`, { method: 'DELETE' });
         sovereignState.growthSubmissions = sovereignState.growthSubmissions.filter((x) => x.id !== id);
+        populateGrowthFilterOptions(sovereignState.growthSubmissions);
         renderGrowthSubmissions();
         toast('Submission removed');
       } catch (err) {
@@ -2164,6 +2198,10 @@ function renderGrowthSubmissions() {
     });
   });
 }
+
+document.getElementById('growthSearchInput').addEventListener('input', renderGrowthSubmissions);
+document.getElementById('growthGuildFilter').addEventListener('change', renderGrowthSubmissions);
+document.getElementById('growthClassFilter').addEventListener('change', renderGrowthSubmissions);
 
 // ---------- Raffle (standalone, independent of any crusade) ----------
 // Draws from the same master Member List as above. Anyone already in the

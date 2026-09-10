@@ -855,6 +855,21 @@ select:focus, input:focus, textarea:focus {
 /* Growth Rate submissions, one card per person with the screenshot as the
    focal point -- a responsive grid rather than a table since a thumbnail
    reads far better than a text cell. */
+.crusade-growth-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.crusade-growth-filters input,
+.crusade-growth-filters select {
+  height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.crusade-growth-filters input { flex: 1; min-width: 160px; }
+.crusade-growth-filters select { min-width: 140px; }
+
 .crusade-growth-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

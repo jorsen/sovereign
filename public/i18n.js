@@ -280,6 +280,10 @@ const TRANSLATIONS = {
     'sovereign.nav.growth': 'Growth Rate',
     'sovereign.growth.hint': 'Posted by the Discord bot from the growth-rate channel — post your IGN, Class, and an Artifacts-tab screenshot there and it shows up here automatically.',
     'sovereign.growth.empty': 'No submissions yet — post in the growth-rate Discord channel to show up here.',
+    'sovereign.growth.noMatch': 'No submissions match your search/filters.',
+    'sovereign.growth.searchPlaceholder': 'Search by IGN…',
+    'sovereign.growth.allGuilds': 'All Guilds',
+    'sovereign.growth.allClasses': 'All Classes',
 
     'sovereign.common.name': 'Name',
     'sovereign.common.date': 'Date',
