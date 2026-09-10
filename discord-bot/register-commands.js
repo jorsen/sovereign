@@ -40,6 +40,9 @@ const commands = [
           { name: 'CAPITAL', value: 'CAPITAL' }
         )
     )
+    .addIntegerOption((opt) =>
+      opt.setName('lamp').setDescription('Volcano Lamp enhancement level (the + next to it)').setRequired(true).setMinValue(0)
+    )
     .addAttachmentOption((opt) =>
       opt.setName('screenshot').setDescription('Character Details > Artifacts tab screenshot').setRequired(true)
     )

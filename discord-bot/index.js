@@ -47,7 +47,7 @@ const client = new Client({
 // free-text channel message) -- downloads the screenshot and POSTs
 // everything to the app under one discordMessageId, which is what the
 // upsert-on-conflict in POST /api/growth-submissions/bot keys on.
-async function submitToApi({ discordMessageId, discordUserId, discordUsername, ign, className, guildName, attachmentUrl, attachmentContentType }) {
+async function submitToApi({ discordMessageId, discordUserId, discordUsername, ign, className, guildName, lampLevel, attachmentUrl, attachmentContentType }) {
   const imageResponse = await fetch(attachmentUrl);
   if (!imageResponse.ok) throw new Error(`failed to download the attachment (${imageResponse.status})`);
   const arrayBuffer = await imageResponse.arrayBuffer();
@@ -64,6 +64,7 @@ async function submitToApi({ discordMessageId, discordUserId, discordUsername, i
       ign,
       class: className,
       guildName,
+      lampLevel,
       imageBase64,
       imageContentType,
     }),
@@ -86,6 +87,7 @@ async function handleGrowthCommand(interaction) {
   const ign = interaction.options.getString('ign', true).trim();
   const className = interaction.options.getString('class', true).trim();
   const guildName = interaction.options.getString('guild', true);
+  const lampLevel = interaction.options.getInteger('lamp', true);
   const attachment = interaction.options.getAttachment('screenshot', true);
 
   if (!(attachment.contentType || '').startsWith('image/')) {
@@ -107,7 +109,11 @@ async function handleGrowthCommand(interaction) {
   const channel = await client.channels.fetch(CHANNEL_ID);
   const embed = new EmbedBuilder()
     .setTitle(ign)
-    .addFields({ name: 'Class', value: className, inline: true }, { name: 'Guild', value: guildName, inline: true })
+    .addFields(
+      { name: 'Class', value: className, inline: true },
+      { name: 'Guild', value: guildName, inline: true },
+      { name: 'Volcano Lamp', value: `+${lampLevel}`, inline: true }
+    )
     .setImage(attachment.url)
     .setFooter({ text: `Submitted by ${interaction.user.username}` })
     .setTimestamp();
@@ -121,6 +127,7 @@ async function handleGrowthCommand(interaction) {
       ign,
       className,
       guildName,
+      lampLevel,
       attachmentUrl: attachment.url,
       attachmentContentType: attachment.contentType,
     });
@@ -154,6 +161,9 @@ function parseSubmission(content) {
   const ignMatch = content.match(/ign\s*:\s*(.+)/i);
   const classMatch = content.match(/class\s*:\s*(.+)/i);
   const guildMatch = content.match(/guild\s*:\s*(.+)/i);
+  // Matches "Lamp: 14", "Volcano Lamp: +14", "Lamp +14", etc. -- the "+" is
+  // optional and ignored either way, only the number is captured.
+  const lampMatch = content.match(/(?:volcano\s*)?lamp\s*:?\s*\+?\s*(\d+)/i);
   const guildRaw = guildMatch ? guildMatch[1].trim() : null;
   const classRaw = classMatch ? classMatch[1].trim() : null;
   // Case-insensitive match against the known lists -- but stores the
@@ -161,10 +171,12 @@ function parseSubmission(content) {
   // casing/whitespace the person happened to type.
   const guildName = guildRaw ? VALID_GUILDS.find((g) => g.toLowerCase() === guildRaw.toLowerCase()) || null : null;
   const className = classRaw ? VALID_CLASSES.find((c) => c.toLowerCase() === classRaw.toLowerCase()) || null : null;
+  const lampLevel = lampMatch ? Number(lampMatch[1]) : null;
   return {
     ign: ignMatch ? ignMatch[1].trim() : null,
     className,
     guildName,
+    lampLevel,
   };
 }
 
@@ -176,20 +188,21 @@ async function handleMessage(message) {
   if (message.channelId !== CHANNEL_ID) return;
   if (message.author?.bot) return;
 
-  const { ign, className, guildName } = parseSubmission(message.content || '');
+  const { ign, className, guildName, lampLevel } = parseSubmission(message.content || '');
   const attachment = firstImageAttachment(message);
 
   const missing = [];
   if (!ign) missing.push('`IGN:`');
   if (!className) missing.push(`\`Class:\` (one of ${VALID_CLASSES.join(', ')})`);
   if (!guildName) missing.push(`\`Guild:\` (one of ${VALID_GUILDS.join(', ')})`);
+  if (lampLevel === null) missing.push('`Lamp:` (your Volcano Lamp\'s + level)');
   if (!attachment) missing.push('a screenshot attachment');
 
   if (missing.length) {
     try {
       await message.react('❌');
       await message.reply(
-        `Missing ${missing.join(', ')}. Use \`/uniongr\` instead, or post like:\n\`\`\`\nIGN: YourName\nClass: YourClass\nGuild: YourGuild\n\`\`\`\n...with your Artifacts-tab growth rate screenshot attached.`
+        `Missing ${missing.join(', ')}. Use \`/uniongr\` instead, or post like:\n\`\`\`\nIGN: YourName\nClass: YourClass\nGuild: YourGuild\nLamp: 14\n\`\`\`\n...with your Artifacts-tab growth rate screenshot attached.`
       );
     } catch (err) {
       console.error('Failed to notify about an incomplete submission:', err);
@@ -205,6 +218,7 @@ async function handleMessage(message) {
       ign,
       className,
       guildName,
+      lampLevel,
       attachmentUrl: attachment.url,
       attachmentContentType: attachment.contentType,
     });

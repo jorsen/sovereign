@@ -2160,6 +2160,7 @@ function renderGrowthSubmissions() {
       <div class="crusade-growth-card-body">
         <span class="crusade-growth-card-ign">${escapeHtml(s.ign)}</span>
         <span class="crusade-growth-card-class">${escapeHtml(s.class)}</span>
+        <span class="crusade-growth-card-class">🔥 Volcano Lamp +${s.lampLevel ?? '?'}</span>
         <div style="margin-top:4px;">${crusadeGuildBadge(s.guildName)}</div>
         <div class="crusade-growth-card-meta">
           <span>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : ''}</span>
@@ -2174,7 +2175,7 @@ function renderGrowthSubmissions() {
     img.addEventListener('click', () => {
       const id = img.getAttribute('data-view-growth-image');
       const s = submissions.find((x) => x.id === id);
-      document.getElementById('growthImageModalTitle').textContent = s ? `${s.ign} — ${s.class} (${s.guildName || 'Unassigned'})` : '';
+      document.getElementById('growthImageModalTitle').textContent = s ? `${s.ign} — ${s.class} — Volcano Lamp +${s.lampLevel ?? '?'} (${s.guildName || 'Unassigned'})` : '';
       document.getElementById('growthImageModalImg').src = `/api/growth-submissions/${id}/image`;
       document.getElementById('growthImageModal').classList.remove('hidden');
     });
