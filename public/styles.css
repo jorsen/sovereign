@@ -1082,6 +1082,22 @@ body.not-admin .owner-only { display: none !important; }
 
 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-secondary); }
 
+/* A checkbox + name sitting side by side (e.g. World Boss attendee picker)
+   -- overrides the column-stacked default above, which is meant for a
+   field's own label-above-input layout, not a row of individual checkboxes. */
+.crusade-attendee-check-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-weight: 400;
+}
+.crusade-attendee-check-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
 .member-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
 .member-header h2 { margin: 0 0 4px; }
 .member-meta { color: var(--text-muted); font-size: 13px; }

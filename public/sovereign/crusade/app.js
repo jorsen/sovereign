@@ -2367,8 +2367,8 @@ function renderWorldBossMemberGrid(selectedNames) {
         .get(g)
         .map(
           (m) => `
-        <label style="display:flex; align-items:center; gap:8px; padding:4px 0; font-weight:400;">
-          <input type="checkbox" class="world-boss-attendee-check admin-disable" value="${escapeHtml(m.name)}" ${selectedNames.has(m.name) ? 'checked' : ''} style="width:auto;">
+        <label class="crusade-attendee-check-row">
+          <input type="checkbox" class="world-boss-attendee-check admin-disable" value="${escapeHtml(m.name)}" ${selectedNames.has(m.name) ? 'checked' : ''}>
           <span>${escapeHtml(m.name)}</span>
         </label>`
         )
