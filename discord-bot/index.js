@@ -184,9 +184,20 @@ function firstImageAttachment(message) {
   return message.attachments.find((a) => (a.contentType || '').startsWith('image/'));
 }
 
+// Only treat a message as a submission *attempt* worth responding to if it
+// has an attachment or mentions one of the expected labels -- otherwise
+// regular chat in the channel (or someone typing "/uniongr" as plain text
+// because the slash command isn't showing up for them) would get a
+// "Missing..." reply spammed at it for no reason.
+function looksLikeSubmissionAttempt(message) {
+  if (message.attachments.size > 0) return true;
+  return /\b(ign|class|guild|lamp)\s*:/i.test(message.content || '');
+}
+
 async function handleMessage(message) {
   if (message.channelId !== CHANNEL_ID) return;
   if (message.author?.bot) return;
+  if (!looksLikeSubmissionAttempt(message)) return;
 
   const { ign, className, guildName, lampLevel } = parseSubmission(message.content || '');
   const attachment = firstImageAttachment(message);
