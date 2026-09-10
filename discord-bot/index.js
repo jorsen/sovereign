@@ -33,6 +33,15 @@ const VALID_CLASSES = [
   'Grand Wizard',
 ];
 
+// The Volcano Lamp only goes up to +25. Kept in sync with
+// register-commands.js's setMinValue/setMaxValue and the app's own
+// server-side check.
+const LAMP_MIN = 1;
+const LAMP_MAX = 25;
+function isValidLampLevel(n) {
+  return Number.isInteger(n) && n >= LAMP_MIN && n <= LAMP_MAX;
+}
+
 // MessageContent is a privileged intent -- it must also be turned on for
 // this bot application under Developer Portal > Bot > Privileged Gateway
 // Intents, or every message arrives with an empty .content. It's only
@@ -105,6 +114,10 @@ async function handleGrowthCommand(interaction) {
     await interaction.editReply(`Class must be one of: ${VALID_CLASSES.join(', ')}`);
     return;
   }
+  if (!isValidLampLevel(lampLevel)) {
+    await interaction.editReply(`Volcano Lamp level must be an integer between ${LAMP_MIN} and ${LAMP_MAX}.`);
+    return;
+  }
 
   const channel = await client.channels.fetch(CHANNEL_ID);
   const embed = new EmbedBuilder()
@@ -171,7 +184,8 @@ function parseSubmission(content) {
   // casing/whitespace the person happened to type.
   const guildName = guildRaw ? VALID_GUILDS.find((g) => g.toLowerCase() === guildRaw.toLowerCase()) || null : null;
   const className = classRaw ? VALID_CLASSES.find((c) => c.toLowerCase() === classRaw.toLowerCase()) || null : null;
-  const lampLevel = lampMatch ? Number(lampMatch[1]) : null;
+  const lampRaw = lampMatch ? Number(lampMatch[1]) : null;
+  const lampLevel = lampRaw !== null && isValidLampLevel(lampRaw) ? lampRaw : null;
   return {
     ign: ignMatch ? ignMatch[1].trim() : null,
     className,
@@ -206,7 +220,7 @@ async function handleMessage(message) {
   if (!ign) missing.push('`IGN:`');
   if (!className) missing.push(`\`Class:\` (one of ${VALID_CLASSES.join(', ')})`);
   if (!guildName) missing.push(`\`Guild:\` (one of ${VALID_GUILDS.join(', ')})`);
-  if (lampLevel === null) missing.push('`Lamp:` (your Volcano Lamp\'s + level)');
+  if (lampLevel === null) missing.push(`\`Lamp:\` (an integer between ${LAMP_MIN} and ${LAMP_MAX})`);
   if (!attachment) missing.push('a screenshot attachment');
 
   if (missing.length) {

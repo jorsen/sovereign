@@ -2235,7 +2235,7 @@ function openGrowthEditModal(submission) {
   form.reset();
   form.elements.submissionId.value = submission.id;
   form.elements.ign.value = submission.ign;
-  form.elements.lampLevel.value = submission.lampLevel ?? 0;
+  form.elements.lampLevel.value = submission.lampLevel ?? 1;
 
   const classSelect = document.getElementById('growthEditClassSelect');
   classSelect.innerHTML = GROWTH_CLASS_CHOICES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
