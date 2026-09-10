@@ -8,7 +8,7 @@
 // result, diamond reward, attendance %, notes, items and fees -- so two
 // teams sharing a crusade's date can have completely different outcomes.
 // mode tracks which crusade-scoped page is active: 'overview' | 'team' | 'guildSalary'.
-const sovereignState = { crusades: [], guilds: [], crusadeId: null, crusade: null, participants: [], teams: [], memberList: [], defaultFees: [], raffleWinners: [], raffleActivity: [], growthSubmissions: [], activeTeam: null, mode: null };
+const sovereignState = { crusades: [], guilds: [], crusadeId: null, crusade: null, participants: [], teams: [], memberList: [], defaultFees: [], raffleWinners: [], raffleActivity: [], growthSubmissions: [], worldBossEvents: [], activeTeam: null, mode: null };
 
 function crusadeFormatDiamonds(amount) {
   return `${Math.round(amount || 0).toLocaleString()} 💎`;
@@ -153,6 +153,12 @@ function route() {
     loadGrowthSubmissions().catch((err) => toast(err.message));
     return;
   }
+  if (hash === 'worldboss') {
+    sovereignState.mode = null;
+    showPanel('worldboss');
+    loadWorldBossAttendance().catch((err) => toast(err.message));
+    return;
+  }
   if (teamMatch) {
     sovereignState.crusadeId = crusadeIdFromHashSegment(teamMatch[1]);
     sovereignState.activeTeam = Number(teamMatch[2]);
@@ -183,9 +189,10 @@ function showPanel(name) {
   document.getElementById('sovereignMembersPanel').classList.toggle('hidden', name !== 'members');
   document.getElementById('sovereignRafflePanel').classList.toggle('hidden', name !== 'raffle');
   document.getElementById('sovereignGrowthPanel').classList.toggle('hidden', name !== 'growth');
+  document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (name === 'list' || name === 'members' || name === 'raffle' || name === 'growth') document.title = 'Sovereign — Crusade';
+  if (name === 'list' || name === 'members' || name === 'raffle' || name === 'growth' || name === 'worldboss') document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -2273,6 +2280,248 @@ document.getElementById('growthEditForm').addEventListener('submit', async (e) =
     renderGrowthSubmissions();
     document.getElementById('growthEditModal').classList.add('hidden');
     toast('Submission updated');
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+// ---------- World Boss Attendance (standalone, independent of any crusade) ----------
+// Kept in sync with the WORLD_BOSS_NAMES list in lib/app.js.
+const WORLD_BOSS_NAMES = [
+  'Ruined Knight',
+  'Kafka',
+  'Stormid of Onrush',
+  'Hakir',
+  'Awakened Panderre',
+  'Damiross',
+  'Tandallon',
+  'Melville',
+];
+
+let worldBossEditingId = null;
+
+async function loadWorldBossAttendance() {
+  const [events, members, guilds] = await Promise.all([
+    api('/api/world-boss-attendance'),
+    api('/api/sovereign-members'),
+    api('/api/crusade-guilds'),
+  ]);
+  sovereignState.worldBossEvents = events;
+  sovereignState.memberList = members;
+  sovereignState.guilds = guilds;
+  populateWorldBossNameSelect();
+  renderWorldBossMemberGrid(new Set());
+  renderWorldBossSummary();
+  renderWorldBossLog();
+}
+
+function populateWorldBossNameSelect() {
+  const select = document.getElementById('worldBossNameSelect');
+  select.innerHTML = WORLD_BOSS_NAMES.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+}
+
+// Grouped by guild, same ordering convention as the Member List page, with a
+// checkbox per person instead of a plain name -- `selectedNames` pre-checks
+// whichever names are already part of the event being edited.
+function renderWorldBossMemberGrid(selectedNames) {
+  const grid = document.getElementById('worldBossMemberGrid');
+  const members = sovereignState.memberList || [];
+
+  const groups = new Map();
+  members.forEach((m) => {
+    const key = m.guildName || 'Unassigned';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(m);
+  });
+  groups.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name)));
+
+  const knownOrder = sovereignState.guilds.map((g) => g.name);
+  const guildKeys = Array.from(groups.keys()).filter((k) => k !== 'Unassigned');
+  guildKeys.sort((a, b) => {
+    const ai = knownOrder.indexOf(a);
+    const bi = knownOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+  if (groups.has('Unassigned')) guildKeys.push('Unassigned');
+
+  grid.innerHTML = guildKeys
+    .map((g) => {
+      const color = g === 'Unassigned' ? null : crusadeGuildColor(g);
+      const label = g === 'Unassigned' ? t('sovereign.common.unassigned') : escapeHtml(g);
+      const rows = groups
+        .get(g)
+        .map(
+          (m) => `
+        <label style="display:flex; align-items:center; gap:8px; padding:4px 0; font-weight:400;">
+          <input type="checkbox" class="world-boss-attendee-check admin-disable" value="${escapeHtml(m.name)}" ${selectedNames.has(m.name) ? 'checked' : ''} style="width:auto;">
+          <span>${escapeHtml(m.name)}</span>
+        </label>`
+        )
+        .join('');
+      return `
+      <div class="crusade-party-card">
+        <div class="crusade-party-card-header">
+          <h3 style="${color ? `color:${color};` : ''}">${label} (${groups.get(g).length})</h3>
+        </div>
+        <div style="padding:8px 12px 12px;">${rows}</div>
+      </div>`;
+    })
+    .join('');
+}
+
+// One row per person who's ever attended at least one logged event, ranked
+// by total attendance count -- out of every event logged, not just ones for
+// a specific boss, since the ask was to track overall World Boss turnout.
+function computeWorldBossSummary() {
+  const events = sovereignState.worldBossEvents || [];
+  const totalEvents = events.length;
+  const byName = new Map();
+  events.forEach((ev) => {
+    ev.attendees.forEach((a) => {
+      const key = a.name.trim().toLowerCase();
+      if (!byName.has(key)) byName.set(key, { name: a.name, guildName: a.guildName, count: 0 });
+      const entry = byName.get(key);
+      entry.count += 1;
+      entry.guildName = a.guildName || entry.guildName;
+    });
+  });
+  return { totalEvents, rows: Array.from(byName.values()).sort((a, b) => b.count - a.count) };
+}
+
+function renderWorldBossSummary() {
+  const { totalEvents, rows } = computeWorldBossSummary();
+  document.getElementById('worldBossSummaryEmptyState').classList.toggle('hidden', rows.length !== 0);
+  const body = document.getElementById('worldBossSummaryBody');
+  body.innerHTML = rows
+    .map(
+      (r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td style="font-weight:600;">${escapeHtml(r.name)}</td>
+      <td>${crusadeGuildBadge(r.guildName)}</td>
+      <td>${r.count} / ${totalEvents}</td>
+      <td>${totalEvents ? Math.round((r.count / totalEvents) * 100) : 0}%</td>
+    </tr>`
+    )
+    .join('');
+}
+
+function renderWorldBossLog() {
+  const events = sovereignState.worldBossEvents || [];
+  document.getElementById('worldBossLogEmptyState').classList.toggle('hidden', events.length !== 0);
+  const list = document.getElementById('worldBossLogList');
+  list.innerHTML = events
+    .map(
+      (ev) => `
+    <div class="crusade-party-card">
+      <div class="crusade-party-card-header" style="cursor:pointer;" data-toggle-world-boss-log="${ev.id}">
+        <h3 style="margin:0;">${escapeHtml(ev.bossName)} — ${formatLongDate(String(ev.eventDate).slice(0, 10))} <span style="color:var(--text-muted); font-weight:400;">(${ev.attendees.length} attended)</span></h3>
+        <div class="admin-only" style="display:flex; gap:6px;">
+          <button type="button" class="icon-btn" data-edit-world-boss="${ev.id}" title="Edit">✎</button>
+          <button type="button" class="icon-btn" data-delete-world-boss="${ev.id}" title="Remove">✕</button>
+        </div>
+      </div>
+      <div class="hidden" id="worldBossAttendees-${ev.id}" style="padding:10px 16px 14px; display:flex; flex-wrap:wrap; gap:8px;">
+        ${ev.attendees
+          .map((a) => {
+            const color = a.guildName ? crusadeGuildColor(a.guildName) || 'var(--text-muted)' : 'var(--text-muted)';
+            return `<span class="crusade-guild-badge" style="color:${color}; border-color:${color};" title="${escapeHtml(a.guildName || '')}">${escapeHtml(a.name)}</span>`;
+          })
+          .join('')}
+      </div>
+    </div>`
+    )
+    .join('');
+
+  list.querySelectorAll('[data-toggle-world-boss-log]').forEach((header) => {
+    header.addEventListener('click', () => {
+      const id = header.getAttribute('data-toggle-world-boss-log');
+      document.getElementById(`worldBossAttendees-${id}`).classList.toggle('hidden');
+    });
+  });
+
+  list.querySelectorAll('[data-edit-world-boss]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-edit-world-boss');
+      const ev = events.find((x) => x.id === id);
+      if (ev) startEditingWorldBossEvent(ev);
+    });
+  });
+
+  list.querySelectorAll('[data-delete-world-boss]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-delete-world-boss');
+      const ev = events.find((x) => x.id === id);
+      if (!confirm(`Remove the ${ev?.bossName} attendance record for ${ev?.eventDate}?`)) return;
+      try {
+        await api(`/api/world-boss-attendance/${id}`, { method: 'DELETE' });
+        sovereignState.worldBossEvents = sovereignState.worldBossEvents.filter((x) => x.id !== id);
+        renderWorldBossSummary();
+        renderWorldBossLog();
+        toast('Attendance record removed');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+}
+
+function startEditingWorldBossEvent(ev) {
+  worldBossEditingId = ev.id;
+  const form = document.getElementById('worldBossForm');
+  form.elements.eventId.value = ev.id;
+  form.elements.bossName.value = ev.bossName;
+  form.elements.eventDate.value = String(ev.eventDate).slice(0, 10);
+  renderWorldBossMemberGrid(new Set(ev.attendees.map((a) => a.name)));
+  document.getElementById('worldBossFormHeading').textContent = `${t('sovereign.worldBoss.editHeading')} — ${ev.bossName}`;
+  document.getElementById('worldBossCancelEditBtn').classList.remove('hidden');
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetWorldBossForm() {
+  worldBossEditingId = null;
+  const form = document.getElementById('worldBossForm');
+  form.reset();
+  form.elements.eventId.value = '';
+  renderWorldBossMemberGrid(new Set());
+  document.getElementById('worldBossFormHeading').textContent = t('sovereign.worldBoss.logHeading');
+  document.getElementById('worldBossCancelEditBtn').classList.add('hidden');
+}
+
+document.getElementById('worldBossCancelEditBtn').addEventListener('click', resetWorldBossForm);
+
+document.getElementById('worldBossForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const attendeeNames = Array.from(document.querySelectorAll('.world-boss-attendee-check:checked')).map((cb) => cb.value);
+  if (!attendeeNames.length) {
+    toast('Check off at least one attendee');
+    return;
+  }
+  const payload = {
+    bossName: form.elements.bossName.value,
+    eventDate: form.elements.eventDate.value,
+    attendeeNames,
+  };
+  try {
+    if (worldBossEditingId) {
+      const updated = await api(`/api/world-boss-attendance/${worldBossEditingId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      const idx = sovereignState.worldBossEvents.findIndex((x) => x.id === worldBossEditingId);
+      if (idx !== -1) sovereignState.worldBossEvents[idx] = updated;
+      toast('Attendance record updated');
+    } else {
+      const created = await api('/api/world-boss-attendance', { method: 'POST', body: JSON.stringify(payload) });
+      sovereignState.worldBossEvents.unshift(created);
+      toast('Attendance logged');
+    }
+    resetWorldBossForm();
+    renderWorldBossSummary();
+    renderWorldBossLog();
   } catch (err) {
     toast(err.message);
   }

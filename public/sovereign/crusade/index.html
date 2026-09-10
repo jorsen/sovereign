@@ -29,6 +29,7 @@
           <a href="#members" data-panel="members" class="nav-link" data-i18n="sovereign.nav.members">Member List</a>
           <a href="#raffle" data-panel="raffle" class="nav-link" data-i18n="sovereign.nav.raffle">Raffle</a>
           <a href="#growth" data-panel="growth" class="nav-link" data-i18n="sovereign.nav.growth">Growth Rate</a>
+          <a href="#worldboss" data-panel="worldboss" class="nav-link" data-i18n="sovereign.nav.worldBoss">World Boss</a>
         </nav>
       </div>
       <div class="topbar-right">
@@ -417,6 +418,58 @@
         </div>
         <p id="sovereignGrowthEmptyState" class="empty-state hidden" data-i18n="sovereign.growth.empty">No submissions yet — post in the growth-rate Discord channel to show up here.</p>
         <p id="sovereignGrowthNoMatchState" class="empty-state hidden" data-i18n="sovereign.growth.noMatch">No submissions match your search/filters.</p>
+      </section>
+    </div>
+
+    <!-- ===================== WORLD BOSS ATTENDANCE PANEL ===================== -->
+    <div id="sovereignWorldBossPanel" class="hidden">
+      <div class="view-header space-between">
+        <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.worldBoss.hint">Log who showed up for each World Boss, then track everyone's attendance over time.</p>
+      </div>
+
+      <section class="panel admin-only">
+        <h2 id="worldBossFormHeading" data-i18n="sovereign.worldBoss.logHeading">Log Attendance</h2>
+        <form id="worldBossForm" class="crusade-header-form">
+          <input type="hidden" name="eventId">
+          <label><span data-i18n="sovereign.worldBoss.bossLabel">Boss</span>
+            <select required name="bossName" id="worldBossNameSelect"></select>
+          </label>
+          <label><span data-i18n="sovereign.common.date">Date</span>
+            <input required name="eventDate" type="date">
+          </label>
+        </form>
+        <p style="color:var(--text-muted); font-size:13px; margin:14px 0 6px;" data-i18n="sovereign.worldBoss.checkHint">Check off everyone who attended.</p>
+        <div id="worldBossMemberGrid" class="crusade-party-grid"></div>
+        <div style="display:flex; gap:8px; margin-top:14px;">
+          <button type="submit" form="worldBossForm" class="btn primary" data-i18n="sovereign.common.save">Save</button>
+          <button type="button" id="worldBossCancelEditBtn" class="btn small hidden" data-i18n="sovereign.worldBoss.cancelEdit">Cancel Edit</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 data-i18n="sovereign.worldBoss.summaryHeading">Attendance Summary</h2>
+        <p style="color:var(--text-muted); font-size:13px; margin-top:-8px;" data-i18n="sovereign.worldBoss.summaryHint">Across every World Boss event logged so far.</p>
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead>
+              <tr>
+                <th style="width:4%;" data-i18n="sovereign.growth.thRank">Rank</th>
+                <th data-i18n="sovereign.common.ign">IGN</th>
+                <th data-i18n="sovereign.common.guild">Guild</th>
+                <th data-i18n="sovereign.worldBoss.thAttended">Times Attended</th>
+                <th data-i18n="sovereign.worldBoss.thRate">Attendance %</th>
+              </tr>
+            </thead>
+            <tbody id="worldBossSummaryBody"></tbody>
+          </table>
+        </div>
+        <p id="worldBossSummaryEmptyState" class="empty-state hidden" data-i18n="sovereign.worldBoss.summaryEmpty">No attendance logged yet.</p>
+      </section>
+
+      <section class="panel">
+        <h2 data-i18n="sovereign.worldBoss.logListHeading">Attendance Log</h2>
+        <p id="worldBossLogEmptyState" class="empty-state hidden" data-i18n="sovereign.worldBoss.logEmpty">No events logged yet.</p>
+        <div id="worldBossLogList" style="display:flex; flex-direction:column; gap:8px;"></div>
       </section>
     </div>
   </div>
