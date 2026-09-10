@@ -53,7 +53,7 @@ const client = new Client({
 // Downloads the screenshot and POSTs everything to the app under one
 // discordMessageId, which is what the upsert-on-conflict in
 // POST /api/growth-submissions/bot keys on.
-async function submitToApi({ discordMessageId, discordUserId, discordUsername, ign, className, guildName, lampLevel, attachmentUrl, attachmentContentType }) {
+async function submitToApi({ discordMessageId, discordUserId, discordUsername, ign, className, guildName, lampLevel, growthRate, attachmentUrl, attachmentContentType }) {
   const imageResponse = await fetch(attachmentUrl);
   if (!imageResponse.ok) throw new Error(`failed to download the attachment (${imageResponse.status})`);
   const arrayBuffer = await imageResponse.arrayBuffer();
@@ -71,6 +71,7 @@ async function submitToApi({ discordMessageId, discordUserId, discordUsername, i
       class: className,
       guildName,
       lampLevel,
+      growthRate,
       imageBase64,
       imageContentType,
     }),
@@ -92,6 +93,7 @@ async function handleGrowthCommand(interaction) {
   const className = interaction.options.getString('class', true).trim();
   const guildName = interaction.options.getString('guild', true);
   const lampLevel = interaction.options.getInteger('lamp', true);
+  const growthRate = interaction.options.getInteger('growthrate', true);
   const attachment = interaction.options.getAttachment('screenshot', true);
 
   if (!(attachment.contentType || '').startsWith('image/')) {
@@ -113,6 +115,10 @@ async function handleGrowthCommand(interaction) {
     await interaction.editReply(`Volcano Lamp level must be an integer between ${LAMP_MIN} and ${LAMP_MAX}.`);
     return;
   }
+  if (!Number.isInteger(growthRate) || growthRate < 0) {
+    await interaction.editReply('Growth Rate must be a non-negative integer.');
+    return;
+  }
 
   const channel = await client.channels.fetch(CHANNEL_ID);
   const embed = new EmbedBuilder()
@@ -120,7 +126,8 @@ async function handleGrowthCommand(interaction) {
     .addFields(
       { name: 'Class', value: className, inline: true },
       { name: 'Guild', value: guildName, inline: true },
-      { name: 'Volcano Lamp', value: `+${lampLevel}`, inline: true }
+      { name: 'Volcano Lamp', value: `+${lampLevel}`, inline: true },
+      { name: 'Growth Rate', value: growthRate.toLocaleString(), inline: true }
     )
     .setImage(attachment.url)
     .setFooter({ text: `Submitted by ${interaction.user.username}` })
@@ -136,6 +143,7 @@ async function handleGrowthCommand(interaction) {
       className,
       guildName,
       lampLevel,
+      growthRate,
       attachmentUrl: attachment.url,
       attachmentContentType: attachment.contentType,
     });

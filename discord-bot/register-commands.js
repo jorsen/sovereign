@@ -49,6 +49,9 @@ const commands = [
         .setMinValue(1)
         .setMaxValue(25)
     )
+    .addIntegerOption((opt) =>
+      opt.setName('growthrate').setDescription('Growth Rate stat shown at the top of Character Details').setRequired(true).setMinValue(0)
+    )
     .addAttachmentOption((opt) =>
       opt.setName('screenshot').setDescription('Character Details > Artifacts tab screenshot').setRequired(true)
     )

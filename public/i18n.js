@@ -284,6 +284,8 @@ const TRANSLATIONS = {
     'sovereign.growth.searchPlaceholder': 'Search by IGN…',
     'sovereign.growth.allGuilds': 'All Guilds',
     'sovereign.growth.allClasses': 'All Classes',
+    'sovereign.growth.thRank': 'Rank',
+    'sovereign.growth.thGrowthRate': 'Growth Rate',
     'sovereign.growth.thClass': 'Class',
     'sovereign.growth.thLamp': 'Volcano Lamp',
     'sovereign.growth.thScreenshot': 'Screenshot',

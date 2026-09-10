@@ -2158,6 +2158,7 @@ function renderGrowthSubmissions() {
     <tr data-growth-id="${s.id}">
       <td>${i + 1}</td>
       <td style="font-weight:600;">${escapeHtml(s.ign)}</td>
+      <td style="font-weight:600;">${s.growthRate !== null && s.growthRate !== undefined ? s.growthRate.toLocaleString() : '–'}</td>
       <td>${escapeHtml(s.class)}</td>
       <td>${crusadeGuildBadge(s.guildName)}</td>
       <td>+${s.lampLevel ?? '?'}</td>
@@ -2175,7 +2176,9 @@ function renderGrowthSubmissions() {
     img.addEventListener('click', () => {
       const id = img.getAttribute('data-view-growth-image');
       const s = submissions.find((x) => x.id === id);
-      document.getElementById('growthImageModalTitle').textContent = s ? `${s.ign} — ${s.class} — Volcano Lamp +${s.lampLevel ?? '?'} (${s.guildName || 'Unassigned'})` : '';
+      document.getElementById('growthImageModalTitle').textContent = s
+        ? `${s.ign} — Growth Rate ${s.growthRate?.toLocaleString() ?? '?'} — ${s.class} — Volcano Lamp +${s.lampLevel ?? '?'} (${s.guildName || 'Unassigned'})`
+        : '';
       document.getElementById('growthImageModalImg').src = `/api/growth-submissions/${id}/image`;
       document.getElementById('growthImageModal').classList.remove('hidden');
     });
@@ -2236,6 +2239,7 @@ function openGrowthEditModal(submission) {
   form.elements.submissionId.value = submission.id;
   form.elements.ign.value = submission.ign;
   form.elements.lampLevel.value = submission.lampLevel ?? 1;
+  form.elements.growthRate.value = submission.growthRate ?? 0;
 
   const classSelect = document.getElementById('growthEditClassSelect');
   classSelect.innerHTML = GROWTH_CLASS_CHOICES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
@@ -2260,6 +2264,7 @@ document.getElementById('growthEditForm').addEventListener('submit', async (e) =
         class: form.elements.class.value,
         guildName: form.elements.guildName.value,
         lampLevel: Number(form.elements.lampLevel.value),
+        growthRate: Number(form.elements.growthRate.value),
       }),
     });
     const idx = sovereignState.growthSubmissions.findIndex((s) => s.id === id);

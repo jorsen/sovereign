@@ -60,7 +60,7 @@ You should see `Logged in as <BotName> — watching channel ...` in the
 console. Members submit with:
 
 ```
-/uniongr ign:<name> class:<pick from dropdown> guild:<pick from dropdown> lamp:<1-25> screenshot:<attach the Artifacts-tab image>
+/uniongr ign:<name> class:<pick from dropdown> guild:<pick from dropdown> lamp:<1-25> growthrate:<the Growth Rate number> screenshot:<attach the Artifacts-tab image>
 ```
 
 The bot posts a confirmation embed into the channel and replies privately

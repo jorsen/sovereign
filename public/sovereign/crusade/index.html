@@ -401,8 +401,9 @@
           <table class="members-table">
             <thead>
               <tr>
-                <th style="width:4%;">#</th>
+                <th style="width:4%;" data-i18n="sovereign.growth.thRank">Rank</th>
                 <th data-i18n="sovereign.common.ign">IGN</th>
+                <th data-i18n="sovereign.growth.thGrowthRate">Growth Rate</th>
                 <th data-i18n="sovereign.growth.thClass">Class</th>
                 <th data-i18n="sovereign.common.guild">Guild</th>
                 <th data-i18n="sovereign.growth.thLamp">Volcano Lamp</th>
@@ -448,6 +449,9 @@
         </label>
         <label><span data-i18n="sovereign.growth.thLamp">Volcano Lamp +</span>
           <input required name="lampLevel" type="number" min="1" max="25" step="1">
+        </label>
+        <label><span data-i18n="sovereign.growth.thGrowthRate">Growth Rate</span>
+          <input required name="growthRate" type="number" min="0" step="1">
         </label>
         <button type="submit" class="btn primary" data-i18n="sovereign.common.save">Save</button>
       </form>
