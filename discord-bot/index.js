@@ -13,7 +13,7 @@ if (!DISCORD_TOKEN || !API_BASE || !BOT_SECRET) {
 
 // Kept in sync with register-commands.js's /uniongr guild choices and with
 // the Sovereign app's own server-side check on POST /api/growth-submissions/bot.
-const VALID_GUILDS = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL'];
+const VALID_GUILDS = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL', 'BUBBLEGANG'];
 
 // Kept in sync with register-commands.js's /uniongr class choices -- every
 // 4th-advancement (final tier) class name, since that's the only tier this

@@ -37,7 +37,8 @@ const commands = [
           { name: 'Helloシ', value: 'Helloシ' },
           { name: '貓貓客棧', value: '貓貓客棧' },
           { name: '巫女組', value: '巫女組' },
-          { name: 'CAPITAL', value: 'CAPITAL' }
+          { name: 'CAPITAL', value: 'CAPITAL' },
+          { name: 'BUBBLEGANG', value: 'BUBBLEGANG' }
         )
     )
     .addIntegerOption((opt) =>

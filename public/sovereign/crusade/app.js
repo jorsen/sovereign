@@ -2214,7 +2214,7 @@ document.getElementById('growthClassFilter').addEventListener('change', renderGr
 
 // Kept in sync with discord-bot/register-commands.js's /uniongr choices and
 // the Sovereign app's own server-side check on the growth-submissions routes.
-const GROWTH_GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL'];
+const GROWTH_GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL', 'BUBBLEGANG'];
 const GROWTH_CLASS_CHOICES = [
   'Ultimate Martialist',
   'Soul Reaper',
