@@ -2163,7 +2163,10 @@ function renderGrowthSubmissions() {
       <td>+${s.lampLevel ?? '?'}</td>
       <td><img class="crusade-growth-thumb" src="/api/growth-submissions/${s.id}/image" alt="${escapeHtml(s.ign)}'s growth rate screenshot" loading="lazy" data-view-growth-image="${s.id}"></td>
       <td>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : '–'}</td>
-      <td class="admin-only"><button type="button" class="icon-btn" data-delete-growth="${s.id}" title="Remove submission">✕</button></td>
+      <td class="admin-only crusade-roster-actions-cell">
+        <button type="button" class="icon-btn" data-edit-growth="${s.id}" title="Edit">✎</button>
+        <button type="button" class="icon-btn" data-delete-growth="${s.id}" title="Remove submission">✕</button>
+      </td>
     </tr>`
     )
     .join('');
@@ -2175,6 +2178,14 @@ function renderGrowthSubmissions() {
       document.getElementById('growthImageModalTitle').textContent = s ? `${s.ign} — ${s.class} — Volcano Lamp +${s.lampLevel ?? '?'} (${s.guildName || 'Unassigned'})` : '';
       document.getElementById('growthImageModalImg').src = `/api/growth-submissions/${id}/image`;
       document.getElementById('growthImageModal').classList.remove('hidden');
+    });
+  });
+
+  body.querySelectorAll('[data-edit-growth]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-edit-growth');
+      const s = submissions.find((x) => x.id === id);
+      if (s) openGrowthEditModal(s);
     });
   });
 
@@ -2200,6 +2211,67 @@ function renderGrowthSubmissions() {
 document.getElementById('growthSearchInput').addEventListener('input', renderGrowthSubmissions);
 document.getElementById('growthGuildFilter').addEventListener('change', renderGrowthSubmissions);
 document.getElementById('growthClassFilter').addEventListener('change', renderGrowthSubmissions);
+
+// Kept in sync with discord-bot/register-commands.js's /uniongr choices and
+// the Sovereign app's own server-side check on the growth-submissions routes.
+const GROWTH_GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL'];
+const GROWTH_CLASS_CHOICES = [
+  'Ultimate Martialist',
+  'Soul Reaper',
+  'Storm Hawkeye',
+  'Divine Priest',
+  'Mighty Demolisher',
+  'Mystic Luminary',
+  'Crusader',
+  'Bloody Enforcer',
+  'Fatal Lord',
+  'Eternal Commander',
+  'Prime Savior',
+  'Grand Wizard',
+];
+
+function openGrowthEditModal(submission) {
+  const form = document.getElementById('growthEditForm');
+  form.reset();
+  form.elements.submissionId.value = submission.id;
+  form.elements.ign.value = submission.ign;
+  form.elements.lampLevel.value = submission.lampLevel ?? 0;
+
+  const classSelect = document.getElementById('growthEditClassSelect');
+  classSelect.innerHTML = GROWTH_CLASS_CHOICES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  classSelect.value = submission.class;
+
+  const guildSelect = document.getElementById('growthEditGuildSelect');
+  guildSelect.innerHTML = GROWTH_GUILD_CHOICES.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+  guildSelect.value = submission.guildName;
+
+  document.getElementById('growthEditModal').classList.remove('hidden');
+}
+
+document.getElementById('growthEditForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const id = form.elements.submissionId.value;
+  try {
+    const updated = await api(`/api/growth-submissions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ign: form.elements.ign.value,
+        class: form.elements.class.value,
+        guildName: form.elements.guildName.value,
+        lampLevel: Number(form.elements.lampLevel.value),
+      }),
+    });
+    const idx = sovereignState.growthSubmissions.findIndex((s) => s.id === id);
+    if (idx !== -1) sovereignState.growthSubmissions[idx] = updated;
+    populateGrowthFilterOptions(sovereignState.growthSubmissions);
+    renderGrowthSubmissions();
+    document.getElementById('growthEditModal').classList.add('hidden');
+    toast('Submission updated');
+  } catch (err) {
+    toast(err.message);
+  }
+});
 
 // ---------- Raffle (standalone, independent of any crusade) ----------
 // Draws from the same master Member List as above. Anyone already in the

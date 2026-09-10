@@ -288,6 +288,8 @@ const TRANSLATIONS = {
     'sovereign.growth.thLamp': 'Volcano Lamp',
     'sovereign.growth.thScreenshot': 'Screenshot',
     'sovereign.growth.thSubmittedBy': 'Submitted By',
+    'sovereign.growth.editHeading': 'Edit Submission',
+    'sovereign.growth.editHint': "Fixes what's on file here only -- it doesn't change the original Discord message or its screenshot.",
 
     'sovereign.common.name': 'Name',
     'sovereign.common.date': 'Date',

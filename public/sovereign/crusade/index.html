@@ -430,6 +430,30 @@
     </div>
   </div>
 
+  <div id="growthEditModal" class="modal-overlay hidden">
+    <div class="modal">
+      <button class="modal-close" data-close="growthEditModal" aria-label="Close">×</button>
+      <h2 data-i18n="sovereign.growth.editHeading">Edit Submission</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-top:-8px;" data-i18n="sovereign.growth.editHint">Fixes what's on file here only -- it doesn't change the original Discord message or its screenshot.</p>
+      <form id="growthEditForm">
+        <input type="hidden" name="submissionId">
+        <label><span data-i18n="sovereign.common.ign">IGN</span>
+          <input required name="ign" type="text" maxlength="40">
+        </label>
+        <label><span data-i18n="sovereign.growth.thClass">Class</span>
+          <select required name="class" id="growthEditClassSelect"></select>
+        </label>
+        <label><span data-i18n="sovereign.common.guild">Guild</span>
+          <select required name="guildName" id="growthEditGuildSelect"></select>
+        </label>
+        <label><span data-i18n="sovereign.growth.thLamp">Volcano Lamp +</span>
+          <input required name="lampLevel" type="number" min="0" step="1">
+        </label>
+        <button type="submit" class="btn primary" data-i18n="sovereign.common.save">Save</button>
+      </form>
+    </div>
+  </div>
+
   <div id="manageCrusadeGuildsModal" class="modal-overlay hidden">
     <div class="modal">
       <button class="modal-close" data-close="manageCrusadeGuildsModal" aria-label="Close">×</button>
