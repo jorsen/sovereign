@@ -1,20 +1,23 @@
 # Sovereign Growth Rate bot
 
-Watches one Discord channel for messages containing `IGN:`, `Class:`,
-`Guild:`, and a screenshot attachment (or the `/uniongr` slash command),
-and saves each as a submission in the Sovereign app (visible on its
-**Growth Rate** page).
+Handles the `/uniongr` slash command (`ign`, `class`, `guild`, `lamp`,
+`screenshot`), posts a confirmation embed into the growth-rate channel, and
+saves the submission in the Sovereign app (visible on its **Growth Rate**
+page). There's no free-text posting path anymore -- `/uniongr` is the only
+way to submit.
 
 ## 1. Create the Discord bot application
 
 1. Go to https://discord.com/developers/applications → **New Application**.
 2. **Bot** tab → **Reset Token** → copy it (this is `DISCORD_TOKEN`).
-3. Still on the **Bot** tab, under **Privileged Gateway Intents**, turn on
-   **Message Content Intent**. Without this the bot receives every message
-   with an empty `content` and can never see the IGN/Class text.
-4. **OAuth2 → URL Generator**: check scope `bot`, then permissions
-   **View Channel**, **Send Messages**, **Read Message History**,
-   **Add Reactions**. Open the generated URL and invite it to your server.
+3. **OAuth2 → URL Generator**: check scopes `bot` and
+   `applications.commands`, then permissions **View Channel**,
+   **Send Messages**, **Read Message History**. Open the generated URL and
+   invite it to your server.
+4. In the growth-rate channel's own Permissions, make sure **Use
+   Application Commands** is allowed for whichever role your members have
+   -- if it's denied there, members can see the channel but `/uniongr`
+   won't show up for them at all.
 
 ## 2. Configure
 
@@ -54,22 +57,16 @@ npm start
 ```
 
 You should see `Logged in as <BotName> — watching channel ...` in the
-console. Members can now submit either way:
+console. Members submit with:
 
-- **`/uniongr`** — fills in `ign`, `class`, `guild` (a dropdown of the four
-  guilds), and `screenshot` as proper command fields (recommended: no risk
-  of a typo'd label or a forgotten attachment).
-- **Plain message** in the channel:
-  ```
-  IGN: RTXCJKIL
-  Class: Ultimate Martialist
-  Guild: Helloシ
-  ```
-  ...with the Artifacts-tab screenshot attached. `Guild:` must match one of
-  Helloシ, 貓貓客棧, 巫女組, or CAPITAL (case-insensitive).
+```
+/uniongr ign:<name> class:<pick from dropdown> guild:<pick from dropdown> lamp:<1-25> screenshot:<attach the Artifacts-tab image>
+```
 
-Either way the bot reacts ✅ (or replies explaining what's missing) and it
-shows up on the Sovereign app's Growth Rate page.
+The bot posts a confirmation embed into the channel and replies privately
+(✅ or an error) to whoever ran the command. It shows up on the Sovereign
+app's Growth Rate page right away. Deleting that confirmation embed later
+removes the entry from the page too.
 
 ## 5. Keep it running (hosting)
 
@@ -87,5 +84,6 @@ Cheapest options for a small guild bot:
   `git clone`, `npm install`, and run it under `pm2` or a systemd service so
   it restarts if it crashes or the machine reboots.
 
-Editing or deleting the original Discord message updates or removes its
-entry on the Growth Rate page automatically.
+Deleting the bot's confirmation embed removes that entry from the Growth
+Rate page automatically. To fix a typo on an existing submission, use the
+Growth Rate page's own Edit button (admin-only) instead of touching Discord.
