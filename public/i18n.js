@@ -284,6 +284,10 @@ const TRANSLATIONS = {
     'sovereign.growth.searchPlaceholder': 'Search by IGN…',
     'sovereign.growth.allGuilds': 'All Guilds',
     'sovereign.growth.allClasses': 'All Classes',
+    'sovereign.growth.thClass': 'Class',
+    'sovereign.growth.thLamp': 'Volcano Lamp',
+    'sovereign.growth.thScreenshot': 'Screenshot',
+    'sovereign.growth.thSubmittedBy': 'Submitted By',
 
     'sovereign.common.name': 'Name',
     'sovereign.common.date': 'Date',

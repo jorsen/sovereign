@@ -397,7 +397,23 @@
             <option value="" data-i18n="sovereign.growth.allClasses">All Classes</option>
           </select>
         </div>
-        <div class="crusade-growth-grid" id="sovereignGrowthGrid"></div>
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead>
+              <tr>
+                <th style="width:4%;">#</th>
+                <th data-i18n="sovereign.common.ign">IGN</th>
+                <th data-i18n="sovereign.growth.thClass">Class</th>
+                <th data-i18n="sovereign.common.guild">Guild</th>
+                <th data-i18n="sovereign.growth.thLamp">Volcano Lamp</th>
+                <th data-i18n="sovereign.growth.thScreenshot">Screenshot</th>
+                <th data-i18n="sovereign.growth.thSubmittedBy">Submitted By</th>
+                <th class="admin-only"></th>
+              </tr>
+            </thead>
+            <tbody id="sovereignGrowthBody"></tbody>
+          </table>
+        </div>
         <p id="sovereignGrowthEmptyState" class="empty-state hidden" data-i18n="sovereign.growth.empty">No submissions yet — post in the growth-rate Discord channel to show up here.</p>
         <p id="sovereignGrowthNoMatchState" class="empty-state hidden" data-i18n="sovereign.growth.noMatch">No submissions match your search/filters.</p>
       </section>

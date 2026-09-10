@@ -852,9 +852,8 @@ select:focus, input:focus, textarea:focus {
   gap: 16px;
 }
 
-/* Growth Rate submissions, one card per person with the screenshot as the
-   focal point -- a responsive grid rather than a table since a thumbnail
-   reads far better than a text cell. */
+/* Growth Rate submissions -- a table, one row per person, with a small
+   click-to-enlarge screenshot thumbnail in its own column. */
 .crusade-growth-filters {
   display: flex;
   gap: 10px;
@@ -870,40 +869,15 @@ select:focus, input:focus, textarea:focus {
 .crusade-growth-filters input { flex: 1; min-width: 160px; }
 .crusade-growth-filters select { min-width: 140px; }
 
-.crusade-growth-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
-}
-
-.crusade-growth-card {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.crusade-growth-card-thumb {
+.crusade-growth-thumb {
   display: block;
-  width: 100%;
-  aspect-ratio: 16 / 10;
+  width: 64px;
+  height: 40px;
   object-fit: cover;
+  border-radius: 4px;
   cursor: pointer;
   background: var(--surface-1);
 }
-
-.crusade-growth-card-body {
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.crusade-growth-card-ign { font-weight: 700; }
-.crusade-growth-card-class { color: var(--text-muted); font-size: 13px; }
-.crusade-growth-card-meta { color: var(--text-muted); font-size: 12px; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
 .crusade-party-card {
   /* Grid items default to a content-based min-width, so a wide table inside

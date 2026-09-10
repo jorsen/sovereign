@@ -2151,27 +2151,24 @@ function renderGrowthSubmissions() {
   document.getElementById('sovereignGrowthEmptyState').classList.toggle('hidden', all.length !== 0);
   document.getElementById('sovereignGrowthNoMatchState').classList.toggle('hidden', all.length === 0 || submissions.length !== 0);
 
-  const grid = document.getElementById('sovereignGrowthGrid');
-  grid.innerHTML = submissions
+  const body = document.getElementById('sovereignGrowthBody');
+  body.innerHTML = submissions
     .map(
-      (s) => `
-    <div class="crusade-growth-card" data-growth-id="${s.id}">
-      <img class="crusade-growth-card-thumb" src="/api/growth-submissions/${s.id}/image" alt="${escapeHtml(s.ign)}'s growth rate screenshot" loading="lazy" data-view-growth-image="${s.id}">
-      <div class="crusade-growth-card-body">
-        <span class="crusade-growth-card-ign">${escapeHtml(s.ign)}</span>
-        <span class="crusade-growth-card-class">${escapeHtml(s.class)}</span>
-        <span class="crusade-growth-card-class">🔥 Volcano Lamp +${s.lampLevel ?? '?'}</span>
-        <div style="margin-top:4px;">${crusadeGuildBadge(s.guildName)}</div>
-        <div class="crusade-growth-card-meta">
-          <span>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : ''}</span>
-          <button type="button" class="icon-btn admin-only" data-delete-growth="${s.id}" title="Remove submission">✕</button>
-        </div>
-      </div>
-    </div>`
+      (s, i) => `
+    <tr data-growth-id="${s.id}">
+      <td>${i + 1}</td>
+      <td style="font-weight:600;">${escapeHtml(s.ign)}</td>
+      <td>${escapeHtml(s.class)}</td>
+      <td>${crusadeGuildBadge(s.guildName)}</td>
+      <td>+${s.lampLevel ?? '?'}</td>
+      <td><img class="crusade-growth-thumb" src="/api/growth-submissions/${s.id}/image" alt="${escapeHtml(s.ign)}'s growth rate screenshot" loading="lazy" data-view-growth-image="${s.id}"></td>
+      <td>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : '–'}</td>
+      <td class="admin-only"><button type="button" class="icon-btn" data-delete-growth="${s.id}" title="Remove submission">✕</button></td>
+    </tr>`
     )
     .join('');
 
-  grid.querySelectorAll('[data-view-growth-image]').forEach((img) => {
+  body.querySelectorAll('[data-view-growth-image]').forEach((img) => {
     img.addEventListener('click', () => {
       const id = img.getAttribute('data-view-growth-image');
       const s = submissions.find((x) => x.id === id);
@@ -2181,7 +2178,7 @@ function renderGrowthSubmissions() {
     });
   });
 
-  grid.querySelectorAll('[data-delete-growth]').forEach((btn) => {
+  body.querySelectorAll('[data-delete-growth]').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = btn.getAttribute('data-delete-growth');
