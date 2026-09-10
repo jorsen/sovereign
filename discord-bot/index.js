@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, EmbedBuilder } = require('discord.js');
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '1547642467728236706';
@@ -13,16 +13,107 @@ if (!DISCORD_TOKEN || !API_BASE || !BOT_SECRET) {
 
 // MessageContent is a privileged intent -- it must also be turned on for
 // this bot application under Developer Portal > Bot > Privileged Gateway
-// Intents, or every message arrives with an empty .content.
+// Intents, or every message arrives with an empty .content. It's only
+// needed for the free-text channel flow below, not for the /growth slash
+// command (interactions always carry their option values regardless).
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   partials: [Partials.Message, Partials.Channel],
 });
 
+// Shared by both submission paths (the /growth slash command and the plain
+// free-text channel message) -- downloads the screenshot and POSTs
+// everything to the app under one discordMessageId, which is what the
+// upsert-on-conflict in POST /api/growth-submissions/bot keys on.
+async function submitToApi({ discordMessageId, discordUserId, discordUsername, ign, className, attachmentUrl, attachmentContentType }) {
+  const imageResponse = await fetch(attachmentUrl);
+  if (!imageResponse.ok) throw new Error(`failed to download the attachment (${imageResponse.status})`);
+  const arrayBuffer = await imageResponse.arrayBuffer();
+  const imageBase64 = Buffer.from(arrayBuffer).toString('base64');
+  const imageContentType = attachmentContentType || 'image/png';
+
+  const res = await fetch(`${API_BASE}/api/growth-submissions/bot`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-bot-secret': BOT_SECRET },
+    body: JSON.stringify({
+      discordMessageId,
+      discordUserId,
+      discordUsername,
+      ign,
+      class: className,
+      imageBase64,
+      imageContentType,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `the app returned ${res.status}`);
+  }
+}
+
+// ---------- Path 1: /growth slash command ----------
+// The bot posts a confirmation message (with the screenshot) into the
+// growth-rate channel itself, then uses THAT message's id as the
+// discordMessageId -- so if a mod deletes that confirmation post later, the
+// existing messageDelete handler below cleans up the submission the same
+// way it already does for the free-text flow, with no separate code path.
+async function handleGrowthCommand(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const ign = interaction.options.getString('ign', true).trim();
+  const className = interaction.options.getString('class', true).trim();
+  const attachment = interaction.options.getAttachment('screenshot', true);
+
+  if (!(attachment.contentType || '').startsWith('image/')) {
+    await interaction.editReply('The screenshot attachment has to be an image.');
+    return;
+  }
+
+  const channel = await client.channels.fetch(CHANNEL_ID);
+  const embed = new EmbedBuilder()
+    .setTitle(ign)
+    .addFields({ name: 'Class', value: className })
+    .setImage(attachment.url)
+    .setFooter({ text: `Submitted by ${interaction.user.username}` })
+    .setTimestamp();
+  const posted = await channel.send({ embeds: [embed] });
+
+  try {
+    await submitToApi({
+      discordMessageId: posted.id,
+      discordUserId: interaction.user.id,
+      discordUsername: interaction.user.username,
+      ign,
+      className,
+      attachmentUrl: attachment.url,
+      attachmentContentType: attachment.contentType,
+    });
+    await interaction.editReply('✅ Saved — check the Growth Rate page.');
+  } catch (err) {
+    console.error('Failed to submit a growth entry via /growth:', err);
+    await posted.delete().catch(() => {});
+    await interaction.editReply(`Something went wrong saving this: ${err.message}`);
+  }
+}
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand() || interaction.commandName !== 'growth') return;
+  try {
+    await handleGrowthCommand(interaction);
+  } catch (err) {
+    console.error('Unhandled error in /growth:', err);
+    const reply = { content: 'Something went wrong. Please try again.' };
+    if (interaction.deferred || interaction.replied) await interaction.editReply(reply).catch(() => {});
+    else await interaction.reply({ ...reply, ephemeral: true }).catch(() => {});
+  }
+});
+
+// ---------- Path 2: plain free-text message in the channel ----------
 // Matches "IGN: whatever" / "Class: whatever" anywhere in the message,
 // case-insensitive, in either order, one per line -- `.` already excludes
 // newlines in JS regex, so this naturally stops at end-of-line without
-// needing the /s flag.
+// needing the /s flag. Kept alongside /growth for anyone who'd rather just
+// type it than fill in a command's fields.
 function parseSubmission(content) {
   const ignMatch = content.match(/ign\s*:\s*(.+)/i);
   const classMatch = content.match(/class\s*:\s*(.+)/i);
@@ -34,32 +125,6 @@ function parseSubmission(content) {
 
 function firstImageAttachment(message) {
   return message.attachments.find((a) => (a.contentType || '').startsWith('image/'));
-}
-
-async function submitToApi(message, ign, className, attachment) {
-  const imageResponse = await fetch(attachment.url);
-  if (!imageResponse.ok) throw new Error(`failed to download the attachment (${imageResponse.status})`);
-  const arrayBuffer = await imageResponse.arrayBuffer();
-  const imageBase64 = Buffer.from(arrayBuffer).toString('base64');
-  const imageContentType = attachment.contentType || 'image/png';
-
-  const res = await fetch(`${API_BASE}/api/growth-submissions/bot`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-bot-secret': BOT_SECRET },
-    body: JSON.stringify({
-      discordMessageId: message.id,
-      discordUserId: message.author.id,
-      discordUsername: message.author.username,
-      ign,
-      class: className,
-      imageBase64,
-      imageContentType,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `the app returned ${res.status}`);
-  }
 }
 
 async function handleMessage(message) {
@@ -78,7 +143,7 @@ async function handleMessage(message) {
     try {
       await message.react('❌');
       await message.reply(
-        `Missing ${missing.join(', ')}. Please post like:\n\`\`\`\nIGN: YourName\nClass: YourClass\n\`\`\`\n...with your Artifacts-tab growth rate screenshot attached.`
+        `Missing ${missing.join(', ')}. Use \`/growth\` instead, or post like:\n\`\`\`\nIGN: YourName\nClass: YourClass\n\`\`\`\n...with your Artifacts-tab growth rate screenshot attached.`
       );
     } catch (err) {
       console.error('Failed to notify about an incomplete submission:', err);
@@ -87,7 +152,15 @@ async function handleMessage(message) {
   }
 
   try {
-    await submitToApi(message, ign, className, attachment);
+    await submitToApi({
+      discordMessageId: message.id,
+      discordUserId: message.author.id,
+      discordUsername: message.author.username,
+      ign,
+      className,
+      attachmentUrl: attachment.url,
+      attachmentContentType: attachment.contentType,
+    });
     await message.react('✅');
   } catch (err) {
     console.error('Failed to submit a growth entry:', err);
@@ -114,8 +187,9 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
   }
 });
 
-// Deleting the source message removes the growth-rate entry too, rather than
-// leaving an orphaned submission with no way to trace it back.
+// Deleting the source message (whether it was a free-text submission or the
+// bot's own /growth confirmation post) removes the growth-rate entry too,
+// rather than leaving an orphaned submission with no way to trace it back.
 client.on('messageDelete', async (message) => {
   if (message.channelId !== CHANNEL_ID) return;
   try {

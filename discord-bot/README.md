@@ -34,25 +34,41 @@ Fill in `.env`:
   the shared secret the bot uses to authenticate its API calls — anyone who
   has it could post fake submissions, so treat it like a password.
 
-## 3. Run it
+## 3. Register the /growth slash command
 
 ```
 npm install
+node register-commands.js
+```
+
+This needs `DISCORD_CLIENT_ID` (Developer Portal → General Information →
+Application ID) in `.env`. Also set `DISCORD_GUILD_ID` (your server's ID)
+if you want the command to show up instantly instead of waiting up to an
+hour for a global command to propagate.
+
+## 4. Run it
+
+```
 npm start
 ```
 
 You should see `Logged in as <BotName> — watching channel ...` in the
-console. Post a message like this in the channel:
+console. Members can now submit either way:
 
-```
-IGN: RTXCJKIL
-Class: Ultimate Martialist
-```
-...with the Artifacts-tab screenshot attached, and the bot should react ✅
-and it'll show up on the Sovereign app's Growth Rate page. If something's
-missing it reacts ❌ and replies explaining what.
+- **`/growth`** — fills in `ign`, `class`, and `screenshot` as proper
+  command fields (recommended: no risk of a typo'd label or a forgotten
+  attachment).
+- **Plain message** in the channel:
+  ```
+  IGN: RTXCJKIL
+  Class: Ultimate Martialist
+  ```
+  ...with the Artifacts-tab screenshot attached.
 
-## 4. Keep it running (hosting)
+Either way the bot reacts ✅ (or replies explaining what's missing) and it
+shows up on the Sovereign app's Growth Rate page.
+
+## 5. Keep it running (hosting)
 
 This bot needs a persistent process (it holds a live connection to Discord),
 so it can't run on Vercel's serverless functions the way the main app does.

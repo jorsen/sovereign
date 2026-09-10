@@ -1,0 +1,44 @@
+// One-time (or whenever the command definition changes) setup script --
+// registers /growth with Discord. Run with: node register-commands.js
+require('dotenv').config();
+const { REST, Routes, SlashCommandBuilder } = require('discord.js');
+
+const commands = [
+  new SlashCommandBuilder()
+    .setName('growth')
+    .setDescription('Submit your growth rate to the Growth Rate list')
+    .addStringOption((opt) => opt.setName('ign').setDescription('Your in-game name').setRequired(true))
+    .addStringOption((opt) => opt.setName('class').setDescription('Your class').setRequired(true))
+    .addAttachmentOption((opt) =>
+      opt.setName('screenshot').setDescription('Character Details > Artifacts tab screenshot').setRequired(true)
+    )
+    .toJSON(),
+];
+
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
+
+if (!DISCORD_TOKEN || !CLIENT_ID) {
+  console.error('DISCORD_TOKEN and DISCORD_CLIENT_ID are both required (see .env.example).');
+  process.exit(1);
+}
+
+const rest = new REST().setToken(DISCORD_TOKEN);
+
+(async () => {
+  if (GUILD_ID) {
+    // Guild-scoped commands show up instantly -- use this while testing, or
+    // permanently if the bot only ever lives in one server.
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    console.log(`Registered /growth for guild ${GUILD_ID} (instant).`);
+  } else {
+    // Global commands can take up to an hour to appear everywhere the bot
+    // is installed.
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log('Registered /growth globally (can take up to an hour to show up).');
+  }
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
