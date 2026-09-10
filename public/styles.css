@@ -879,6 +879,19 @@ select:focus, input:focus, textarea:focus {
   background: var(--surface-1);
 }
 
+/* One row per boss within a World Boss Attendance Log day-card. */
+.crusade-world-boss-day-row + .crusade-world-boss-day-row {
+  border-top: 1px solid var(--border);
+}
+.crusade-world-boss-day-row-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+
 .crusade-party-card {
   /* Grid items default to a content-based min-width, so a wide table inside
      would otherwise stretch the card (and its column) past the track

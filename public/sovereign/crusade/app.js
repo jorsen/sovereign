@@ -2425,27 +2425,55 @@ function renderWorldBossLog() {
   const events = sovereignState.worldBossEvents || [];
   document.getElementById('worldBossLogEmptyState').classList.toggle('hidden', events.length !== 0);
   const list = document.getElementById('worldBossLogList');
-  list.innerHTML = events
-    .map(
-      (ev) => `
-    <div class="crusade-party-card">
-      <div class="crusade-party-card-header" style="cursor:pointer;" data-toggle-world-boss-log="${ev.id}">
-        <h3 style="margin:0;">${escapeHtml(ev.bossName)} — ${formatLongDate(String(ev.eventDate).slice(0, 10))} <span style="color:var(--text-muted); font-weight:400;">(${ev.attendees.length} attended)</span></h3>
-        <div class="admin-only" style="display:flex; gap:6px;">
-          <button type="button" class="icon-btn" data-edit-world-boss="${ev.id}" title="Edit">✎</button>
-          <button type="button" class="icon-btn" data-delete-world-boss="${ev.id}" title="Remove">✕</button>
+
+  // Grouped by date -- the API already returns events newest-date-first, and
+  // that order is preserved going into the Map, so Array.from(...) below
+  // stays newest-first without needing to re-sort.
+  const byDate = new Map();
+  events.forEach((ev) => {
+    const dateKey = String(ev.eventDate).slice(0, 10);
+    if (!byDate.has(dateKey)) byDate.set(dateKey, []);
+    byDate.get(dateKey).push(ev);
+  });
+
+  function attendeeBadges(attendees) {
+    return attendees
+      .map((a) => {
+        const color = a.guildName ? crusadeGuildColor(a.guildName) || 'var(--text-muted)' : 'var(--text-muted)';
+        return `<span class="crusade-guild-badge" style="color:${color}; border-color:${color};" title="${escapeHtml(a.guildName || '')}">${escapeHtml(a.name)}</span>`;
+      })
+      .join('');
+  }
+
+  list.innerHTML = Array.from(byDate.entries())
+    .map(([dateKey, dayEvents]) => {
+      const totalAttended = new Set(dayEvents.flatMap((ev) => ev.attendees.map((a) => a.name.toLowerCase()))).size;
+      const bossRows = dayEvents
+        .map(
+          (ev) => `
+        <div class="crusade-world-boss-day-row">
+          <div class="crusade-world-boss-day-row-header" data-toggle-world-boss-log="${ev.id}">
+            <span style="font-weight:600;">${escapeHtml(ev.bossName)}</span>
+            <span style="color:var(--text-muted);">${ev.attendees.length} attended</span>
+            <div class="admin-only" style="display:flex; gap:6px; margin-left:auto;">
+              <button type="button" class="icon-btn" data-edit-world-boss="${ev.id}" title="Edit">✎</button>
+              <button type="button" class="icon-btn" data-delete-world-boss="${ev.id}" title="Remove">✕</button>
+            </div>
+          </div>
+          <div class="hidden" id="worldBossAttendees-${ev.id}" style="padding:8px 0 4px; display:flex; flex-wrap:wrap; gap:8px;">
+            ${attendeeBadges(ev.attendees)}
+          </div>
+        </div>`
+        )
+        .join('');
+      return `
+      <div class="crusade-party-card">
+        <div class="crusade-party-card-header">
+          <h3 style="margin:0;">${formatLongDate(dateKey)} <span style="color:var(--text-muted); font-weight:400;">(${dayEvents.length} boss${dayEvents.length === 1 ? '' : 'es'}, ${totalAttended} unique attendee${totalAttended === 1 ? '' : 's'})</span></h3>
         </div>
-      </div>
-      <div class="hidden" id="worldBossAttendees-${ev.id}" style="padding:10px 16px 14px; display:flex; flex-wrap:wrap; gap:8px;">
-        ${ev.attendees
-          .map((a) => {
-            const color = a.guildName ? crusadeGuildColor(a.guildName) || 'var(--text-muted)' : 'var(--text-muted)';
-            return `<span class="crusade-guild-badge" style="color:${color}; border-color:${color};" title="${escapeHtml(a.guildName || '')}">${escapeHtml(a.name)}</span>`;
-          })
-          .join('')}
-      </div>
-    </div>`
-    )
+        <div style="padding:0 16px 12px;">${bossRows}</div>
+      </div>`;
+    })
     .join('');
 
   list.querySelectorAll('[data-toggle-world-boss-log]').forEach((header) => {
