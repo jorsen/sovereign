@@ -8,7 +8,7 @@
 // result, diamond reward, attendance %, notes, items and fees -- so two
 // teams sharing a crusade's date can have completely different outcomes.
 // mode tracks which crusade-scoped page is active: 'overview' | 'team' | 'guildSalary'.
-const sovereignState = { crusades: [], guilds: [], crusadeId: null, crusade: null, participants: [], teams: [], memberList: [], defaultFees: [], raffleWinners: [], raffleActivity: [], activeTeam: null, mode: null };
+const sovereignState = { crusades: [], guilds: [], crusadeId: null, crusade: null, participants: [], teams: [], memberList: [], defaultFees: [], raffleWinners: [], raffleActivity: [], growthSubmissions: [], activeTeam: null, mode: null };
 
 function crusadeFormatDiamonds(amount) {
   return `${Math.round(amount || 0).toLocaleString()} 💎`;
@@ -147,6 +147,12 @@ function route() {
     loadRaffle().catch((err) => toast(err.message));
     return;
   }
+  if (hash === 'growth') {
+    sovereignState.mode = null;
+    showPanel('growth');
+    loadGrowthSubmissions().catch((err) => toast(err.message));
+    return;
+  }
   if (teamMatch) {
     sovereignState.crusadeId = crusadeIdFromHashSegment(teamMatch[1]);
     sovereignState.activeTeam = Number(teamMatch[2]);
@@ -176,9 +182,10 @@ function showPanel(name) {
   document.getElementById('sovereignTeamPanel').classList.toggle('hidden', name !== 'team');
   document.getElementById('sovereignMembersPanel').classList.toggle('hidden', name !== 'members');
   document.getElementById('sovereignRafflePanel').classList.toggle('hidden', name !== 'raffle');
+  document.getElementById('sovereignGrowthPanel').classList.toggle('hidden', name !== 'growth');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (name === 'list' || name === 'members' || name === 'raffle') document.title = 'Sovereign — Crusade';
+  if (name === 'list' || name === 'members' || name === 'raffle' || name === 'growth') document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -2088,6 +2095,67 @@ function renderMemberList() {
         if (idx !== -1) sovereignState.memberList[idx] = updated;
         renderMemberList();
         toast('Member renamed');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+}
+
+// ---------- Growth Rate submissions (populated by the Discord bot) ----------
+// Read-only from this page's point of view -- the bot in the growth-rate
+// Discord channel is what actually creates/updates/deletes these; admins can
+// only remove a bad one here (e.g. wrong IGN typed in the Discord message).
+
+async function loadGrowthSubmissions() {
+  const submissions = await api('/api/growth-submissions');
+  sovereignState.growthSubmissions = submissions;
+  renderGrowthSubmissions();
+}
+
+function renderGrowthSubmissions() {
+  const submissions = sovereignState.growthSubmissions || [];
+  document.getElementById('sovereignGrowthEmptyState').classList.toggle('hidden', submissions.length !== 0);
+
+  const grid = document.getElementById('sovereignGrowthGrid');
+  grid.innerHTML = submissions
+    .map(
+      (s) => `
+    <div class="crusade-growth-card" data-growth-id="${s.id}">
+      <img class="crusade-growth-card-thumb" src="/api/growth-submissions/${s.id}/image" alt="${escapeHtml(s.ign)}'s growth rate screenshot" loading="lazy" data-view-growth-image="${s.id}">
+      <div class="crusade-growth-card-body">
+        <span class="crusade-growth-card-ign">${escapeHtml(s.ign)}</span>
+        <span class="crusade-growth-card-class">${escapeHtml(s.class)}</span>
+        <div class="crusade-growth-card-meta">
+          <span>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : ''}</span>
+          <button type="button" class="icon-btn admin-only" data-delete-growth="${s.id}" title="Remove submission">✕</button>
+        </div>
+      </div>
+    </div>`
+    )
+    .join('');
+
+  grid.querySelectorAll('[data-view-growth-image]').forEach((img) => {
+    img.addEventListener('click', () => {
+      const id = img.getAttribute('data-view-growth-image');
+      const s = submissions.find((x) => x.id === id);
+      document.getElementById('growthImageModalTitle').textContent = s ? `${s.ign} — ${s.class}` : '';
+      document.getElementById('growthImageModalImg').src = `/api/growth-submissions/${id}/image`;
+      document.getElementById('growthImageModal').classList.remove('hidden');
+    });
+  });
+
+  grid.querySelectorAll('[data-delete-growth]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-delete-growth');
+      const s = submissions.find((x) => x.id === id);
+      if (!confirm(`Remove the growth-rate submission for "${s?.ign}"?`)) return;
+      try {
+        await api(`/api/growth-submissions/${id}`, { method: 'DELETE' });
+        sovereignState.growthSubmissions = sovereignState.growthSubmissions.filter((x) => x.id !== id);
+        renderGrowthSubmissions();
+        toast('Submission removed');
       } catch (err) {
         toast(err.message);
       }

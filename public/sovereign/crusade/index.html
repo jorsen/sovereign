@@ -28,6 +28,7 @@
           <a href="#" data-panel="list" class="nav-link" data-i18n="sovereign.nav.crusades">Crusades</a>
           <a href="#members" data-panel="members" class="nav-link" data-i18n="sovereign.nav.members">Member List</a>
           <a href="#raffle" data-panel="raffle" class="nav-link" data-i18n="sovereign.nav.raffle">Raffle</a>
+          <a href="#growth" data-panel="growth" class="nav-link" data-i18n="sovereign.nav.growth">Growth Rate</a>
         </nav>
       </div>
       <div class="topbar-right">
@@ -380,9 +381,28 @@
         <div id="raffleActivityList" style="display:flex; flex-direction:column; gap:6px;"></div>
       </section>
     </div>
+
+    <!-- ===================== GROWTH RATE PANEL ===================== -->
+    <div id="sovereignGrowthPanel" class="hidden">
+      <div class="view-header space-between">
+        <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.growth.hint">Posted by the Discord bot from the growth-rate channel — post your IGN, Class, and an Artifacts-tab screenshot there and it shows up here automatically.</p>
+      </div>
+      <section class="panel">
+        <div class="crusade-growth-grid" id="sovereignGrowthGrid"></div>
+        <p id="sovereignGrowthEmptyState" class="empty-state hidden" data-i18n="sovereign.growth.empty">No submissions yet — post in the growth-rate Discord channel to show up here.</p>
+      </section>
+    </div>
   </div>
 
   <!-- ===================== MODALS ===================== -->
+
+  <div id="growthImageModal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:min(90vw, 900px); text-align:center;">
+      <button class="modal-close" data-close="growthImageModal" aria-label="Close">×</button>
+      <h2 id="growthImageModalTitle" style="margin-top:0;"></h2>
+      <img id="growthImageModalImg" src="" alt="" style="max-width:100%; max-height:78vh; border-radius:6px;">
+    </div>
+  </div>
 
   <div id="manageCrusadeGuildsModal" class="modal-overlay hidden">
     <div class="modal">

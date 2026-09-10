@@ -1,0 +1,17 @@
+{
+  "name": "sovereign-growth-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Discord bot that watches the growth-rate channel and posts IGN/Class/screenshot submissions into the Sovereign app.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

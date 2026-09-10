@@ -277,6 +277,9 @@ const TRANSLATIONS = {
     'sovereign.nav.crusades': 'Crusades',
     'sovereign.nav.members': 'Member List',
     'sovereign.nav.raffle': 'Raffle',
+    'sovereign.nav.growth': 'Growth Rate',
+    'sovereign.growth.hint': 'Posted by the Discord bot from the growth-rate channel — post your IGN, Class, and an Artifacts-tab screenshot there and it shows up here automatically.',
+    'sovereign.growth.empty': 'No submissions yet — post in the growth-rate Discord channel to show up here.',
 
     'sovereign.common.name': 'Name',
     'sovereign.common.date': 'Date',
