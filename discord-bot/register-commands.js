@@ -9,6 +9,18 @@ const commands = [
     .setDescription('Submit your growth rate to the Growth Rate list')
     .addStringOption((opt) => opt.setName('ign').setDescription('Your in-game name').setRequired(true))
     .addStringOption((opt) => opt.setName('class').setDescription('Your class').setRequired(true))
+    .addStringOption((opt) =>
+      opt
+        .setName('guild')
+        .setDescription('Your guild')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Helloシ', value: 'Helloシ' },
+          { name: '貓貓客棧', value: '貓貓客棧' },
+          { name: '巫女組', value: '巫女組' },
+          { name: 'CAPITAL', value: 'CAPITAL' }
+        )
+    )
     .addAttachmentOption((opt) =>
       opt.setName('screenshot').setDescription('Character Details > Artifacts tab screenshot').setRequired(true)
     )

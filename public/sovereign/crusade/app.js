@@ -2108,8 +2108,9 @@ function renderMemberList() {
 // only remove a bad one here (e.g. wrong IGN typed in the Discord message).
 
 async function loadGrowthSubmissions() {
-  const submissions = await api('/api/growth-submissions');
+  const [submissions, guilds] = await Promise.all([api('/api/growth-submissions'), api('/api/crusade-guilds')]);
   sovereignState.growthSubmissions = submissions;
+  sovereignState.guilds = guilds;
   renderGrowthSubmissions();
 }
 
@@ -2126,6 +2127,7 @@ function renderGrowthSubmissions() {
       <div class="crusade-growth-card-body">
         <span class="crusade-growth-card-ign">${escapeHtml(s.ign)}</span>
         <span class="crusade-growth-card-class">${escapeHtml(s.class)}</span>
+        <div style="margin-top:4px;">${crusadeGuildBadge(s.guildName)}</div>
         <div class="crusade-growth-card-meta">
           <span>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : ''}</span>
           <button type="button" class="icon-btn admin-only" data-delete-growth="${s.id}" title="Remove submission">✕</button>
@@ -2139,7 +2141,7 @@ function renderGrowthSubmissions() {
     img.addEventListener('click', () => {
       const id = img.getAttribute('data-view-growth-image');
       const s = submissions.find((x) => x.id === id);
-      document.getElementById('growthImageModalTitle').textContent = s ? `${s.ign} — ${s.class}` : '';
+      document.getElementById('growthImageModalTitle').textContent = s ? `${s.ign} — ${s.class} (${s.guildName || 'Unassigned'})` : '';
       document.getElementById('growthImageModalImg').src = `/api/growth-submissions/${id}/image`;
       document.getElementById('growthImageModal').classList.remove('hidden');
     });

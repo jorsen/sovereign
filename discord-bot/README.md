@@ -1,8 +1,9 @@
 # Sovereign Growth Rate bot
 
-Watches one Discord channel for messages containing `IGN:`, `Class:`, and a
-screenshot attachment, and saves each as a submission in the Sovereign app
-(visible on its **Growth Rate** page).
+Watches one Discord channel for messages containing `IGN:`, `Class:`,
+`Guild:`, and a screenshot attachment (or the `/uniongr` slash command),
+and saves each as a submission in the Sovereign app (visible on its
+**Growth Rate** page).
 
 ## 1. Create the Discord bot application
 
@@ -55,15 +56,17 @@ npm start
 You should see `Logged in as <BotName> — watching channel ...` in the
 console. Members can now submit either way:
 
-- **`/uniongr`** — fills in `ign`, `class`, and `screenshot` as proper
-  command fields (recommended: no risk of a typo'd label or a forgotten
-  attachment).
+- **`/uniongr`** — fills in `ign`, `class`, `guild` (a dropdown of the four
+  guilds), and `screenshot` as proper command fields (recommended: no risk
+  of a typo'd label or a forgotten attachment).
 - **Plain message** in the channel:
   ```
   IGN: RTXCJKIL
   Class: Ultimate Martialist
+  Guild: Helloシ
   ```
-  ...with the Artifacts-tab screenshot attached.
+  ...with the Artifacts-tab screenshot attached. `Guild:` must match one of
+  Helloシ, 貓貓客棧, 巫女組, or CAPITAL (case-insensitive).
 
 Either way the bot reacts ✅ (or replies explaining what's missing) and it
 shows up on the Sovereign app's Growth Rate page.

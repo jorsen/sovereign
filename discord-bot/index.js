@@ -11,6 +11,10 @@ if (!DISCORD_TOKEN || !API_BASE || !BOT_SECRET) {
   process.exit(1);
 }
 
+// Kept in sync with register-commands.js's /uniongr guild choices and with
+// the Sovereign app's own server-side check on POST /api/growth-submissions/bot.
+const VALID_GUILDS = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL'];
+
 // MessageContent is a privileged intent -- it must also be turned on for
 // this bot application under Developer Portal > Bot > Privileged Gateway
 // Intents, or every message arrives with an empty .content. It's only
@@ -25,7 +29,7 @@ const client = new Client({
 // free-text channel message) -- downloads the screenshot and POSTs
 // everything to the app under one discordMessageId, which is what the
 // upsert-on-conflict in POST /api/growth-submissions/bot keys on.
-async function submitToApi({ discordMessageId, discordUserId, discordUsername, ign, className, attachmentUrl, attachmentContentType }) {
+async function submitToApi({ discordMessageId, discordUserId, discordUsername, ign, className, guildName, attachmentUrl, attachmentContentType }) {
   const imageResponse = await fetch(attachmentUrl);
   if (!imageResponse.ok) throw new Error(`failed to download the attachment (${imageResponse.status})`);
   const arrayBuffer = await imageResponse.arrayBuffer();
@@ -41,6 +45,7 @@ async function submitToApi({ discordMessageId, discordUserId, discordUsername, i
       discordUsername,
       ign,
       class: className,
+      guildName,
       imageBase64,
       imageContentType,
     }),
@@ -62,17 +67,25 @@ async function handleGrowthCommand(interaction) {
 
   const ign = interaction.options.getString('ign', true).trim();
   const className = interaction.options.getString('class', true).trim();
+  const guildName = interaction.options.getString('guild', true);
   const attachment = interaction.options.getAttachment('screenshot', true);
 
   if (!(attachment.contentType || '').startsWith('image/')) {
     await interaction.editReply('The screenshot attachment has to be an image.');
     return;
   }
+  // The command's own .addChoices() already constrains this in the Discord
+  // UI, but a stale client cache or a raw API call could still send
+  // something else -- worth a clear error instead of an opaque 400 later.
+  if (!VALID_GUILDS.includes(guildName)) {
+    await interaction.editReply(`Guild must be one of: ${VALID_GUILDS.join(', ')}`);
+    return;
+  }
 
   const channel = await client.channels.fetch(CHANNEL_ID);
   const embed = new EmbedBuilder()
     .setTitle(ign)
-    .addFields({ name: 'Class', value: className })
+    .addFields({ name: 'Class', value: className, inline: true }, { name: 'Guild', value: guildName, inline: true })
     .setImage(attachment.url)
     .setFooter({ text: `Submitted by ${interaction.user.username}` })
     .setTimestamp();
@@ -85,6 +98,7 @@ async function handleGrowthCommand(interaction) {
       discordUsername: interaction.user.username,
       ign,
       className,
+      guildName,
       attachmentUrl: attachment.url,
       attachmentContentType: attachment.contentType,
     });
@@ -117,9 +131,16 @@ client.on('interactionCreate', async (interaction) => {
 function parseSubmission(content) {
   const ignMatch = content.match(/ign\s*:\s*(.+)/i);
   const classMatch = content.match(/class\s*:\s*(.+)/i);
+  const guildMatch = content.match(/guild\s*:\s*(.+)/i);
+  const guildRaw = guildMatch ? guildMatch[1].trim() : null;
+  // Case-insensitive match against the known guild list -- but stores the
+  // canonical spelling/casing from VALID_GUILDS, not whatever casing/
+  // whitespace the person happened to type.
+  const guildName = guildRaw ? VALID_GUILDS.find((g) => g.toLowerCase() === guildRaw.toLowerCase()) || null : null;
   return {
     ign: ignMatch ? ignMatch[1].trim() : null,
     className: classMatch ? classMatch[1].trim() : null,
+    guildName,
   };
 }
 
@@ -131,19 +152,20 @@ async function handleMessage(message) {
   if (message.channelId !== CHANNEL_ID) return;
   if (message.author?.bot) return;
 
-  const { ign, className } = parseSubmission(message.content || '');
+  const { ign, className, guildName } = parseSubmission(message.content || '');
   const attachment = firstImageAttachment(message);
 
   const missing = [];
   if (!ign) missing.push('`IGN:`');
   if (!className) missing.push('`Class:`');
+  if (!guildName) missing.push(`\`Guild:\` (one of ${VALID_GUILDS.join(', ')})`);
   if (!attachment) missing.push('a screenshot attachment');
 
   if (missing.length) {
     try {
       await message.react('❌');
       await message.reply(
-        `Missing ${missing.join(', ')}. Use \`/uniongr\` instead, or post like:\n\`\`\`\nIGN: YourName\nClass: YourClass\n\`\`\`\n...with your Artifacts-tab growth rate screenshot attached.`
+        `Missing ${missing.join(', ')}. Use \`/uniongr\` instead, or post like:\n\`\`\`\nIGN: YourName\nClass: YourClass\nGuild: YourGuild\n\`\`\`\n...with your Artifacts-tab growth rate screenshot attached.`
       );
     } catch (err) {
       console.error('Failed to notify about an incomplete submission:', err);
@@ -158,6 +180,7 @@ async function handleMessage(message) {
       discordUsername: message.author.username,
       ign,
       className,
+      guildName,
       attachmentUrl: attachment.url,
       attachmentContentType: attachment.contentType,
     });
