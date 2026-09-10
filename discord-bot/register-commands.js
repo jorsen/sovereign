@@ -8,7 +8,26 @@ const commands = [
     .setName('uniongr')
     .setDescription('Submit your growth rate to the Growth Rate list')
     .addStringOption((opt) => opt.setName('ign').setDescription('Your in-game name').setRequired(true))
-    .addStringOption((opt) => opt.setName('class').setDescription('Your class').setRequired(true))
+    .addStringOption((opt) =>
+      opt
+        .setName('class')
+        .setDescription('Your class (4th advancement)')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Ultimate Martialist', value: 'Ultimate Martialist' },
+          { name: 'Soul Reaper', value: 'Soul Reaper' },
+          { name: 'Storm Hawkeye', value: 'Storm Hawkeye' },
+          { name: 'Divine Priest', value: 'Divine Priest' },
+          { name: 'Mighty Demolisher', value: 'Mighty Demolisher' },
+          { name: 'Mystic Luminary', value: 'Mystic Luminary' },
+          { name: 'Crusader', value: 'Crusader' },
+          { name: 'Bloody Enforcer', value: 'Bloody Enforcer' },
+          { name: 'Fatal Lord', value: 'Fatal Lord' },
+          { name: 'Eternal Commander', value: 'Eternal Commander' },
+          { name: 'Prime Savior', value: 'Prime Savior' },
+          { name: 'Grand Wizard', value: 'Grand Wizard' }
+        )
+    )
     .addStringOption((opt) =>
       opt
         .setName('guild')

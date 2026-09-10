@@ -15,6 +15,24 @@ if (!DISCORD_TOKEN || !API_BASE || !BOT_SECRET) {
 // the Sovereign app's own server-side check on POST /api/growth-submissions/bot.
 const VALID_GUILDS = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL'];
 
+// Kept in sync with register-commands.js's /uniongr class choices -- every
+// 4th-advancement (final tier) class name, since that's the only tier this
+// list tracks.
+const VALID_CLASSES = [
+  'Ultimate Martialist',
+  'Soul Reaper',
+  'Storm Hawkeye',
+  'Divine Priest',
+  'Mighty Demolisher',
+  'Mystic Luminary',
+  'Crusader',
+  'Bloody Enforcer',
+  'Fatal Lord',
+  'Eternal Commander',
+  'Prime Savior',
+  'Grand Wizard',
+];
+
 // MessageContent is a privileged intent -- it must also be turned on for
 // this bot application under Developer Portal > Bot > Privileged Gateway
 // Intents, or every message arrives with an empty .content. It's only
@@ -74,11 +92,15 @@ async function handleGrowthCommand(interaction) {
     await interaction.editReply('The screenshot attachment has to be an image.');
     return;
   }
-  // The command's own .addChoices() already constrains this in the Discord
+  // The command's own .addChoices() already constrains these in the Discord
   // UI, but a stale client cache or a raw API call could still send
   // something else -- worth a clear error instead of an opaque 400 later.
   if (!VALID_GUILDS.includes(guildName)) {
     await interaction.editReply(`Guild must be one of: ${VALID_GUILDS.join(', ')}`);
+    return;
+  }
+  if (!VALID_CLASSES.includes(className)) {
+    await interaction.editReply(`Class must be one of: ${VALID_CLASSES.join(', ')}`);
     return;
   }
 
@@ -133,13 +155,15 @@ function parseSubmission(content) {
   const classMatch = content.match(/class\s*:\s*(.+)/i);
   const guildMatch = content.match(/guild\s*:\s*(.+)/i);
   const guildRaw = guildMatch ? guildMatch[1].trim() : null;
-  // Case-insensitive match against the known guild list -- but stores the
-  // canonical spelling/casing from VALID_GUILDS, not whatever casing/
-  // whitespace the person happened to type.
+  const classRaw = classMatch ? classMatch[1].trim() : null;
+  // Case-insensitive match against the known lists -- but stores the
+  // canonical spelling/casing from VALID_GUILDS/VALID_CLASSES, not whatever
+  // casing/whitespace the person happened to type.
   const guildName = guildRaw ? VALID_GUILDS.find((g) => g.toLowerCase() === guildRaw.toLowerCase()) || null : null;
+  const className = classRaw ? VALID_CLASSES.find((c) => c.toLowerCase() === classRaw.toLowerCase()) || null : null;
   return {
     ign: ignMatch ? ignMatch[1].trim() : null,
-    className: classMatch ? classMatch[1].trim() : null,
+    className,
     guildName,
   };
 }
@@ -157,7 +181,7 @@ async function handleMessage(message) {
 
   const missing = [];
   if (!ign) missing.push('`IGN:`');
-  if (!className) missing.push('`Class:`');
+  if (!className) missing.push(`\`Class:\` (one of ${VALID_CLASSES.join(', ')})`);
   if (!guildName) missing.push(`\`Guild:\` (one of ${VALID_GUILDS.join(', ')})`);
   if (!attachment) missing.push('a screenshot attachment');
 
