@@ -2322,8 +2322,7 @@ async function loadWorldBossAttendance() {
   sovereignState.guilds = guilds;
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
-  renderWorldBossSummary();
-  renderWorldBossLog();
+  renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
 }
 
 // Whoever's posted a Growth Rate submission (deduped by IGN, case-
@@ -2395,11 +2394,17 @@ function renderWorldBossMemberGrid(selectedNames) {
     .join('');
 }
 
-// One row per person who's ever attended at least one logged event, ranked
-// by total attendance count -- out of every event logged, not just ones for
-// a specific boss, since the ask was to track overall World Boss turnout.
+// One row per person who attended at least one event in the month the
+// calendar is currently showing, ranked by attendance count within that
+// month -- scoped to the visible month rather than all-time history, so
+// switching months actually changes what this shows.
 function computeWorldBossSummary() {
-  const events = sovereignState.worldBossEvents || [];
+  const year = worldBossCalendarMonth.getFullYear();
+  const month = worldBossCalendarMonth.getMonth();
+  const events = (sovereignState.worldBossEvents || []).filter((ev) => {
+    const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
   const totalEvents = events.length;
   const byName = new Map();
   events.forEach((ev) => {
@@ -2416,6 +2421,10 @@ function computeWorldBossSummary() {
 
 function renderWorldBossSummary() {
   const { totalEvents, rows } = computeWorldBossSummary();
+  document.getElementById('worldBossSummaryHint').textContent = `For ${worldBossCalendarMonth.toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  })} only.`;
   document.getElementById('worldBossSummaryEmptyState').classList.toggle('hidden', rows.length !== 0);
   const body = document.getElementById('worldBossSummaryBody');
   body.innerHTML = rows
@@ -2464,6 +2473,7 @@ function renderWorldBossLog() {
   renderWorldBossCalendarGrid(byDate);
   renderWorldBossDayDetail(byDate);
   renderWorldBossMonthlyLoot();
+  renderWorldBossSummary();
 }
 
 // Every loot item dropped by every boss logged in the month the calendar is
@@ -2674,8 +2684,7 @@ function renderWorldBossDayDetail(byDate) {
       try {
         await api(`/api/world-boss-attendance/${id}`, { method: 'DELETE' });
         sovereignState.worldBossEvents = sovereignState.worldBossEvents.filter((x) => x.id !== id);
-        renderWorldBossSummary();
-        renderWorldBossLog();
+        renderWorldBossLog(); // also re-renders the attendance summary
         toast('Attendance record removed');
       } catch (err) {
         toast(err.message);
@@ -2798,8 +2807,7 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
     const [y, m] = payload.eventDate.split('-').map(Number);
     worldBossCalendarMonth = new Date(y, m - 1, 1);
     worldBossSelectedDate = payload.eventDate;
-    renderWorldBossSummary();
-    renderWorldBossLog();
+    renderWorldBossLog(); // also re-renders the attendance summary
   } catch (err) {
     toast(err.message);
   }
