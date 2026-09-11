@@ -306,6 +306,7 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.thQuantity': 'Quantity',
     'sovereign.worldBoss.thCrows': 'Crows',
     'sovereign.worldBoss.thDiamonds': 'Diamonds',
+    'sovereign.worldBoss.thTotal': 'Total',
     'sovereign.worldBoss.bossLabel': 'Boss',
     'sovereign.worldBoss.checkHint': 'Check off everyone who attended.',
     'sovereign.worldBoss.cancelEdit': 'Cancel Edit',

@@ -2494,6 +2494,25 @@ function renderWorldBossMonthlyLoot() {
     </tr>`
     )
     .join('');
+
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.quantity += r.item.quantity || 0;
+      acc.crows += r.item.crowsValue || 0;
+      acc.diamonds += r.item.diamondsValue || 0;
+      return acc;
+    },
+    { quantity: 0, crows: 0, diamonds: 0 }
+  );
+  const totalsRow = document.getElementById('worldBossMonthlyLootTotals');
+  totalsRow.classList.toggle('hidden', rows.length === 0);
+  totalsRow.innerHTML = rows.length
+    ? `
+    <td colspan="3" style="text-align:right; font-weight:600;">${t('sovereign.worldBoss.thTotal')}</td>
+    <td style="font-weight:600;">${totals.quantity.toLocaleString()}</td>
+    <td style="font-weight:600;">${formatLootValue(totals.crows)}</td>
+    <td style="font-weight:600;">${formatLootValue(totals.diamonds)}</td>`
+    : '';
 }
 
 function renderWorldBossCalendarGrid(byDate) {
