@@ -857,6 +857,27 @@ select:focus, input:focus, textarea:focus {
   border: 1px solid var(--border);
   font-weight: 500;
 }
+/* Loot Details table only -- the merged summary above has no single
+   Boss/Date per row, so these only show up in the un-merged detail list. */
+.crusade-loot-table .crusade-loot-boss { font-weight: 600; white-space: nowrap; }
+.crusade-loot-table .crusade-loot-date { color: var(--text-muted); white-space: nowrap; }
+.crusade-loot-sold-toggle {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.crusade-loot-sold-toggle.is-sold {
+  background: rgba(74,222,128,0.16);
+  border-color: rgba(74,222,128,0.4);
+  color: var(--good);
+}
+.crusade-loot-sold-toggle.is-unsold:hover { border-color: var(--text-muted); }
 /* Mintable items -- blue badge instead of the neutral default, in both the
    monthly loot table and the day-detail loot card. */
 .crusade-loot-item-badge.is-mintable {

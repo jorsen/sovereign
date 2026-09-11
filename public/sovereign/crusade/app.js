@@ -2479,6 +2479,7 @@ function renderWorldBossLog() {
   renderWorldBossCalendarGrid(byDate);
   renderWorldBossDayDetail(byDate);
   renderWorldBossMonthlyLoot();
+  renderWorldBossLootDetails();
   renderWorldBossSummary();
 }
 
@@ -2607,6 +2608,68 @@ function renderWorldBossMonthlyLoot() {
     : '';
 }
 
+// One row per individual drop (not merged by item name like the summary
+// above) for the month the calendar is showing -- the un-merged Boss/Date
+// detail plus a per-drop Sold/Not Sold status, since two copies of the same
+// item can have different outcomes.
+function renderWorldBossLootDetails() {
+  const year = worldBossCalendarMonth.getFullYear();
+  const month = worldBossCalendarMonth.getMonth();
+
+  const rows = [];
+  (sovereignState.worldBossEvents || [])
+    .filter((ev) => {
+      const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
+      return d.getFullYear() === year && d.getMonth() === month;
+    })
+    .forEach((ev) => {
+      (ev.lootItems || []).forEach((item) => {
+        rows.push({ eventId: ev.id, bossName: ev.bossName, eventDate: ev.eventDate, item });
+      });
+    });
+  rows.sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)) || a.bossName.localeCompare(b.bossName));
+
+  document.getElementById('worldBossLootDetailsEmptyState').classList.toggle('hidden', rows.length !== 0);
+  const body = document.getElementById('worldBossLootDetailsBody');
+  body.innerHTML = rows
+    .map(
+      (r) => `
+    <tr>
+      <td><span class="crusade-loot-boss">⚔️ ${escapeHtml(r.bossName)}</span></td>
+      <td class="crusade-loot-date">${formatLongDate(String(r.eventDate).slice(0, 10))}</td>
+      <td><span class="${lootItemBadgeClass(canonicalizeItemName(r.item.itemName))}">${escapeHtml(canonicalizeItemName(r.item.itemName))}</span></td>
+      <td class="crusade-loot-num">${r.item.quantity.toLocaleString()}</td>
+      <td class="crusade-loot-num">${r.item.crowsValue !== null ? `<span class="crusade-loot-currency crows">🪙 ${formatLootValue(r.item.crowsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
+      <td class="crusade-loot-num">${r.item.diamondsValue !== null ? `<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(r.item.diamondsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
+      <td>
+        <button type="button" class="crusade-loot-sold-toggle admin-disable ${r.item.sold ? 'is-sold' : 'is-unsold'}" data-toggle-sold="${r.item.id}" data-sold="${r.item.sold ? '1' : '0'}">
+          ${r.item.sold ? '✅ Sold' : '⭕ Not Sold'}
+        </button>
+      </td>
+    </tr>`
+    )
+    .join('');
+
+  body.querySelectorAll('[data-toggle-sold]').forEach((btn) => {
+    btn.addEventListener('click', () => toggleLootItemSold(btn));
+  });
+}
+
+async function toggleLootItemSold(btn) {
+  const itemId = btn.getAttribute('data-toggle-sold');
+  const nextSold = btn.getAttribute('data-sold') !== '1';
+  try {
+    await api(`/api/world-boss-attendance/loot-items/${itemId}/sold`, { method: 'PUT', body: JSON.stringify({ sold: nextSold }) });
+    for (const ev of sovereignState.worldBossEvents) {
+      const item = ev.lootItems?.find((l) => l.id === itemId);
+      if (item) item.sold = nextSold;
+    }
+    renderWorldBossLootDetails();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
 // Editing a Crows/Diamonds cell in This Month's Loot edits a *merged* total,
 // which has no single row of its own to save to -- so the whole delta (new
 // total minus old total) gets applied to the earliest kill that contributed
@@ -2625,7 +2688,7 @@ async function saveMonthlyLootEdit(input) {
   const ev = sovereignState.worldBossEvents.find((e) => e.id === source.eventId);
   if (!ev) return;
   const updatedLootItems = ev.lootItems.map((l) => {
-    const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue };
+    const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
     if (l.id !== source.itemId) return base;
     base[field] = Math.max(0, (l[field] || 0) + delta);
     return base;
