@@ -883,6 +883,7 @@ select:focus, input:focus, textarea:focus {
   padding: 2px 6px;
   max-width: 180px;
 }
+.crusade-loot-source-guess-hint { font-style: italic; opacity: 0.75; }
 .crusade-loot-table .crusade-loot-num { text-align: right; font-variant-numeric: tabular-nums; }
 .crusade-loot-table th:nth-child(n+2) { text-align: right; }
 .crusade-loot-table .crusade-loot-dash { color: var(--text-muted); }

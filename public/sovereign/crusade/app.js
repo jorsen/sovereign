@@ -2515,22 +2515,34 @@ function renderWorldBossMonthlyLoot() {
     (ev.lootItems || []).forEach((item) => {
       const cleanName = canonicalizeItemName(item.itemName);
       const key = cleanName.toLowerCase();
-      if (!byItem.has(key)) byItem.set(key, { itemName: cleanName, itemKey: key, quantity: 0, crowsValue: null, diamondsValue: null, sources: [] });
+      if (!byItem.has(key)) byItem.set(key, { itemName: cleanName, itemKey: key, quantity: 0, crowsValue: null, diamondsValue: null, sources: [], bossCounts: new Map() });
       const entry = byItem.get(key);
       entry.quantity += item.quantity || 0;
       if (item.crowsValue !== null) entry.crowsValue = (entry.crowsValue || 0) + item.crowsValue;
       if (item.diamondsValue !== null) entry.diamondsValue = (entry.diamondsValue || 0) + item.diamondsValue;
       entry.sources.push({ eventId: ev.id, itemId: item.id });
+      entry.bossCounts.set(ev.bossName, (entry.bossCounts.get(ev.bossName) || 0) + 1);
     });
   });
   const rows = Array.from(byItem.values()).sort((a, b) => b.quantity - a.quantity);
+  // No manually-set source yet? Fall back to whichever boss has actually
+  // dropped this item the most so far, instead of defaulting cold to
+  // "Unknown" when the kill history already answers the question.
+  rows.forEach((r) => {
+    r.guessedBoss = Array.from(r.bossCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  });
   worldBossMonthlyLootRows = rows; // read by the change handler below via data-loot-row-index
 
   document.getElementById('worldBossMonthlyLootEmptyState').classList.toggle('hidden', rows.length !== 0);
   const body = document.getElementById('worldBossMonthlyLootBody');
   body.innerHTML = rows
     .map(
-      (r, i) => `
+      (r, i) => {
+        // A manually-set source always wins; otherwise fall back to the
+        // guessed boss from kill history rather than defaulting to blank.
+        const savedSource = sovereignState.lootItemSources?.get(r.itemKey);
+        const selectedBoss = savedSource !== undefined ? savedSource : r.guessedBoss;
+        return `
     <tr>
       <td>
         <span class="${lootItemBadgeClass(r.itemName)} crusade-loot-item-clickable" data-toggle-source-row="${i}" title="Click to set/edit where this drops from">${escapeHtml(r.itemName)}</span>
@@ -2538,8 +2550,9 @@ function renderWorldBossMonthlyLoot() {
           <span>${t('sovereign.worldBoss.dropsFrom')}</span>
           <select class="admin-disable" data-loot-source-row="${i}">
             <option value="">— Unknown —</option>
-            ${WORLD_BOSS_NAMES.map((b) => `<option value="${escapeHtml(b)}" ${(sovereignState.lootItemSources?.get(r.itemKey) || '') === b ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
+            ${WORLD_BOSS_NAMES.map((b) => `<option value="${escapeHtml(b)}" ${selectedBoss === b ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
           </select>
+          ${!savedSource && r.guessedBoss ? `<span class="crusade-loot-source-guess-hint">(guessed from kill history)</span>` : ''}
         </div>
       </td>
       <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
@@ -2549,7 +2562,8 @@ function renderWorldBossMonthlyLoot() {
       <td class="crusade-loot-num">
         <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="1" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? r.diamondsValue : ''}" placeholder="—"></span>
       </td>
-    </tr>`
+    </tr>`;
+      }
     )
     .join('');
 
