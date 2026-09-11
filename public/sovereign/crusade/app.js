@@ -2478,7 +2478,6 @@ function renderWorldBossLog() {
   renderWorldBossDayDetail(byDate);
   renderWorldBossMonthlyLoot();
   renderWorldBossSummary();
-  renderWorldBossLootItemDatalist();
 }
 
 // Every loot item dropped by every boss logged in the month the calendar is
@@ -2832,35 +2831,67 @@ function computeKnownLootItems() {
   return known;
 }
 
-// Refreshes the <datalist> the item-name field points at, so typing shows a
-// dropdown of every item logged so far -- called whenever attendance data
-// loads/changes, same as the other World Boss views.
-function renderWorldBossLootItemDatalist() {
-  const options = Array.from(computeKnownLootItems().values()).sort((a, b) => a.itemName.localeCompare(b.itemName));
-  document.getElementById('worldBossLootItemNameList').innerHTML = options.map((o) => `<option value="${escapeHtml(o.itemName)}">`).join('');
-}
-
 function addWorldBossLootRow(item) {
   const row = document.createElement('div');
   row.className = 'crusade-loot-row';
   row.innerHTML = `
-    <input type="text" data-loot-field="itemName" list="worldBossLootItemNameList" placeholder="Item name" maxlength="120" value="${escapeHtml(item?.itemName || '')}">
+    <div class="crusade-loot-item-field">
+      <input type="text" data-loot-field="itemName" placeholder="Item name" maxlength="120" autocomplete="off" value="${escapeHtml(item?.itemName || '')}">
+      <div class="crusade-loot-suggest-list hidden"></div>
+    </div>
     <input type="number" data-loot-field="quantity" placeholder="Qty" min="1" step="1" value="${item?.quantity ?? 1}">
     <input type="number" data-loot-field="crowsValue" placeholder="Crows" min="0" step="1" value="${item?.crowsValue ?? ''}">
     <input type="number" data-loot-field="diamondsValue" placeholder="Diamonds" min="0" step="1" value="${item?.diamondsValue ?? ''}">
     <button type="button" class="icon-btn" title="Remove item">✕</button>`;
   row.querySelector('button').addEventListener('click', () => row.remove());
-  // Typing/picking a name that matches a previously logged item auto-fills
-  // its last known Crows/Diamonds values -- only into fields still empty, so
-  // it never clobbers something the admin already typed.
-  row.querySelector('[data-loot-field="itemName"]').addEventListener('input', (e) => {
-    const match = computeKnownLootItems().get(e.target.value.trim().toLowerCase());
+
+  const nameInput = row.querySelector('[data-loot-field="itemName"]');
+  const suggestList = row.querySelector('.crusade-loot-suggest-list');
+  const crowsInput = row.querySelector('[data-loot-field="crowsValue"]');
+  const diamondsInput = row.querySelector('[data-loot-field="diamondsValue"]');
+
+  // Auto-fills the last known Crows/Diamonds values for a matched item --
+  // only into fields still empty, so it never clobbers something the admin
+  // already typed.
+  function applyMatch(match) {
     if (!match) return;
-    const crowsInput = row.querySelector('[data-loot-field="crowsValue"]');
-    const diamondsInput = row.querySelector('[data-loot-field="diamondsValue"]');
     if (!crowsInput.value && match.crowsValue !== null) crowsInput.value = match.crowsValue;
     if (!diamondsInput.value && match.diamondsValue !== null) diamondsInput.value = match.diamondsValue;
+  }
+
+  // Custom dropdown (not a native <datalist>) so it can be sized to exactly
+  // match the input's width -- a native datalist's popup can't be
+  // width-constrained consistently across browsers.
+  function showSuggestions() {
+    const query = nameInput.value.trim().toLowerCase();
+    const known = Array.from(computeKnownLootItems().values()).sort((a, b) => a.itemName.localeCompare(b.itemName));
+    const matches = (query ? known.filter((o) => o.itemName.toLowerCase().includes(query)) : known).slice(0, 20);
+    if (!matches.length) {
+      suggestList.classList.add('hidden');
+      suggestList.innerHTML = '';
+      return;
+    }
+    suggestList.innerHTML = matches.map((o) => `<div class="crusade-loot-suggest-item" data-suggest-name="${escapeHtml(o.itemName)}">${escapeHtml(o.itemName)}</div>`).join('');
+    suggestList.classList.remove('hidden');
+    suggestList.querySelectorAll('[data-suggest-name]').forEach((el) => {
+      // mousedown (not click) fires before the input's blur, so the
+      // dropdown's own blur-hide handler below doesn't swallow the pick.
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        nameInput.value = el.getAttribute('data-suggest-name');
+        suggestList.classList.add('hidden');
+        applyMatch(computeKnownLootItems().get(nameInput.value.trim().toLowerCase()));
+      });
+    });
+  }
+
+  nameInput.addEventListener('input', () => {
+    showSuggestions();
+    applyMatch(computeKnownLootItems().get(nameInput.value.trim().toLowerCase()));
   });
+  nameInput.addEventListener('focus', showSuggestions);
+  nameInput.addEventListener('blur', () => setTimeout(() => suggestList.classList.add('hidden'), 150));
+
   document.getElementById('worldBossLootRows').appendChild(row);
 }
 

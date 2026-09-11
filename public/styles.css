@@ -792,11 +792,35 @@ select:focus, input:focus, textarea:focus {
   gap: 8px;
   margin-bottom: 8px;
 }
-.crusade-loot-row input[data-loot-field="itemName"] { flex: 2 1 160px; min-width: 120px; }
+.crusade-loot-item-field { position: relative; flex: 2 1 160px; min-width: 120px; }
+.crusade-loot-item-field input { width: 100%; }
 .crusade-loot-row input[data-loot-field="quantity"] { flex: 1 1 70px; min-width: 60px; }
 .crusade-loot-row input[data-loot-field="crowsValue"],
 .crusade-loot-row input[data-loot-field="diamondsValue"] { flex: 1 1 90px; min-width: 80px; }
 .crusade-loot-row .icon-btn { flex: none; }
+
+/* Custom autocomplete dropdown for the loot item-name field -- sized to
+   exactly match the input's width (a native <datalist> dropdown can't be
+   width-constrained like this across browsers). */
+.crusade-loot-suggest-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.crusade-loot-suggest-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.crusade-loot-suggest-item:hover { background: rgba(255,255,255,0.08); }
 
 /* This Month's Loot -- table dressing (currency icons/pills, item badges,
    a highlighted totals row, and quick summary chips in the panel header). */
