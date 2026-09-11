@@ -825,8 +825,6 @@ select:focus, input:focus, textarea:focus {
 .crusade-loot-chip.crows { color: #e0b64d; border-color: rgba(224,182,77,0.35); }
 .crusade-loot-chip.diamonds { color: #6dd3f0; border-color: rgba(109,211,240,0.35); }
 
-.crusade-loot-table .crusade-loot-boss { font-weight: 600; }
-.crusade-loot-table .crusade-loot-date { color: var(--text-muted); white-space: nowrap; }
 .crusade-loot-table .crusade-loot-item-badge {
   display: inline-block;
   padding: 2px 10px;
@@ -836,7 +834,7 @@ select:focus, input:focus, textarea:focus {
   font-weight: 500;
 }
 .crusade-loot-table .crusade-loot-num { text-align: right; font-variant-numeric: tabular-nums; }
-.crusade-loot-table th:nth-child(n+4) { text-align: right; }
+.crusade-loot-table th:nth-child(n+2) { text-align: right; }
 .crusade-loot-table .crusade-loot-dash { color: var(--text-muted); }
 .crusade-loot-currency { white-space: nowrap; font-weight: 600; }
 .crusade-loot-currency.crows { color: #e0b64d; }

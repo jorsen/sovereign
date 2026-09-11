@@ -2480,8 +2480,10 @@ function renderWorldBossLog() {
 }
 
 // Every loot item dropped by every boss logged in the month the calendar is
-// currently showing -- one row per item, not per event, so a boss kill with
-// three drops shows as three rows.
+// currently showing -- merged into one row per distinct item name (summing
+// quantity/Crows/Diamonds across every kill that dropped it), not one row
+// per drop, so the same item from five different kills doesn't show up as
+// five separate lines.
 function renderWorldBossMonthlyLoot() {
   const year = worldBossCalendarMonth.getFullYear();
   const month = worldBossCalendarMonth.getMonth();
@@ -2490,40 +2492,42 @@ function renderWorldBossMonthlyLoot() {
     year: 'numeric',
   });
 
-  const monthEvents = (sovereignState.worldBossEvents || [])
-    .filter((ev) => {
-      const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
-      return d.getFullYear() === year && d.getMonth() === month;
-    })
-    .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
+  const monthEvents = (sovereignState.worldBossEvents || []).filter((ev) => {
+    const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
 
-  const rows = [];
+  const byItem = new Map();
   monthEvents.forEach((ev) => {
     (ev.lootItems || []).forEach((item) => {
-      rows.push({ bossName: ev.bossName, eventDate: ev.eventDate, item });
+      const key = item.itemName.trim().toLowerCase();
+      if (!byItem.has(key)) byItem.set(key, { itemName: item.itemName.trim(), quantity: 0, crowsValue: null, diamondsValue: null });
+      const entry = byItem.get(key);
+      entry.quantity += item.quantity || 0;
+      if (item.crowsValue !== null) entry.crowsValue = (entry.crowsValue || 0) + item.crowsValue;
+      if (item.diamondsValue !== null) entry.diamondsValue = (entry.diamondsValue || 0) + item.diamondsValue;
     });
   });
+  const rows = Array.from(byItem.values()).sort((a, b) => b.quantity - a.quantity);
 
   document.getElementById('worldBossMonthlyLootEmptyState').classList.toggle('hidden', rows.length !== 0);
   document.getElementById('worldBossMonthlyLootBody').innerHTML = rows
     .map(
       (r) => `
     <tr>
-      <td><span class="crusade-loot-boss">⚔️ ${escapeHtml(r.bossName)}</span></td>
-      <td class="crusade-loot-date">${formatLongDate(String(r.eventDate).slice(0, 10))}</td>
-      <td><span class="crusade-loot-item-badge">${escapeHtml(r.item.itemName)}</span></td>
-      <td class="crusade-loot-num">${r.item.quantity.toLocaleString()}</td>
-      <td class="crusade-loot-num">${r.item.crowsValue !== null ? `<span class="crusade-loot-currency crows">🪙 ${formatLootValue(r.item.crowsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
-      <td class="crusade-loot-num">${r.item.diamondsValue !== null ? `<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(r.item.diamondsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
+      <td><span class="crusade-loot-item-badge">${escapeHtml(r.itemName)}</span></td>
+      <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
+      <td class="crusade-loot-num">${r.crowsValue !== null ? `<span class="crusade-loot-currency crows">🪙 ${formatLootValue(r.crowsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
+      <td class="crusade-loot-num">${r.diamondsValue !== null ? `<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(r.diamondsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
     </tr>`
     )
     .join('');
 
   const totals = rows.reduce(
     (acc, r) => {
-      acc.quantity += r.item.quantity || 0;
-      acc.crows += r.item.crowsValue || 0;
-      acc.diamonds += r.item.diamondsValue || 0;
+      acc.quantity += r.quantity || 0;
+      acc.crows += r.crowsValue || 0;
+      acc.diamonds += r.diamondsValue || 0;
       return acc;
     },
     { quantity: 0, crows: 0, diamonds: 0 }
@@ -2532,7 +2536,7 @@ function renderWorldBossMonthlyLoot() {
   totalsRow.classList.toggle('hidden', rows.length === 0);
   totalsRow.innerHTML = rows.length
     ? `
-    <td colspan="3" class="crusade-loot-total-label">${t('sovereign.worldBoss.thTotal')}</td>
+    <td class="crusade-loot-total-label">${t('sovereign.worldBoss.thTotal')}</td>
     <td class="crusade-loot-num crusade-loot-total-value">${totals.quantity.toLocaleString()}</td>
     <td class="crusade-loot-num crusade-loot-total-value"><span class="crusade-loot-currency crows">🪙 ${formatLootValue(totals.crows)}</span></td>
     <td class="crusade-loot-num crusade-loot-total-value"><span class="crusade-loot-currency diamonds">💎 ${formatLootValue(totals.diamonds)}</span></td>`
