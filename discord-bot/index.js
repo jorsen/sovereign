@@ -139,9 +139,18 @@ async function handleGrowthCommand(interaction) {
   // Discord already reports image dimensions on the attachment, no
   // downloading/decoding needed to check this.
   if (attachment.width && attachment.height && attachment.width <= attachment.height) {
-    await interaction.editReply(
-      "That looks like a cropped screenshot of just the stats popup. Please attach a full screenshot that also shows your character on screen (like a normal landscape screen capture), not just the popup by itself."
-    );
+    const rejection = new EmbedBuilder()
+      .setColor(0xe74c3c)
+      .setTitle('❌ Screenshot rejected')
+      .setDescription("That looks like a cropped screenshot of just the stats popup, not a full screen capture.")
+      .addFields({
+        name: 'What we need',
+        value:
+          '• A **full landscape screenshot** (wider than it is tall), not a cropped portrait image.\n' +
+          '• Your **character visible on screen** next to the Character Details/Artifacts panel, not just the popup by itself.\n\n' +
+          'Take a normal screen capture (don\'t crop it down) and run `/uniongr` again.',
+      });
+    await interaction.editReply({ embeds: [rejection] });
     return;
   }
   // The command's own .addChoices() already constrains these in the Discord
