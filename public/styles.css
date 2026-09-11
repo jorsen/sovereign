@@ -888,8 +888,8 @@ select:focus, input:focus, textarea:focus {
   border: 1px solid rgba(96,165,250,0.55);
   color: #93c5fd;
 }
-.crusade-loot-item-clickable { cursor: pointer; }
-.crusade-loot-item-clickable:hover { filter: brightness(1.2); }
+.crusade-loot-table tbody tr.crusade-loot-clickable-row { cursor: pointer; }
+.crusade-loot-table tbody tr.crusade-loot-clickable-row:hover { background: rgba(255,255,255,0.04); }
 .crusade-loot-source-picker {
   margin-top: 6px;
   display: flex;

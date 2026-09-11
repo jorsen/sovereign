@@ -2723,9 +2723,9 @@ function renderWorldBossMonthlyLoot() {
           .join('');
         const isExpanded = r.itemKey === worldBossExpandedLootKey;
         return `
-    <tr>
+    <tr class="crusade-loot-clickable-row" data-toggle-source-row="${i}" title="Click to see/edit the breakdown">
       <td>
-        <span class="${lootItemBadgeClass(r.itemName)} crusade-loot-item-clickable" data-toggle-source-row="${i}" title="Click to see/edit the breakdown">${escapeHtml(r.itemName)}</span>
+        <span class="${lootItemBadgeClass(r.itemName)}">${escapeHtml(r.itemName)}</span>
         <div class="crusade-loot-source-picker ${isExpanded ? '' : 'hidden'}" id="worldBossLootSource-${i}">
           <span>${t('sovereign.worldBoss.dropsFrom')}</span>
           <select class="admin-disable" data-loot-source-row="${i}">
@@ -2766,9 +2766,14 @@ function renderWorldBossMonthlyLoot() {
     input.addEventListener('change', () => saveMonthlyLootEdit(input));
   });
 
-  body.querySelectorAll('[data-toggle-source-row]').forEach((badge) => {
-    badge.addEventListener('click', () => {
-      const row = rows[Number(badge.getAttribute('data-toggle-source-row'))];
+  body.querySelectorAll('tr[data-toggle-source-row]').forEach((tr) => {
+    tr.addEventListener('click', (e) => {
+      // Ignore clicks on anything interactive inside the row (the inline
+      // Crows/Diamonds inputs, or -- once expanded -- the "Drops from"
+      // picker and breakdown table's own inputs/buttons) so using those
+      // doesn't also toggle the row shut.
+      if (e.target.closest('input, select, button, a')) return;
+      const row = rows[Number(tr.getAttribute('data-toggle-source-row'))];
       worldBossExpandedLootKey = worldBossExpandedLootKey === row.itemKey ? null : row.itemKey;
       renderWorldBossMonthlyLoot();
     });
