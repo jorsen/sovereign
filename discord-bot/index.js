@@ -199,6 +199,33 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+// The growth-rate channel only accepts submissions via the /uniongr slash
+// command -- interactions never fire messageCreate, so any messageCreate we
+// see here is a human typing plain chat (including someone literally typing
+// "/uniongr" as text instead of picking the actual slash command). Delete it
+// and point them at the real command instead of letting stray chat pile up.
+client.on('messageCreate', async (message) => {
+  if (message.channelId !== CHANNEL_ID || message.author.bot) return;
+  await message.delete().catch(() => {});
+  const guide = new EmbedBuilder()
+    .setColor(0xe74c3c)
+    .setTitle('This channel is for /uniongr submissions only')
+    .setDescription(
+      `${message.author}, plain messages aren't allowed here -- please use the **/uniongr** slash command instead.`
+    )
+    .addFields({
+      name: 'How to submit your Growth Rate',
+      value:
+        '1. Type `/uniongr` in this channel and pick it from the command list that pops up (don\'t just type it as text).\n' +
+        '2. Fill in your **IGN**, **Class**, **Guild**, and **Volcano Lamp** level.\n' +
+        '3. Enter your **Growth Rate** number.\n' +
+        '4. Attach a **screenshot** of your Growth Rate/Artifacts tab.\n' +
+        '5. Send it -- your entry shows up on the website automatically.',
+    });
+  const notice = await message.channel.send({ embeds: [guide] }).catch(() => null);
+  if (notice) setTimeout(() => notice.delete().catch(() => {}), 20000);
+});
+
 // Deleting the bot's own /uniongr confirmation post removes the growth-rate
 // entry too, rather than leaving an orphaned submission with no way to
 // trace it back.
