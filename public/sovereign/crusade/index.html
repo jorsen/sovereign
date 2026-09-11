@@ -30,6 +30,7 @@
           <a href="#raffle" data-panel="raffle" class="nav-link" data-i18n="sovereign.nav.raffle">Raffle</a>
           <a href="#growth" data-panel="growth" class="nav-link" data-i18n="sovereign.nav.growth">Growth Rate</a>
           <a href="#worldboss" data-panel="worldboss" class="nav-link" data-i18n="sovereign.nav.worldBoss">World Boss</a>
+          <a href="#activitylog" data-panel="activitylog" class="nav-link owner-only" data-i18n="sovereign.nav.activityLog">Activity Log</a>
         </nav>
       </div>
       <div class="topbar-right">
@@ -515,6 +516,39 @@
           </table>
         </div>
         <p id="worldBossSummaryEmptyState" class="empty-state hidden" data-i18n="sovereign.worldBoss.summaryEmpty">No attendance logged yet.</p>
+      </section>
+    </div>
+
+    <div id="sovereignActivityLogPanel" class="hidden">
+      <div class="view-header space-between">
+        <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.activityLog.hint">Every create, update, and delete across the app -- including bot-driven /uniongr submissions -- newest first.</p>
+      </div>
+      <section class="panel">
+        <div class="crusade-growth-filters">
+          <input type="text" id="activityLogSearchInput" placeholder="Search description or username…" data-i18n-placeholder="sovereign.activityLog.searchPlaceholder">
+          <select id="activityLogEntityTypeFilter">
+            <option value="" data-i18n="sovereign.activityLog.allTypes">All Types</option>
+          </select>
+          <select id="activityLogActionFilter">
+            <option value="" data-i18n="sovereign.activityLog.allActions">All Actions</option>
+          </select>
+        </div>
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead>
+              <tr>
+                <th data-i18n="sovereign.activityLog.thWhen">When</th>
+                <th data-i18n="sovereign.activityLog.thUser">User</th>
+                <th data-i18n="sovereign.activityLog.thAction">Action</th>
+                <th data-i18n="sovereign.activityLog.thType">Type</th>
+                <th data-i18n="sovereign.activityLog.thDescription">Description</th>
+              </tr>
+            </thead>
+            <tbody id="activityLogBody"></tbody>
+          </table>
+        </div>
+        <p id="activityLogEmptyState" class="empty-state hidden" data-i18n="sovereign.activityLog.empty">No activity logged yet.</p>
+        <p id="activityLogNoMatchState" class="empty-state hidden" data-i18n="sovereign.activityLog.noMatch">No entries match your search/filters.</p>
       </section>
     </div>
   </div>

@@ -1390,6 +1390,11 @@ select:focus, input:focus, textarea:focus {
 .crusade-status-badge.lose { color: var(--bad); border-color: var(--bad); background: rgba(239,68,68,0.12); }
 .crusade-status-badge.draw { color: var(--gold); border-color: var(--gold); background: rgba(212,175,55,0.12); }
 .crusade-status-badge.pending { color: var(--text-muted); }
+.crusade-status-badge.is-create { color: var(--good); border-color: var(--good); background: rgba(74,222,128,0.12); }
+.crusade-status-badge.is-update { color: #6dd3f0; border-color: #6dd3f0; background: rgba(109,211,240,0.12); }
+.crusade-status-badge.is-delete { color: var(--bad); border-color: var(--bad); background: rgba(239,68,68,0.12); }
+.crusade-status-badge.is-reject { color: var(--gold); border-color: var(--gold); background: rgba(212,175,55,0.12); }
+.crusade-status-badge.is-login { color: var(--text-muted); }
 
 .crusade-row-absent td { background: rgba(239,68,68,0.12); color: var(--bad); }
 

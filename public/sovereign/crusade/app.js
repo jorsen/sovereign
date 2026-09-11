@@ -8,7 +8,7 @@
 // result, diamond reward, attendance %, notes, items and fees -- so two
 // teams sharing a crusade's date can have completely different outcomes.
 // mode tracks which crusade-scoped page is active: 'overview' | 'team' | 'guildSalary'.
-const sovereignState = { crusades: [], guilds: [], crusadeId: null, crusade: null, participants: [], teams: [], memberList: [], defaultFees: [], raffleWinners: [], raffleActivity: [], growthSubmissions: [], worldBossEvents: [], activeTeam: null, mode: null };
+const sovereignState = { crusades: [], guilds: [], crusadeId: null, crusade: null, participants: [], teams: [], memberList: [], defaultFees: [], raffleWinners: [], raffleActivity: [], growthSubmissions: [], worldBossEvents: [], activityLog: [], activeTeam: null, mode: null };
 
 function crusadeFormatDiamonds(amount) {
   return `${Math.round(amount || 0).toLocaleString()} 💎`;
@@ -159,6 +159,12 @@ function route() {
     loadWorldBossAttendance().catch((err) => toast(err.message));
     return;
   }
+  if (hash === 'activitylog') {
+    sovereignState.mode = null;
+    showPanel('activitylog');
+    loadActivityLog().catch((err) => toast(err.message));
+    return;
+  }
   if (teamMatch) {
     sovereignState.crusadeId = crusadeIdFromHashSegment(teamMatch[1]);
     sovereignState.activeTeam = Number(teamMatch[2]);
@@ -190,9 +196,10 @@ function showPanel(name) {
   document.getElementById('sovereignRafflePanel').classList.toggle('hidden', name !== 'raffle');
   document.getElementById('sovereignGrowthPanel').classList.toggle('hidden', name !== 'growth');
   document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss');
+  document.getElementById('sovereignActivityLogPanel').classList.toggle('hidden', name !== 'activitylog');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (name === 'list' || name === 'members' || name === 'raffle' || name === 'growth' || name === 'worldboss') document.title = 'Sovereign — Crusade';
+  if (name === 'list' || name === 'members' || name === 'raffle' || name === 'growth' || name === 'worldboss' || name === 'activitylog') document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -3392,3 +3399,80 @@ function renderRaffleWinners() {
     });
   });
 }
+
+// ---------- Activity Log (admin-only) ----------
+// Every create/update/delete across the whole app funnels through the same
+// logActivity() call server-side, so this one page covers everything --
+// crusades, members, loot, world boss, growth-rate bot submissions, etc. --
+// rather than needing a separate log view per feature.
+
+async function loadActivityLog() {
+  sovereignState.activityLog = await api('/api/activity-log?limit=500');
+  populateActivityLogFilterOptions(sovereignState.activityLog);
+  renderActivityLog();
+}
+
+function populateActivityLogFilterOptions(entries) {
+  const entityTypeSelect = document.getElementById('activityLogEntityTypeFilter');
+  const actionSelect = document.getElementById('activityLogActionFilter');
+  const prevType = entityTypeSelect.value;
+  const prevAction = actionSelect.value;
+
+  const types = Array.from(new Set(entries.map((e) => e.entityType))).sort();
+  entityTypeSelect.innerHTML =
+    `<option value="">${t('sovereign.activityLog.allTypes')}</option>` +
+    types.map((ty) => `<option value="${escapeHtml(ty)}">${escapeHtml(ty)}</option>`).join('');
+  entityTypeSelect.value = types.includes(prevType) ? prevType : '';
+
+  const actions = Array.from(new Set(entries.map((e) => e.action))).sort();
+  actionSelect.innerHTML =
+    `<option value="">${t('sovereign.activityLog.allActions')}</option>` +
+    actions.map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  actionSelect.value = actions.includes(prevAction) ? prevAction : '';
+}
+
+// Distinct colors per action so scanning a long list is quick -- new action
+// values (e.g. "reject"/"error" from bot submissions) fall back to a plain
+// neutral badge rather than needing this list kept exhaustively in sync.
+const ACTIVITY_LOG_ACTION_CLASS = {
+  create: 'is-create',
+  update: 'is-update',
+  delete: 'is-delete',
+  reject: 'is-reject',
+  error: 'is-delete',
+  login: 'is-login',
+};
+
+function renderActivityLog() {
+  const all = sovereignState.activityLog || [];
+  const search = document.getElementById('activityLogSearchInput').value.trim().toLowerCase();
+  const entityType = document.getElementById('activityLogEntityTypeFilter').value;
+  const action = document.getElementById('activityLogActionFilter').value;
+
+  const entries = all.filter((e) => {
+    if (entityType && e.entityType !== entityType) return false;
+    if (action && e.action !== action) return false;
+    if (search && !`${e.description} ${e.username}`.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  document.getElementById('activityLogEmptyState').classList.toggle('hidden', all.length !== 0);
+  document.getElementById('activityLogNoMatchState').classList.toggle('hidden', all.length === 0 || entries.length !== 0);
+
+  document.getElementById('activityLogBody').innerHTML = entries
+    .map(
+      (e) => `
+    <tr>
+      <td style="white-space:nowrap; color:var(--text-muted);">${formatLongDate(String(e.createdAt).slice(0, 10))} ${formatTimeOfDay(e.createdAt)}</td>
+      <td>${escapeHtml(e.username)} <span style="color:var(--text-muted); font-size:12px;">(${escapeHtml(e.role)})</span></td>
+      <td><span class="crusade-status-badge ${ACTIVITY_LOG_ACTION_CLASS[e.action] || ''}">${escapeHtml(e.action)}</span></td>
+      <td style="color:var(--text-muted); font-size:12px; white-space:nowrap;">${escapeHtml(e.entityType)}</td>
+      <td>${escapeHtml(e.description)}</td>
+    </tr>`
+    )
+    .join('');
+}
+
+document.getElementById('activityLogSearchInput').addEventListener('input', renderActivityLog);
+document.getElementById('activityLogEntityTypeFilter').addEventListener('change', renderActivityLog);
+document.getElementById('activityLogActionFilter').addEventListener('change', renderActivityLog);
