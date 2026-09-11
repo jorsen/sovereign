@@ -2497,11 +2497,15 @@ function renderWorldBossMonthlyLoot() {
     return d.getFullYear() === year && d.getMonth() === month;
   });
 
+  // Merge key ignores case and collapses/trims whitespace -- catches typos
+  // like "frozen tear", "Frozen  Tear", or " Frozen Tear " all landing as
+  // the same item instead of splitting into separate rows.
   const byItem = new Map();
   monthEvents.forEach((ev) => {
     (ev.lootItems || []).forEach((item) => {
-      const key = item.itemName.trim().toLowerCase();
-      if (!byItem.has(key)) byItem.set(key, { itemName: item.itemName.trim(), quantity: 0, crowsValue: null, diamondsValue: null });
+      const cleanName = item.itemName.trim().replace(/\s+/g, ' ');
+      const key = cleanName.toLowerCase();
+      if (!byItem.has(key)) byItem.set(key, { itemName: cleanName, quantity: 0, crowsValue: null, diamondsValue: null });
       const entry = byItem.get(key);
       entry.quantity += item.quantity || 0;
       if (item.crowsValue !== null) entry.crowsValue = (entry.crowsValue || 0) + item.crowsValue;
