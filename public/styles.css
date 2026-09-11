@@ -931,6 +931,7 @@ select:focus, input:focus, textarea:focus {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
+  max-width: 620px;
 }
 .crusade-calendar-weekday {
   text-align: center;
@@ -944,7 +945,7 @@ select:focus, input:focus, textarea:focus {
 
 .crusade-calendar-cell {
   position: relative;
-  min-height: 48px;
+  aspect-ratio: 1 / 1;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-1);
@@ -1029,7 +1030,7 @@ select:focus, input:focus, textarea:focus {
 @media (max-width: 640px) {
   .crusade-calendar-toolbar { flex-direction: column; align-items: flex-start; }
   .crusade-calendar-grid { gap: 4px; }
-  .crusade-calendar-cell { min-height: 40px; padding: 4px; border-radius: 6px; gap: 2px; }
+  .crusade-calendar-cell { padding: 4px; border-radius: 6px; gap: 2px; }
   .crusade-calendar-daynum { font-size: 13px; }
   .crusade-calendar-cell.is-today .crusade-calendar-daynum { width: 20px; height: 20px; }
   .crusade-calendar-badge { font-size: 10px; padding: 2px 3px; }
