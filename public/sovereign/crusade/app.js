@@ -2389,7 +2389,7 @@ function renderWorldBossMemberGrid(selectedNames) {
         <div class="crusade-party-card-header">
           <h3 style="${color ? `color:${color};` : ''}">${label} (${groups.get(g).length})</h3>
         </div>
-        <div style="padding:8px 12px 12px;">${rows}</div>
+        <div class="crusade-attendee-grid">${rows}</div>
       </div>`;
     })
     .join('');

@@ -1368,6 +1368,22 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
   flex-shrink: 0;
 }
 
+/* Names within a guild's attendee-picker card laid out 5 across instead of
+   one long vertical list, so a big guild doesn't turn its card into a
+   scrollbar. */
+.crusade-attendee-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px 12px;
+  padding: 8px 12px 12px;
+}
+@media (max-width: 860px) {
+  .crusade-attendee-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 520px) {
+  .crusade-attendee-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 .member-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
 .member-header h2 { margin: 0 0 4px; }
 .member-meta { color: var(--text-muted); font-size: 13px; }
