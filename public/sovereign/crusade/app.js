@@ -2307,6 +2307,9 @@ const WORLD_BOSS_NAMES = [
   'Damiross',
   'Tandallon',
   'Melville',
+  'Balthazard',
+  'Ducas',
+  'Dergio',
 ];
 
 let worldBossEditingId = null;
