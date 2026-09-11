@@ -2485,12 +2485,12 @@ function renderWorldBossMonthlyLoot() {
     .map(
       (r) => `
     <tr>
-      <td>${escapeHtml(r.bossName)}</td>
-      <td>${formatLongDate(String(r.eventDate).slice(0, 10))}</td>
-      <td>${escapeHtml(r.item.itemName)}</td>
-      <td>${r.item.quantity}</td>
-      <td>${formatLootValue(r.item.crowsValue)}</td>
-      <td>${formatLootValue(r.item.diamondsValue)}</td>
+      <td><span class="crusade-loot-boss">⚔️ ${escapeHtml(r.bossName)}</span></td>
+      <td class="crusade-loot-date">${formatLongDate(String(r.eventDate).slice(0, 10))}</td>
+      <td><span class="crusade-loot-item-badge">${escapeHtml(r.item.itemName)}</span></td>
+      <td class="crusade-loot-num">${r.item.quantity.toLocaleString()}</td>
+      <td class="crusade-loot-num">${r.item.crowsValue !== null ? `<span class="crusade-loot-currency crows">🪙 ${formatLootValue(r.item.crowsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
+      <td class="crusade-loot-num">${r.item.diamondsValue !== null ? `<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(r.item.diamondsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
     </tr>`
     )
     .join('');
@@ -2508,10 +2508,17 @@ function renderWorldBossMonthlyLoot() {
   totalsRow.classList.toggle('hidden', rows.length === 0);
   totalsRow.innerHTML = rows.length
     ? `
-    <td colspan="3" style="text-align:right; font-weight:600;">${t('sovereign.worldBoss.thTotal')}</td>
-    <td style="font-weight:600;">${totals.quantity.toLocaleString()}</td>
-    <td style="font-weight:600;">${formatLootValue(totals.crows)}</td>
-    <td style="font-weight:600;">${formatLootValue(totals.diamonds)}</td>`
+    <td colspan="3" class="crusade-loot-total-label">${t('sovereign.worldBoss.thTotal')}</td>
+    <td class="crusade-loot-num crusade-loot-total-value">${totals.quantity.toLocaleString()}</td>
+    <td class="crusade-loot-num crusade-loot-total-value"><span class="crusade-loot-currency crows">🪙 ${formatLootValue(totals.crows)}</span></td>
+    <td class="crusade-loot-num crusade-loot-total-value"><span class="crusade-loot-currency diamonds">💎 ${formatLootValue(totals.diamonds)}</span></td>`
+    : '';
+
+  document.getElementById('worldBossMonthlyLootChips').innerHTML = rows.length
+    ? `
+    <span class="crusade-loot-chip">${rows.length} item${rows.length === 1 ? '' : 's'}</span>
+    <span class="crusade-loot-chip crows">🪙 ${formatLootValue(totals.crows)}</span>
+    <span class="crusade-loot-chip diamonds">💎 ${formatLootValue(totals.diamonds)}</span>`
     : '';
 }
 

@@ -470,11 +470,16 @@
         </div>
       </section>
 
-      <section class="panel">
-        <h2 style="margin:0;" data-i18n="sovereign.worldBoss.monthlyLootHeading">This Month's Loot</h2>
-        <p id="worldBossMonthlyLootLabel" style="color:var(--text-muted); font-size:13px; margin-top:-8px;"></p>
+      <section class="panel crusade-loot-panel">
+        <div class="crusade-loot-panel-header">
+          <div>
+            <h2 style="margin:0;" data-i18n="sovereign.worldBoss.monthlyLootHeading">This Month's Loot</h2>
+            <p id="worldBossMonthlyLootLabel" class="crusade-loot-panel-month"></p>
+          </div>
+          <div id="worldBossMonthlyLootChips" class="crusade-loot-summary-chips"></div>
+        </div>
         <div class="table-scroll">
-          <table class="members-table">
+          <table class="members-table crusade-loot-table">
             <thead>
               <tr>
                 <th data-i18n="sovereign.worldBoss.thBoss">Boss</th>
