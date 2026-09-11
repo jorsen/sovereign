@@ -408,7 +408,6 @@
                 <th data-i18n="sovereign.growth.thClass">Class</th>
                 <th data-i18n="sovereign.common.guild">Guild</th>
                 <th data-i18n="sovereign.growth.thLamp">Volcano Lamp</th>
-                <th data-i18n="sovereign.growth.thScreenshot">Screenshot</th>
                 <th data-i18n="sovereign.growth.thSubmittedBy">Submitted By</th>
                 <th class="admin-only"></th>
               </tr>
@@ -536,6 +535,7 @@
       <button class="modal-close" data-close="growthEditModal" aria-label="Close">×</button>
       <h2 data-i18n="sovereign.growth.editHeading">Edit Submission</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-top:-8px;" data-i18n="sovereign.growth.editHint">Fixes what's on file here only -- it doesn't change the original Discord message or its screenshot.</p>
+      <img id="growthEditScreenshot" class="crusade-growth-edit-screenshot" src="" alt="Growth rate screenshot">
       <form id="growthEditForm">
         <input type="hidden" name="submissionId">
         <label><span data-i18n="sovereign.common.ign">IGN</span>
