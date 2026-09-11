@@ -297,6 +297,8 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.hint': 'Log who showed up for each World Boss, then track everyone\'s attendance over time.',
     'sovereign.worldBoss.logHeading': 'Log Attendance',
     'sovereign.worldBoss.editHeading': 'Editing',
+    'sovereign.worldBoss.lootLabel': 'Loot (optional)',
+    'sovereign.worldBoss.lootPlaceholder': 'e.g. Morion x3, Guild Coins x500',
     'sovereign.worldBoss.bossLabel': 'Boss',
     'sovereign.worldBoss.checkHint': 'Check off everyone who attended.',
     'sovereign.worldBoss.cancelEdit': 'Cancel Edit',

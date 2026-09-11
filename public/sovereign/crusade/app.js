@@ -2529,6 +2529,7 @@ function renderWorldBossDayDetail(byDate) {
       <div class="hidden" id="worldBossAttendees-${ev.id}" style="padding:8px 0 4px; display:flex; flex-wrap:wrap; gap:8px;">
         ${attendeeBadges(ev.attendees)}
       </div>
+      ${ev.loot ? `<div style="padding:0 0 8px; color:var(--text-muted);"><strong style="color:var(--text);">Loot:</strong> ${escapeHtml(ev.loot)}</div>` : ''}
     </div>`
     )
     .join('');
@@ -2602,6 +2603,7 @@ function startEditingWorldBossEvent(ev) {
   form.elements.eventId.value = ev.id;
   form.elements.bossName.value = ev.bossName;
   form.elements.eventDate.value = String(ev.eventDate).slice(0, 10);
+  form.elements.loot.value = ev.loot || '';
   renderWorldBossMemberGrid(new Set(ev.attendees.map((a) => a.name)));
   document.getElementById('worldBossFormHeading').textContent = `${t('sovereign.worldBoss.editHeading')} — ${ev.bossName}`;
   document.getElementById('worldBossCancelEditBtn').classList.remove('hidden');
@@ -2631,6 +2633,7 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
   const payload = {
     bossName: form.elements.bossName.value,
     eventDate: form.elements.eventDate.value,
+    loot: form.elements.loot.value.trim() || null,
     attendeeNames,
   };
   try {

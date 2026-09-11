@@ -437,6 +437,9 @@
           <label><span data-i18n="sovereign.common.date">Date</span>
             <input required name="eventDate" type="date">
           </label>
+          <label class="crusade-notes-field"><span data-i18n="sovereign.worldBoss.lootLabel">Loot (optional)</span>
+            <input name="loot" type="text" maxlength="300" placeholder="e.g. Morion x3, Guild Coins x500" data-i18n-placeholder="sovereign.worldBoss.lootPlaceholder">
+          </label>
         </form>
         <p style="color:var(--text-muted); font-size:13px; margin:14px 0 6px;" data-i18n="sovereign.worldBoss.checkHint">Check off everyone who attended.</p>
         <div id="worldBossMemberGrid" class="crusade-party-grid"></div>
@@ -457,8 +460,10 @@
           </div>
         </div>
         <p id="worldBossLogEmptyState" class="empty-state hidden" data-i18n="sovereign.worldBoss.logEmpty">No events logged yet.</p>
-        <div id="worldBossCalendarGrid" class="crusade-calendar-grid"></div>
-        <div id="worldBossCalendarDayDetail" class="crusade-calendar-day-detail"></div>
+        <div class="crusade-calendar-layout">
+          <div id="worldBossCalendarGrid" class="crusade-calendar-grid"></div>
+          <div id="worldBossCalendarDayDetail" class="crusade-calendar-day-detail"></div>
+        </div>
       </section>
 
       <section class="panel">

@@ -927,11 +927,22 @@ select:focus, input:focus, textarea:focus {
 }
 #worldBossCalTodayBtn { margin-left: 6px; }
 
+/* Calendar (left) + selected day's records including loot (right), side by
+   side on anything wide enough; stacks on narrow screens. */
+.crusade-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 620px) minmax(240px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .crusade-calendar-layout { grid-template-columns: 1fr; }
+}
+
 .crusade-calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
-  max-width: 620px;
 }
 .crusade-calendar-weekday {
   text-align: center;
@@ -1018,9 +1029,16 @@ select:focus, input:focus, textarea:focus {
 
 .crusade-calendar-day-detail:empty { display: none; }
 .crusade-calendar-day-detail {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
+  padding: 4px 0 4px 20px;
+  border-left: 1px solid var(--border);
+}
+@media (max-width: 860px) {
+  .crusade-calendar-day-detail {
+    margin-top: 18px;
+    padding: 18px 0 4px;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
 }
 .crusade-calendar-day-detail .empty-state {
   text-align: center;
