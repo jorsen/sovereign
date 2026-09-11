@@ -2310,6 +2310,68 @@ document.getElementById('growthEditForm').addEventListener('submit', async (e) =
   }
 });
 
+// Reads a <input type="file">'s selected file as base64 (stripping the
+// "data:image/png;base64," prefix) -- same imageBase64/imageContentType
+// shape the bot's own submission payload uses, so the server-side handling
+// is identical either way.
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Could not read the selected file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function openGrowthAddModal() {
+  const form = document.getElementById('growthAddForm');
+  form.reset();
+
+  const classSelect = document.getElementById('growthAddClassSelect');
+  classSelect.innerHTML = GROWTH_CLASS_CHOICES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+  const guildSelect = document.getElementById('growthAddGuildSelect');
+  guildSelect.innerHTML = GROWTH_GUILD_CHOICES.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+
+  document.getElementById('growthAddModal').classList.remove('hidden');
+}
+
+document.getElementById('growthAddBtn').addEventListener('click', openGrowthAddModal);
+
+document.getElementById('growthAddForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const file = form.elements.screenshot.files[0];
+  if (!file) {
+    toast('A screenshot is required');
+    return;
+  }
+  try {
+    const imageBase64 = await readFileAsBase64(file);
+    const created = await api('/api/growth-submissions', {
+      method: 'POST',
+      body: JSON.stringify({
+        ign: form.elements.ign.value,
+        class: form.elements.class.value,
+        guildName: form.elements.guildName.value,
+        lampLevel: Number(form.elements.lampLevel.value),
+        growthRate: Number(form.elements.growthRate.value),
+        imageBase64,
+        imageContentType: file.type,
+      }),
+    });
+    const idx = sovereignState.growthSubmissions.findIndex((s) => s.id === created.id);
+    if (idx !== -1) sovereignState.growthSubmissions[idx] = created;
+    else sovereignState.growthSubmissions.push(created);
+    populateGrowthFilterOptions(sovereignState.growthSubmissions);
+    renderGrowthSubmissions();
+    document.getElementById('growthAddModal').classList.add('hidden');
+    toast('Growth Rate record added');
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
 // ---------- World Boss Attendance (standalone, independent of any crusade) ----------
 // Kept in sync with the WORLD_BOSS_NAMES list in lib/app.js.
 const WORLD_BOSS_NAMES = [

@@ -389,6 +389,7 @@
     <div id="sovereignGrowthPanel" class="hidden">
       <div class="view-header space-between">
         <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.growth.hint">Posted by the Discord bot from the growth-rate channel — post your IGN, Class, and an Artifacts-tab screenshot there and it shows up here automatically.</p>
+        <button id="growthAddBtn" type="button" class="btn primary admin-only" data-i18n="sovereign.growth.addRecord">+ Add Record</button>
       </div>
       <section class="panel">
         <div class="crusade-growth-filters">
@@ -633,6 +634,35 @@
         </label>
         <label><span data-i18n="sovereign.growth.thGrowthRate">Growth Rate</span>
           <input required name="growthRate" type="number" min="0" step="1">
+        </label>
+        <button type="submit" class="btn primary" data-i18n="sovereign.common.save">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="growthAddModal" class="modal-overlay hidden">
+    <div class="modal">
+      <button class="modal-close" data-close="growthAddModal" aria-label="Close">×</button>
+      <h2 data-i18n="sovereign.growth.addRecord">+ Add Record</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-top:-8px;" data-i18n="sovereign.growth.addHint">Adds a Growth Rate entry directly, without going through Discord. If the IGN already exists, this updates that entry instead of creating a duplicate.</p>
+      <form id="growthAddForm">
+        <label><span data-i18n="sovereign.common.ign">IGN</span>
+          <input required name="ign" type="text" maxlength="40">
+        </label>
+        <label><span data-i18n="sovereign.growth.thClass">Class</span>
+          <select required name="class" id="growthAddClassSelect"></select>
+        </label>
+        <label><span data-i18n="sovereign.common.guild">Guild</span>
+          <select required name="guildName" id="growthAddGuildSelect"></select>
+        </label>
+        <label><span data-i18n="sovereign.growth.thLamp">Volcano Lamp +</span>
+          <input required name="lampLevel" type="number" min="1" max="25" step="1">
+        </label>
+        <label><span data-i18n="sovereign.growth.thGrowthRate">Growth Rate</span>
+          <input required name="growthRate" type="number" min="0" step="1">
+        </label>
+        <label class="crusade-notes-field"><span data-i18n="sovereign.growth.thScreenshot">Screenshot</span>
+          <input required name="screenshot" type="file" accept="image/*">
         </label>
         <button type="submit" class="btn primary" data-i18n="sovereign.common.save">Save</button>
       </form>

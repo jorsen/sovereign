@@ -292,6 +292,8 @@ const TRANSLATIONS = {
     'sovereign.growth.thSubmittedBy': 'Submitted By',
     'sovereign.growth.editHeading': 'Edit Submission',
     'sovereign.growth.editHint': "Fixes what's on file here only -- it doesn't change the original Discord message or its screenshot.",
+    'sovereign.growth.addRecord': '+ Add Record',
+    'sovereign.growth.addHint': "Adds a Growth Rate entry directly, without going through Discord. If the IGN already exists, this updates that entry instead of creating a duplicate.",
 
     'sovereign.nav.worldBoss': 'World Boss',
     'sovereign.nav.activityLog': 'Activity Log',
