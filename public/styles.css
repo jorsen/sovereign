@@ -951,6 +951,16 @@ select:focus, input:focus, textarea:focus {
 .crusade-growth-filters input { flex: 1; min-width: 160px; }
 .crusade-growth-filters select { min-width: 140px; }
 
+.crusade-growth-thumb {
+  display: block;
+  width: 64px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--surface-1);
+}
+
 .crusade-growth-edit-screenshot {
   display: block;
   width: 100%;

@@ -2169,6 +2169,7 @@ function renderGrowthSubmissions() {
       <td>${escapeHtml(s.class)}</td>
       <td>${crusadeGuildBadge(s.guildName)}</td>
       <td>+${s.lampLevel ?? '?'}</td>
+      <td><img class="crusade-growth-thumb" src="/api/growth-submissions/${s.id}/image?v=${encodeURIComponent(s.updatedAt || s.createdAt || '')}" alt="${escapeHtml(s.ign)}'s growth rate screenshot" loading="lazy" data-view-growth-image="${s.id}"></td>
       <td>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : '–'}</td>
       <td class="admin-only crusade-roster-actions-cell">
         <button type="button" class="icon-btn" data-edit-growth="${s.id}" title="Edit">✎</button>
@@ -2177,6 +2178,18 @@ function renderGrowthSubmissions() {
     </tr>`
     )
     .join('');
+
+  body.querySelectorAll('[data-view-growth-image]').forEach((img) => {
+    img.addEventListener('click', () => {
+      const id = img.getAttribute('data-view-growth-image');
+      const s = submissions.find((x) => x.id === id);
+      document.getElementById('growthImageModalTitle').textContent = s
+        ? `${s.ign} — Growth Rate ${s.growthRate?.toLocaleString() ?? '?'} — ${s.class} — Volcano Lamp +${s.lampLevel ?? '?'} (${s.guildName || 'Unassigned'})`
+        : '';
+      document.getElementById('growthImageModalImg').src = `/api/growth-submissions/${id}/image?v=${encodeURIComponent(s?.updatedAt || s?.createdAt || '')}`;
+      document.getElementById('growthImageModal').classList.remove('hidden');
+    });
+  });
 
   body.querySelectorAll('[data-edit-growth]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -2243,13 +2256,14 @@ function openGrowthEditModal(submission) {
   guildSelect.innerHTML = GROWTH_GUILD_CHOICES.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
   guildSelect.value = submission.guildName;
 
+  const imageUrl = `/api/growth-submissions/${submission.id}/image?v=${encodeURIComponent(submission.updatedAt || submission.createdAt || '')}`;
   const screenshot = document.getElementById('growthEditScreenshot');
-  screenshot.src = `/api/growth-submissions/${submission.id}/image`;
+  screenshot.src = imageUrl;
   screenshot.alt = `${submission.ign}'s growth rate screenshot`;
   screenshot.onclick = () => {
     document.getElementById('growthImageModalTitle').textContent =
       `${submission.ign} — Growth Rate ${submission.growthRate?.toLocaleString() ?? '?'} — ${submission.class} — Volcano Lamp +${submission.lampLevel ?? '?'} (${submission.guildName || 'Unassigned'})`;
-    document.getElementById('growthImageModalImg').src = `/api/growth-submissions/${submission.id}/image`;
+    document.getElementById('growthImageModalImg').src = imageUrl;
     document.getElementById('growthImageModal').classList.remove('hidden');
   };
 
