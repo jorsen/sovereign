@@ -31,6 +31,7 @@
           <a href="#growth" data-panel="growth" class="nav-link" data-i18n="sovereign.nav.growth">Growth Rate</a>
           <a href="#worldboss" data-panel="worldboss" class="nav-link" data-i18n="sovereign.nav.worldBoss">World Boss</a>
           <a href="#activitylog" data-panel="activitylog" class="nav-link owner-only" data-i18n="sovereign.nav.activityLog">Activity Log</a>
+          <a href="#users" data-panel="users" class="nav-link owner-only" data-i18n="sovereign.nav.users">Users</a>
         </nav>
       </div>
       <div class="topbar-right">
@@ -551,9 +552,56 @@
         <p id="activityLogNoMatchState" class="empty-state hidden" data-i18n="sovereign.activityLog.noMatch">No entries match your search/filters.</p>
       </section>
     </div>
+
+    <div id="sovereignUsersPanel" class="hidden">
+      <div class="view-header space-between">
+        <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.users.hint">Accounts that can log in -- Admins manage everything including other users; Editors get the same day-to-day editing powers but not user/account management; Viewers can only look.</p>
+        <button id="addUserBtn" type="button" class="btn primary" data-i18n="sovereign.users.addUser">+ Add User</button>
+      </div>
+      <section class="panel">
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead>
+              <tr>
+                <th data-i18n="sovereign.users.thUsername">Username</th>
+                <th data-i18n="sovereign.users.thRole">Role</th>
+                <th data-i18n="sovereign.users.thCreated">Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+        </div>
+        <p id="usersEmptyState" class="empty-state hidden" data-i18n="sovereign.users.empty">No users yet.</p>
+      </section>
+    </div>
   </div>
 
   <!-- ===================== MODALS ===================== -->
+
+  <div id="userModal" class="modal-overlay hidden">
+    <div class="modal">
+      <button class="modal-close" data-close="userModal" aria-label="Close">×</button>
+      <h2 id="userModalHeading" data-i18n="sovereign.users.addUser">+ Add User</h2>
+      <form id="userForm">
+        <input type="hidden" name="userId">
+        <label><span data-i18n="sovereign.users.thUsername">Username</span>
+          <input required name="username" type="text" maxlength="60" autocomplete="off">
+        </label>
+        <label><span id="userPasswordLabel" data-i18n="sovereign.users.passwordLabel">Password (min 8 characters)</span>
+          <input name="password" type="password" minlength="8" autocomplete="new-password">
+        </label>
+        <label><span data-i18n="sovereign.users.thRole">Role</span>
+          <select required name="role">
+            <option value="admin">admin</option>
+            <option value="editor">editor</option>
+            <option value="viewer">viewer</option>
+          </select>
+        </label>
+        <button type="submit" class="btn primary" data-i18n="sovereign.common.save">Save</button>
+      </form>
+    </div>
+  </div>
 
   <div id="growthImageModal" class="modal-overlay hidden">
     <div class="modal" style="max-width:min(90vw, 900px); text-align:center;">

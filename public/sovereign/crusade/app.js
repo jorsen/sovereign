@@ -8,7 +8,7 @@
 // result, diamond reward, attendance %, notes, items and fees -- so two
 // teams sharing a crusade's date can have completely different outcomes.
 // mode tracks which crusade-scoped page is active: 'overview' | 'team' | 'guildSalary'.
-const sovereignState = { crusades: [], guilds: [], crusadeId: null, crusade: null, participants: [], teams: [], memberList: [], defaultFees: [], raffleWinners: [], raffleActivity: [], growthSubmissions: [], worldBossEvents: [], activityLog: [], activeTeam: null, mode: null };
+const sovereignState = { crusades: [], guilds: [], crusadeId: null, crusade: null, participants: [], teams: [], memberList: [], defaultFees: [], raffleWinners: [], raffleActivity: [], growthSubmissions: [], worldBossEvents: [], activityLog: [], users: [], activeTeam: null, mode: null };
 
 function crusadeFormatDiamonds(amount) {
   return `${Math.round(amount || 0).toLocaleString()} 💎`;
@@ -165,6 +165,12 @@ function route() {
     loadActivityLog().catch((err) => toast(err.message));
     return;
   }
+  if (hash === 'users') {
+    sovereignState.mode = null;
+    showPanel('users');
+    loadUsers().catch((err) => toast(err.message));
+    return;
+  }
   if (teamMatch) {
     sovereignState.crusadeId = crusadeIdFromHashSegment(teamMatch[1]);
     sovereignState.activeTeam = Number(teamMatch[2]);
@@ -197,9 +203,10 @@ function showPanel(name) {
   document.getElementById('sovereignGrowthPanel').classList.toggle('hidden', name !== 'growth');
   document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss');
   document.getElementById('sovereignActivityLogPanel').classList.toggle('hidden', name !== 'activitylog');
+  document.getElementById('sovereignUsersPanel').classList.toggle('hidden', name !== 'users');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (name === 'list' || name === 'members' || name === 'raffle' || name === 'growth' || name === 'worldboss' || name === 'activitylog') document.title = 'Sovereign — Crusade';
+  if (name === 'list' || name === 'members' || name === 'raffle' || name === 'growth' || name === 'worldboss' || name === 'activitylog' || name === 'users') document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -3476,3 +3483,92 @@ function renderActivityLog() {
 document.getElementById('activityLogSearchInput').addEventListener('input', renderActivityLog);
 document.getElementById('activityLogEntityTypeFilter').addEventListener('change', renderActivityLog);
 document.getElementById('activityLogActionFilter').addEventListener('change', renderActivityLog);
+
+// ---------- Users (admin-only) ----------
+
+async function loadUsers() {
+  sovereignState.users = await api('/api/users');
+  renderUsers();
+}
+
+function renderUsers() {
+  const users = sovereignState.users || [];
+  document.getElementById('usersEmptyState').classList.toggle('hidden', users.length !== 0);
+  document.getElementById('usersBody').innerHTML = users
+    .map(
+      (u) => `
+    <tr>
+      <td style="font-weight:600;">${escapeHtml(u.username)}</td>
+      <td><span class="crusade-status-badge ${u.role === 'admin' ? 'is-create' : u.role === 'editor' ? 'is-update' : 'pending'}">${escapeHtml(u.role)}</span></td>
+      <td style="color:var(--text-muted);">${formatLongDate(String(u.createdAt).slice(0, 10))}</td>
+      <td class="crusade-roster-actions-cell">
+        <button type="button" class="icon-btn" data-edit-user="${u.id}" title="Edit">✎</button>
+        <button type="button" class="icon-btn" data-delete-user="${u.id}" title="Delete user">✕</button>
+      </td>
+    </tr>`
+    )
+    .join('');
+
+  document.getElementById('usersBody').querySelectorAll('[data-edit-user]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const user = users.find((u) => u.id === btn.getAttribute('data-edit-user'));
+      if (user) openUserModal(user);
+    });
+  });
+  document.getElementById('usersBody').querySelectorAll('[data-delete-user]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const user = users.find((u) => u.id === btn.getAttribute('data-delete-user'));
+      if (!confirm(`Delete the user "${user?.username}"? They won't be able to log in anymore.`)) return;
+      try {
+        await api(`/api/users/${user.id}`, { method: 'DELETE' });
+        sovereignState.users = sovereignState.users.filter((u) => u.id !== user.id);
+        renderUsers();
+        toast('User deleted');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+}
+
+function openUserModal(user) {
+  const form = document.getElementById('userForm');
+  form.reset();
+  form.elements.userId.value = user?.id || '';
+  form.elements.username.value = user?.username || '';
+  form.elements.role.value = user?.role || 'editor';
+  form.elements.password.required = !user;
+  document.getElementById('userModalHeading').textContent = user ? `${t('sovereign.common.edit')} — ${user.username}` : t('sovereign.users.addUser');
+  document.getElementById('userPasswordLabel').textContent = user ? t('sovereign.users.passwordLabelOptional') : t('sovereign.users.passwordLabel');
+  document.getElementById('userModal').classList.remove('hidden');
+}
+
+document.getElementById('addUserBtn').addEventListener('click', () => openUserModal(null));
+
+document.getElementById('userForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const userId = form.elements.userId.value;
+  const payload = { username: form.elements.username.value.trim(), role: form.elements.role.value };
+  if (form.elements.password.value) payload.password = form.elements.password.value;
+  else if (!userId) {
+    toast('Password is required for a new user');
+    return;
+  }
+  try {
+    if (userId) {
+      const updated = await api(`/api/users/${userId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      const idx = sovereignState.users.findIndex((u) => u.id === userId);
+      if (idx !== -1) sovereignState.users[idx] = updated;
+      toast('User updated');
+    } else {
+      const created = await api('/api/users', { method: 'POST', body: JSON.stringify(payload) });
+      sovereignState.users.push(created);
+      toast('User created');
+    }
+    document.getElementById('userModal').classList.add('hidden');
+    renderUsers();
+  } catch (err) {
+    toast(err.message);
+  }
+});
