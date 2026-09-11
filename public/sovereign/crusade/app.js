@@ -2578,18 +2578,28 @@ function formatLootValue(n) {
   return n === null || n === undefined ? '' : Number(n).toLocaleString();
 }
 
-// Small inline summary line used under a boss's attendee list -- the full
-// Item/Quantity/Crows/Diamonds breakdown lives in the monthly loot table.
+// Its own standout card under a boss's attendee list (still nested inside
+// that boss's day-row) -- the full Item/Quantity/Crows/Diamonds breakdown
+// as a table lives separately in the monthly loot view.
 function lootRowsHtml(lootItems) {
   if (!lootItems || !lootItems.length) return '';
-  const parts = lootItems.map((l) => {
-    const values = [];
-    if (l.crowsValue !== null) values.push(`${formatLootValue(l.crowsValue)} Crows`);
-    if (l.diamondsValue !== null) values.push(`${formatLootValue(l.diamondsValue)} Diamonds`);
-    const valueStr = values.length ? ` (${values.join(' / ')})` : '';
-    return `${escapeHtml(l.itemName)} x${l.quantity}${valueStr}`;
-  });
-  return `<div style="padding:0 0 8px; color:var(--text-muted);"><strong style="color:var(--text);">Loot:</strong> ${parts.join(', ')}</div>`;
+  const rows = lootItems
+    .map((l) => {
+      const values = [];
+      if (l.crowsValue !== null) values.push(`<span class="crusade-loot-currency crows">🪙 ${formatLootValue(l.crowsValue)}</span>`);
+      if (l.diamondsValue !== null) values.push(`<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(l.diamondsValue)}</span>`);
+      return `
+      <div class="crusade-loot-highlight-row">
+        <span class="crusade-loot-item-badge">${escapeHtml(l.itemName)} ×${l.quantity}</span>
+        ${values.join(' ')}
+      </div>`;
+    })
+    .join('');
+  return `
+    <div class="crusade-loot-highlight-card">
+      <div class="crusade-loot-highlight-heading">🎁 Loot</div>
+      ${rows}
+    </div>`;
 }
 
 function renderWorldBossDayDetail(byDate) {
