@@ -2691,13 +2691,21 @@ function renderWorldBossMonthlyLoot() {
   rows.forEach((r) => {
     r.guessedBoss = Array.from(r.bossCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   });
-  worldBossMonthlyLootRows = rows; // read by the change handler below via data-loot-row-index
+  worldBossMonthlyLootRows = rows; // read by the change handler below via data-loot-row-index -- indices below are into this full (unfiltered) array
+
+  const search = document.getElementById('worldBossMonthlyLootSearchInput').value.trim().toLowerCase();
+  // Filters which rows are shown, but keeps each row's index into the full
+  // `rows` array (not its position in the filtered list) so the save
+  // handlers below -- which look items up via rows[i] -- keep working
+  // correctly against whatever's actually displayed.
+  const displayRows = rows.map((r, i) => ({ r, i })).filter(({ r }) => !search || r.itemName.toLowerCase().includes(search));
 
   document.getElementById('worldBossMonthlyLootEmptyState').classList.toggle('hidden', rows.length !== 0);
+  document.getElementById('worldBossMonthlyLootNoMatchState').classList.toggle('hidden', rows.length === 0 || displayRows.length !== 0);
   const body = document.getElementById('worldBossMonthlyLootBody');
-  body.innerHTML = rows
+  body.innerHTML = displayRows
     .map(
-      (r, i) => {
+      ({ r, i }) => {
         // A manually-set source always wins; otherwise fall back to the
         // guessed boss from kill history rather than defaulting to blank.
         const savedSource = sovereignState.lootItemSources?.get(r.itemKey);
@@ -2814,6 +2822,8 @@ function renderWorldBossMonthlyLoot() {
     <span class="crusade-loot-chip diamonds">💎 ${formatLootValue(totals.diamonds)}</span>`
     : '';
 }
+
+document.getElementById('worldBossMonthlyLootSearchInput').addEventListener('input', renderWorldBossMonthlyLoot);
 
 async function toggleLootItemSold(btn) {
   const itemId = btn.getAttribute('data-toggle-sold');

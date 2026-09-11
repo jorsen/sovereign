@@ -307,6 +307,8 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.addLootRow': '+ Add Item',
     'sovereign.worldBoss.monthlyLootHeading': "This Month's Loot",
     'sovereign.worldBoss.monthlyLootEmpty': 'No loot logged this month.',
+    'sovereign.worldBoss.lootSearchPlaceholder': 'Search by item…',
+    'sovereign.worldBoss.lootNoMatch': 'No items match your search.',
     'sovereign.worldBoss.thBoss': 'Boss',
     'sovereign.worldBoss.thItem': 'Item',
     'sovereign.worldBoss.thQuantity': 'Quantity',
