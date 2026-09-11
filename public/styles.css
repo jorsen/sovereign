@@ -905,6 +905,47 @@ select:focus, input:focus, textarea:focus {
   max-width: 180px;
 }
 .crusade-loot-source-guess-hint { font-style: italic; opacity: 0.75; }
+
+/* Per-item breakdown nested under a This Month's Loot row -- every
+   individual drop that rolled up into that row's totals, each editable. */
+.crusade-loot-breakdown {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.crusade-loot-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.crusade-loot-breakdown-table th {
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+.crusade-loot-breakdown-table td {
+  padding: 5px 10px;
+  border-top: 1px solid var(--gridline);
+}
+.crusade-loot-breakdown-table th:nth-child(n+3),
+.crusade-loot-breakdown-table td.crusade-loot-num { text-align: right; }
+.crusade-loot-breakdown-table input {
+  width: 64px;
+  font-size: 12px;
+  padding: 2px 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: inherit;
+  text-align: right;
+}
+.crusade-loot-breakdown-table input:hover { border-color: var(--border); }
+.crusade-loot-breakdown-table input:focus { outline: none; border-color: var(--gold); background: var(--surface-1); }
 .crusade-loot-table .crusade-loot-num { text-align: right; font-variant-numeric: tabular-nums; }
 .crusade-loot-table th:nth-child(n+2) { text-align: right; }
 .crusade-loot-table .crusade-loot-dash { color: var(--text-muted); }

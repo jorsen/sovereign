@@ -2451,6 +2451,7 @@ function renderWorldBossSummary() {
 let worldBossCalendarMonth = null; // Date, always the 1st of whichever month is showing
 let worldBossSelectedDate = null; // 'YYYY-MM-DD', or null if nothing's selected yet
 let worldBossMonthlyLootRows = []; // last rendered This Month's Loot rows, incl. their source loot_items -- read by saveMonthlyLootEdit
+let worldBossExpandedLootKey = null; // itemKey of whichever row's breakdown is open, or null -- kept outside the render so saving inside it doesn't collapse it
 
 function worldBossEventsByDate() {
   const byDate = new Map();
@@ -2479,7 +2480,6 @@ function renderWorldBossLog() {
   renderWorldBossCalendarGrid(byDate);
   renderWorldBossDayDetail(byDate);
   renderWorldBossMonthlyLoot();
-  renderWorldBossLootDetails();
   renderWorldBossSummary();
 }
 
@@ -2521,7 +2521,16 @@ function renderWorldBossMonthlyLoot() {
       entry.quantity += item.quantity || 0;
       if (item.crowsValue !== null) entry.crowsValue = (entry.crowsValue || 0) + item.crowsValue;
       if (item.diamondsValue !== null) entry.diamondsValue = (entry.diamondsValue || 0) + item.diamondsValue;
-      entry.sources.push({ eventId: ev.id, itemId: item.id });
+      entry.sources.push({
+        eventId: ev.id,
+        itemId: item.id,
+        bossName: ev.bossName,
+        eventDate: ev.eventDate,
+        quantity: item.quantity,
+        crowsValue: item.crowsValue,
+        diamondsValue: item.diamondsValue,
+        sold: item.sold,
+      });
       entry.bossCounts.set(ev.bossName, (entry.bossCounts.get(ev.bossName) || 0) + 1);
     });
   });
@@ -2543,17 +2552,52 @@ function renderWorldBossMonthlyLoot() {
         // guessed boss from kill history rather than defaulting to blank.
         const savedSource = sovereignState.lootItemSources?.get(r.itemKey);
         const selectedBoss = savedSource !== undefined ? savedSource : r.guessedBoss;
+        const breakdownRows = r.sources
+          .slice()
+          .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)))
+          .map(
+            (s) => `
+          <tr>
+            <td class="crusade-loot-boss">⚔️ ${escapeHtml(s.bossName)}</td>
+            <td class="crusade-loot-date">${formatLongDate(String(s.eventDate).slice(0, 10))}</td>
+            <td class="crusade-loot-num"><input type="number" min="1" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="quantity" value="${s.quantity}"></td>
+            <td class="crusade-loot-num">🪙 <input type="number" min="0" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="crowsValue" value="${s.crowsValue !== null ? s.crowsValue : ''}" placeholder="—"></td>
+            <td class="crusade-loot-num">💎 <input type="number" min="0" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="diamondsValue" value="${s.diamondsValue !== null ? s.diamondsValue : ''}" placeholder="—"></td>
+            <td>
+              <button type="button" class="crusade-loot-sold-toggle admin-disable ${s.sold ? 'is-sold' : 'is-unsold'}" data-toggle-sold="${s.itemId}" data-sold="${s.sold ? '1' : '0'}">
+                ${s.sold ? '✅ Sold' : '⭕ Not Sold'}
+              </button>
+            </td>
+          </tr>`
+          )
+          .join('');
+        const isExpanded = r.itemKey === worldBossExpandedLootKey;
         return `
     <tr>
       <td>
-        <span class="${lootItemBadgeClass(r.itemName)} crusade-loot-item-clickable" data-toggle-source-row="${i}" title="Click to set/edit where this drops from">${escapeHtml(r.itemName)}</span>
-        <div class="crusade-loot-source-picker hidden" id="worldBossLootSource-${i}">
+        <span class="${lootItemBadgeClass(r.itemName)} crusade-loot-item-clickable" data-toggle-source-row="${i}" title="Click to see/edit the breakdown">${escapeHtml(r.itemName)}</span>
+        <div class="crusade-loot-source-picker ${isExpanded ? '' : 'hidden'}" id="worldBossLootSource-${i}">
           <span>${t('sovereign.worldBoss.dropsFrom')}</span>
           <select class="admin-disable" data-loot-source-row="${i}">
             <option value="">— Unknown —</option>
             ${WORLD_BOSS_NAMES.map((b) => `<option value="${escapeHtml(b)}" ${selectedBoss === b ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
           </select>
           ${!savedSource && r.guessedBoss ? `<span class="crusade-loot-source-guess-hint">(guessed from kill history)</span>` : ''}
+        </div>
+        <div class="crusade-loot-breakdown ${isExpanded ? '' : 'hidden'}" id="worldBossLootBreakdown-${i}">
+          <table class="crusade-loot-breakdown-table">
+            <thead>
+              <tr>
+                <th>${t('sovereign.worldBoss.thBoss')}</th>
+                <th>${t('sovereign.common.date')}</th>
+                <th>${t('sovereign.worldBoss.thQuantity')}</th>
+                <th>${t('sovereign.worldBoss.thCrows')}</th>
+                <th>${t('sovereign.worldBoss.thDiamonds')}</th>
+                <th>${t('sovereign.worldBoss.thStatus')}</th>
+              </tr>
+            </thead>
+            <tbody>${breakdownRows}</tbody>
+          </table>
         </div>
       </td>
       <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
@@ -2574,11 +2618,19 @@ function renderWorldBossMonthlyLoot() {
 
   body.querySelectorAll('[data-toggle-source-row]').forEach((badge) => {
     badge.addEventListener('click', () => {
-      document.getElementById(`worldBossLootSource-${badge.getAttribute('data-toggle-source-row')}`).classList.toggle('hidden');
+      const row = rows[Number(badge.getAttribute('data-toggle-source-row'))];
+      worldBossExpandedLootKey = worldBossExpandedLootKey === row.itemKey ? null : row.itemKey;
+      renderWorldBossMonthlyLoot();
     });
   });
   body.querySelectorAll('[data-loot-source-row]').forEach((select) => {
     select.addEventListener('change', () => saveLootItemSource(select, rows[Number(select.getAttribute('data-loot-source-row'))]));
+  });
+  body.querySelectorAll('.crusade-loot-source-edit-input').forEach((input) => {
+    input.addEventListener('change', () => saveLootSourceField(input));
+  });
+  body.querySelectorAll('[data-toggle-sold]').forEach((btn) => {
+    btn.addEventListener('click', () => toggleLootItemSold(btn));
   });
 
   const totals = rows.reduce(
@@ -2608,53 +2660,6 @@ function renderWorldBossMonthlyLoot() {
     : '';
 }
 
-// One row per individual drop (not merged by item name like the summary
-// above) for the month the calendar is showing -- the un-merged Boss/Date
-// detail plus a per-drop Sold/Not Sold status, since two copies of the same
-// item can have different outcomes.
-function renderWorldBossLootDetails() {
-  const year = worldBossCalendarMonth.getFullYear();
-  const month = worldBossCalendarMonth.getMonth();
-
-  const rows = [];
-  (sovereignState.worldBossEvents || [])
-    .filter((ev) => {
-      const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
-      return d.getFullYear() === year && d.getMonth() === month;
-    })
-    .forEach((ev) => {
-      (ev.lootItems || []).forEach((item) => {
-        rows.push({ eventId: ev.id, bossName: ev.bossName, eventDate: ev.eventDate, item });
-      });
-    });
-  rows.sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)) || a.bossName.localeCompare(b.bossName));
-
-  document.getElementById('worldBossLootDetailsEmptyState').classList.toggle('hidden', rows.length !== 0);
-  const body = document.getElementById('worldBossLootDetailsBody');
-  body.innerHTML = rows
-    .map(
-      (r) => `
-    <tr>
-      <td><span class="crusade-loot-boss">⚔️ ${escapeHtml(r.bossName)}</span></td>
-      <td class="crusade-loot-date">${formatLongDate(String(r.eventDate).slice(0, 10))}</td>
-      <td><span class="${lootItemBadgeClass(canonicalizeItemName(r.item.itemName))}">${escapeHtml(canonicalizeItemName(r.item.itemName))}</span></td>
-      <td class="crusade-loot-num">${r.item.quantity.toLocaleString()}</td>
-      <td class="crusade-loot-num">${r.item.crowsValue !== null ? `<span class="crusade-loot-currency crows">🪙 ${formatLootValue(r.item.crowsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
-      <td class="crusade-loot-num">${r.item.diamondsValue !== null ? `<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(r.item.diamondsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
-      <td>
-        <button type="button" class="crusade-loot-sold-toggle admin-disable ${r.item.sold ? 'is-sold' : 'is-unsold'}" data-toggle-sold="${r.item.id}" data-sold="${r.item.sold ? '1' : '0'}">
-          ${r.item.sold ? '✅ Sold' : '⭕ Not Sold'}
-        </button>
-      </td>
-    </tr>`
-    )
-    .join('');
-
-  body.querySelectorAll('[data-toggle-sold]').forEach((btn) => {
-    btn.addEventListener('click', () => toggleLootItemSold(btn));
-  });
-}
-
 async function toggleLootItemSold(btn) {
   const itemId = btn.getAttribute('data-toggle-sold');
   const nextSold = btn.getAttribute('data-sold') !== '1';
@@ -2664,7 +2669,7 @@ async function toggleLootItemSold(btn) {
       const item = ev.lootItems?.find((l) => l.id === itemId);
       if (item) item.sold = nextSold;
     }
-    renderWorldBossLootDetails();
+    renderWorldBossMonthlyLoot();
   } catch (err) {
     toast(err.message);
   }
@@ -2716,6 +2721,37 @@ async function saveLootItemSource(select, row) {
     await api('/api/loot-item-sources', { method: 'PUT', body: JSON.stringify({ itemName: row.itemName, bossName }) });
     sovereignState.lootItemSources.set(row.itemKey, bossName);
     toast(bossName ? `${row.itemName} now shows as dropping from ${bossName}` : `Cleared ${row.itemName}'s drop source`);
+  } catch (err) {
+    toast(err.message);
+    renderWorldBossMonthlyLoot();
+  }
+}
+
+// Edits one field (quantity/Crows/Diamonds) on one exact drop, identified
+// directly by its event + item id -- unlike the aggregate-row editor above
+// (which has to guess by applying a delta to the earliest contributing
+// kill), the breakdown always knows precisely which drop it's touching.
+async function saveLootSourceField(input) {
+  const eventId = input.getAttribute('data-source-event');
+  const itemId = input.getAttribute('data-source-item');
+  const field = input.getAttribute('data-source-field');
+  const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
+  if (!ev) return;
+
+  const updatedLootItems = ev.lootItems.map((l) => {
+    const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
+    if (l.id !== itemId) return base;
+    if (field === 'quantity') base.quantity = Math.max(1, Number(input.value) || 1);
+    else base[field] = input.value === '' ? null : Math.max(0, Number(input.value));
+    return base;
+  });
+
+  try {
+    const updated = await api(`/api/world-boss-attendance/${eventId}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) });
+    const idx = sovereignState.worldBossEvents.findIndex((e) => e.id === eventId);
+    if (idx !== -1) sovereignState.worldBossEvents[idx] = updated;
+    renderWorldBossLog();
+    toast('Loot updated');
   } catch (err) {
     toast(err.message);
     renderWorldBossMonthlyLoot();
