@@ -2576,12 +2576,23 @@ function renderWorldBossDayDetail(byDate) {
   });
 }
 
+// Changing months clears the day selection -- otherwise the detail panel
+// below could keep showing a day from whatever month you just navigated
+// away from, which reads as a bug rather than "still selected."
 document.getElementById('worldBossCalPrevBtn').addEventListener('click', () => {
   worldBossCalendarMonth = new Date(worldBossCalendarMonth.getFullYear(), worldBossCalendarMonth.getMonth() - 1, 1);
+  worldBossSelectedDate = null;
   renderWorldBossLog();
 });
 document.getElementById('worldBossCalNextBtn').addEventListener('click', () => {
   worldBossCalendarMonth = new Date(worldBossCalendarMonth.getFullYear(), worldBossCalendarMonth.getMonth() + 1, 1);
+  worldBossSelectedDate = null;
+  renderWorldBossLog();
+});
+document.getElementById('worldBossCalTodayBtn').addEventListener('click', () => {
+  const now = new Date();
+  worldBossCalendarMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  worldBossSelectedDate = null;
   renderWorldBossLog();
 });
 

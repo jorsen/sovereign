@@ -892,13 +892,45 @@ select:focus, input:focus, textarea:focus {
   font-size: 13px;
 }
 
-/* World Boss Attendance Log's month calendar -- 7 columns (Sun-Sat), each
-   cell a fixed-ish square that shows the day number and, if logged events
-   exist that day, a small attendee-count badge. */
+/* ---------- World Boss Attendance Log: month calendar ---------- */
+
+.crusade-calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.crusade-calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.crusade-calendar-nav .icon-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  border-radius: 999px;
+}
+.crusade-calendar-month-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  min-width: 150px;
+  text-align: center;
+  color: var(--text-primary);
+}
+#worldBossCalTodayBtn { margin-left: 6px; }
+
 .crusade-calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 .crusade-calendar-weekday {
   text-align: center;
@@ -906,36 +938,101 @@ select:focus, input:focus, textarea:focus {
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  padding-bottom: 4px;
+  letter-spacing: 0.06em;
+  padding-bottom: 6px;
 }
+
 .crusade-calendar-cell {
-  min-height: 64px;
-  border-radius: 8px;
+  position: relative;
+  aspect-ratio: 1 / 0.85;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-1);
-  padding: 6px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: flex-start;
+  gap: 6px;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
 .crusade-calendar-cell.is-empty { visibility: hidden; }
-.crusade-calendar-cell.has-events { cursor: pointer; border-color: var(--border-strong); }
-.crusade-calendar-cell.has-events:hover { background: var(--surface-2); }
-.crusade-calendar-cell.is-selected { border-color: var(--gold); background: var(--gold-soft); }
-.crusade-calendar-cell.is-today .crusade-calendar-daynum { color: var(--gold); }
-.crusade-calendar-daynum { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-.crusade-calendar-badge {
-  align-self: flex-start;
-  font-size: 11px;
-  font-weight: 700;
-  color: #ffffff;
-  background: var(--series-1-strong);
-  border-radius: 999px;
-  padding: 1px 7px;
+
+.crusade-calendar-daynum {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
+
+/* Today: a filled ring around the day number, independent of selection. */
+.crusade-calendar-cell.is-today .crusade-calendar-daynum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.crusade-calendar-cell.has-events {
+  cursor: pointer;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.crusade-calendar-cell.has-events:hover {
+  background: var(--surface-2);
+  border-color: var(--series-1);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.crusade-calendar-cell.has-events:active { transform: translateY(0); }
+
+.crusade-calendar-cell.is-selected {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: 0 0 0 1px var(--gold) inset, var(--shadow-md);
+}
+.crusade-calendar-cell.is-selected:hover { transform: none; }
+
+.crusade-calendar-badge {
+  margin-top: auto;
+  align-self: stretch;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--series-1), var(--series-1-strong));
+  border-radius: 999px;
+  padding: 2px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.crusade-calendar-cell.is-selected .crusade-calendar-badge {
+  background: linear-gradient(135deg, var(--gold), #d98f1f);
+}
+
+.crusade-calendar-day-detail:empty { display: none; }
+.crusade-calendar-day-detail {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.crusade-calendar-day-detail .empty-state {
+  text-align: center;
+  padding: 18px 0 4px;
+}
+
 @media (max-width: 640px) {
-  .crusade-calendar-cell { min-height: 44px; padding: 4px; }
-  .crusade-calendar-badge { font-size: 10px; padding: 0 5px; }
+  .crusade-calendar-toolbar { flex-direction: column; align-items: flex-start; }
+  .crusade-calendar-grid { gap: 4px; }
+  .crusade-calendar-cell { aspect-ratio: 1 / 1; padding: 4px; border-radius: 6px; gap: 2px; }
+  .crusade-calendar-daynum { font-size: 11px; }
+  .crusade-calendar-badge { font-size: 9px; padding: 1px 3px; }
+  .crusade-calendar-weekday { font-size: 9px; }
 }
 
 .crusade-party-card {

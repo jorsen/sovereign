@@ -306,6 +306,7 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.thAttended': 'Times Attended',
     'sovereign.worldBoss.thRate': 'Attendance %',
     'sovereign.worldBoss.logListHeading': 'Attendance Log',
+    'sovereign.worldBoss.today': 'Today',
     'sovereign.worldBoss.logEmpty': 'No events logged yet.',
 
     'sovereign.common.name': 'Name',
