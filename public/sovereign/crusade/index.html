@@ -662,8 +662,10 @@
           <input required name="growthRate" type="number" min="0" step="1">
         </label>
         <label class="crusade-notes-field"><span data-i18n="sovereign.growth.thScreenshot">Screenshot</span>
-          <input required name="screenshot" type="file" accept="image/*">
+          <input name="screenshot" type="file" accept="image/*">
         </label>
+        <div id="growthAddPasteZone" class="crusade-paste-zone crusade-notes-field" tabindex="0" data-i18n="sovereign.growth.pasteZone">📋 Click here, then paste a screenshot (Ctrl+V)</div>
+        <img id="growthAddPreview" class="crusade-growth-edit-screenshot hidden" alt="">
         <button type="submit" class="btn primary" data-i18n="sovereign.common.save">Save</button>
       </form>
     </div>

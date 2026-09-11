@@ -1143,6 +1143,26 @@ select:focus, input:focus, textarea:focus {
   margin-bottom: 14px;
 }
 
+.crusade-paste-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 14px;
+  margin-top: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: text;
+}
+.crusade-paste-zone:focus, .crusade-paste-zone:hover {
+  outline: none;
+  border-color: var(--gold);
+  color: var(--text);
+}
+.crusade-paste-zone.has-image { border-style: solid; border-color: var(--good); color: var(--good); }
+
 /* One row per boss within a World Boss Attendance Log day-card. */
 .crusade-world-boss-day-row + .crusade-world-boss-day-row {
   border-top: 1px solid var(--border);

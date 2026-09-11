@@ -2323,9 +2323,34 @@ function readFileAsBase64(file) {
   });
 }
 
+// Holds whatever image is currently staged for the Add Record form -- either
+// the <input type="file">'s own selection, or a screenshot pasted straight
+// from the clipboard (a file input's FileList can't be set programmatically
+// from JS for security reasons, so a pasted image needs its own variable
+// rather than trying to shove it into form.elements.screenshot).
+let growthAddPastedImage = null;
+
+function setGrowthAddPreview(file) {
+  const pasteZone = document.getElementById('growthAddPasteZone');
+  const preview = document.getElementById('growthAddPreview');
+  if (!file) {
+    preview.classList.add('hidden');
+    preview.src = '';
+    pasteZone.classList.remove('has-image');
+    pasteZone.textContent = t('sovereign.growth.pasteZone');
+    return;
+  }
+  preview.src = URL.createObjectURL(file);
+  preview.classList.remove('hidden');
+  pasteZone.classList.add('has-image');
+  pasteZone.textContent = t('sovereign.growth.pasteZoneReplace');
+}
+
 function openGrowthAddModal() {
   const form = document.getElementById('growthAddForm');
   form.reset();
+  growthAddPastedImage = null;
+  setGrowthAddPreview(null);
 
   const classSelect = document.getElementById('growthAddClassSelect');
   classSelect.innerHTML = GROWTH_CLASS_CHOICES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
@@ -2338,12 +2363,32 @@ function openGrowthAddModal() {
 
 document.getElementById('growthAddBtn').addEventListener('click', openGrowthAddModal);
 
+// Choosing a file clears any pasted image (whichever the admin does last
+// wins) and updates the preview.
+document.querySelector('#growthAddForm [name="screenshot"]').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) growthAddPastedImage = null;
+  setGrowthAddPreview(file || growthAddPastedImage);
+});
+
+document.getElementById('growthAddPasteZone').addEventListener('paste', (e) => {
+  const item = Array.from(e.clipboardData?.items || []).find((i) => i.type.startsWith('image/'));
+  if (!item) {
+    toast('No image found on the clipboard');
+    return;
+  }
+  const file = item.getAsFile();
+  growthAddPastedImage = file;
+  document.querySelector('#growthAddForm [name="screenshot"]').value = '';
+  setGrowthAddPreview(file);
+});
+
 document.getElementById('growthAddForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
-  const file = form.elements.screenshot.files[0];
+  const file = form.elements.screenshot.files[0] || growthAddPastedImage;
   if (!file) {
-    toast('A screenshot is required');
+    toast('A screenshot is required -- choose a file or paste one');
     return;
   }
   try {
@@ -2365,6 +2410,7 @@ document.getElementById('growthAddForm').addEventListener('submit', async (e) =>
     else sovereignState.growthSubmissions.push(created);
     populateGrowthFilterOptions(sovereignState.growthSubmissions);
     renderGrowthSubmissions();
+    growthAddPastedImage = null;
     document.getElementById('growthAddModal').classList.add('hidden');
     toast('Growth Rate record added');
   } catch (err) {
