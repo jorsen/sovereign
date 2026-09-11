@@ -147,6 +147,11 @@ async function handleGrowthCommand(interaction) {
     return;
   }
 
+  // The server nickname (falls back to the account's global display name,
+  // then its username) rather than the raw account username -- that's what
+  // members actually recognize each other by in this guild.
+  const submitterName = interaction.member?.displayName || interaction.user.globalName || interaction.user.username;
+
   const channel = await client.channels.fetch(CHANNEL_ID);
   const embed = new EmbedBuilder()
     .setTitle(ign)
@@ -157,7 +162,7 @@ async function handleGrowthCommand(interaction) {
       { name: 'Growth Rate', value: growthRate.toLocaleString(), inline: true }
     )
     .setImage(attachment.url)
-    .setFooter({ text: `Submitted by ${interaction.user.username}` })
+    .setFooter({ text: `Submitted by ${submitterName}` })
     .setTimestamp();
   const posted = await channel.send({ embeds: [embed] });
 
@@ -165,7 +170,7 @@ async function handleGrowthCommand(interaction) {
     await submitToApi({
       discordMessageId: posted.id,
       discordUserId: interaction.user.id,
-      discordUsername: interaction.user.username,
+      discordUsername: submitterName,
       ign,
       className,
       guildName,
