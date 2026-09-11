@@ -867,6 +867,22 @@ select:focus, input:focus, textarea:focus {
   border: 1px solid rgba(96,165,250,0.55);
   color: #93c5fd;
 }
+.crusade-loot-item-clickable { cursor: pointer; }
+.crusade-loot-item-clickable:hover { filter: brightness(1.2); }
+.crusade-loot-source-picker {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.crusade-loot-source-picker select {
+  font-size: 12px;
+  padding: 2px 6px;
+  max-width: 180px;
+}
 .crusade-loot-table .crusade-loot-num { text-align: right; font-variant-numeric: tabular-nums; }
 .crusade-loot-table th:nth-child(n+2) { text-align: right; }
 .crusade-loot-table .crusade-loot-dash { color: var(--text-muted); }

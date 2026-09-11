@@ -2315,14 +2315,16 @@ const WORLD_BOSS_NAMES = [
 let worldBossEditingId = null;
 
 async function loadWorldBossAttendance() {
-  const [events, growthSubmissions, guilds] = await Promise.all([
+  const [events, growthSubmissions, guilds, lootItemSources] = await Promise.all([
     api('/api/world-boss-attendance'),
     api('/api/growth-submissions'),
     api('/api/crusade-guilds'),
+    api('/api/loot-item-sources'),
   ]);
   sovereignState.worldBossEvents = events;
   sovereignState.growthSubmissions = growthSubmissions;
   sovereignState.guilds = guilds;
+  sovereignState.lootItemSources = new Map(lootItemSources.map((s) => [s.itemKey, s.bossName]));
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
@@ -2513,7 +2515,7 @@ function renderWorldBossMonthlyLoot() {
     (ev.lootItems || []).forEach((item) => {
       const cleanName = canonicalizeItemName(item.itemName);
       const key = cleanName.toLowerCase();
-      if (!byItem.has(key)) byItem.set(key, { itemName: cleanName, quantity: 0, crowsValue: null, diamondsValue: null, sources: [] });
+      if (!byItem.has(key)) byItem.set(key, { itemName: cleanName, itemKey: key, quantity: 0, crowsValue: null, diamondsValue: null, sources: [] });
       const entry = byItem.get(key);
       entry.quantity += item.quantity || 0;
       if (item.crowsValue !== null) entry.crowsValue = (entry.crowsValue || 0) + item.crowsValue;
@@ -2530,7 +2532,16 @@ function renderWorldBossMonthlyLoot() {
     .map(
       (r, i) => `
     <tr>
-      <td><span class="${lootItemBadgeClass(r.itemName)}">${escapeHtml(r.itemName)}</span></td>
+      <td>
+        <span class="${lootItemBadgeClass(r.itemName)} crusade-loot-item-clickable" data-toggle-source-row="${i}" title="Click to set/edit where this drops from">${escapeHtml(r.itemName)}</span>
+        <div class="crusade-loot-source-picker hidden" id="worldBossLootSource-${i}">
+          <span>${t('sovereign.worldBoss.dropsFrom')}</span>
+          <select class="admin-disable" data-loot-source-row="${i}">
+            <option value="">— Unknown —</option>
+            ${WORLD_BOSS_NAMES.map((b) => `<option value="${escapeHtml(b)}" ${(sovereignState.lootItemSources?.get(r.itemKey) || '') === b ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
+          </select>
+        </div>
+      </td>
       <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
       <td class="crusade-loot-num">
         <span class="crusade-loot-edit-cell crows">🪙 <input type="number" min="0" step="1" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="crowsValue" value="${r.crowsValue !== null ? r.crowsValue : ''}" placeholder="—"></span>
@@ -2544,6 +2555,15 @@ function renderWorldBossMonthlyLoot() {
 
   body.querySelectorAll('.crusade-loot-edit-input').forEach((input) => {
     input.addEventListener('change', () => saveMonthlyLootEdit(input));
+  });
+
+  body.querySelectorAll('[data-toggle-source-row]').forEach((badge) => {
+    badge.addEventListener('click', () => {
+      document.getElementById(`worldBossLootSource-${badge.getAttribute('data-toggle-source-row')}`).classList.toggle('hidden');
+    });
+  });
+  body.querySelectorAll('[data-loot-source-row]').forEach((select) => {
+    select.addEventListener('change', () => saveLootItemSource(select, rows[Number(select.getAttribute('data-loot-source-row'))]));
   });
 
   const totals = rows.reduce(
@@ -2606,6 +2626,22 @@ async function saveMonthlyLootEdit(input) {
   } catch (err) {
     toast(err.message);
     renderWorldBossMonthlyLoot(); // revert the input back to the last known-good value
+  }
+}
+
+// Which boss an item drops from is a fact about the item itself, saved
+// separately from any specific kill record -- picking it here updates
+// instantly and applies everywhere that item name shows up.
+async function saveLootItemSource(select, row) {
+  if (!row) return;
+  const bossName = select.value || null;
+  try {
+    await api('/api/loot-item-sources', { method: 'PUT', body: JSON.stringify({ itemName: row.itemName, bossName }) });
+    sovereignState.lootItemSources.set(row.itemKey, bossName);
+    toast(bossName ? `${row.itemName} now shows as dropping from ${bossName}` : `Cleared ${row.itemName}'s drop source`);
+  } catch (err) {
+    toast(err.message);
+    renderWorldBossMonthlyLoot();
   }
 }
 
