@@ -437,10 +437,14 @@
           <label><span data-i18n="sovereign.common.date">Date</span>
             <input required name="eventDate" type="date">
           </label>
-          <label class="crusade-notes-field"><span data-i18n="sovereign.worldBoss.lootLabel">Loot (optional)</span>
-            <input name="loot" type="text" maxlength="300" placeholder="e.g. Morion x3, Guild Coins x500" data-i18n-placeholder="sovereign.worldBoss.lootPlaceholder">
-          </label>
         </form>
+        <div class="crusade-loot-editor">
+          <div class="crusade-loot-editor-header">
+            <span data-i18n="sovereign.worldBoss.lootLabel">Loot (optional)</span>
+            <button type="button" id="worldBossAddLootRowBtn" class="btn small" data-i18n="sovereign.worldBoss.addLootRow">+ Add Item</button>
+          </div>
+          <div id="worldBossLootRows"></div>
+        </div>
         <p style="color:var(--text-muted); font-size:13px; margin:14px 0 6px;" data-i18n="sovereign.worldBoss.checkHint">Check off everyone who attended.</p>
         <div id="worldBossMemberGrid" class="crusade-party-grid"></div>
         <div style="display:flex; gap:8px; margin-top:14px;">
@@ -464,6 +468,27 @@
           <div id="worldBossCalendarGrid" class="crusade-calendar-grid"></div>
           <div id="worldBossCalendarDayDetail" class="crusade-calendar-day-detail"></div>
         </div>
+      </section>
+
+      <section class="panel">
+        <h2 style="margin:0;" data-i18n="sovereign.worldBoss.monthlyLootHeading">This Month's Loot</h2>
+        <p id="worldBossMonthlyLootLabel" style="color:var(--text-muted); font-size:13px; margin-top:-8px;"></p>
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead>
+              <tr>
+                <th data-i18n="sovereign.worldBoss.thBoss">Boss</th>
+                <th data-i18n="sovereign.common.date">Date</th>
+                <th data-i18n="sovereign.worldBoss.thItem">Item</th>
+                <th data-i18n="sovereign.worldBoss.thQuantity">Quantity</th>
+                <th data-i18n="sovereign.worldBoss.thCrows">Crows</th>
+                <th data-i18n="sovereign.worldBoss.thDiamonds">Diamonds</th>
+              </tr>
+            </thead>
+            <tbody id="worldBossMonthlyLootBody"></tbody>
+          </table>
+        </div>
+        <p id="worldBossMonthlyLootEmptyState" class="empty-state hidden" data-i18n="sovereign.worldBoss.monthlyLootEmpty">No loot logged this month.</p>
       </section>
 
       <section class="panel">

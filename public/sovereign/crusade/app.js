@@ -2452,6 +2452,48 @@ function renderWorldBossLog() {
 
   renderWorldBossCalendarGrid(byDate);
   renderWorldBossDayDetail(byDate);
+  renderWorldBossMonthlyLoot();
+}
+
+// Every loot item dropped by every boss logged in the month the calendar is
+// currently showing -- one row per item, not per event, so a boss kill with
+// three drops shows as three rows.
+function renderWorldBossMonthlyLoot() {
+  const year = worldBossCalendarMonth.getFullYear();
+  const month = worldBossCalendarMonth.getMonth();
+  document.getElementById('worldBossMonthlyLootLabel').textContent = worldBossCalendarMonth.toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const monthEvents = (sovereignState.worldBossEvents || [])
+    .filter((ev) => {
+      const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
+      return d.getFullYear() === year && d.getMonth() === month;
+    })
+    .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
+
+  const rows = [];
+  monthEvents.forEach((ev) => {
+    (ev.lootItems || []).forEach((item) => {
+      rows.push({ bossName: ev.bossName, eventDate: ev.eventDate, item });
+    });
+  });
+
+  document.getElementById('worldBossMonthlyLootEmptyState').classList.toggle('hidden', rows.length !== 0);
+  document.getElementById('worldBossMonthlyLootBody').innerHTML = rows
+    .map(
+      (r) => `
+    <tr>
+      <td>${escapeHtml(r.bossName)}</td>
+      <td>${formatLongDate(String(r.eventDate).slice(0, 10))}</td>
+      <td>${escapeHtml(r.item.itemName)}</td>
+      <td>${r.item.quantity}</td>
+      <td>${formatLootValue(r.item.crowsValue)}</td>
+      <td>${formatLootValue(r.item.diamondsValue)}</td>
+    </tr>`
+    )
+    .join('');
 }
 
 function renderWorldBossCalendarGrid(byDate) {
@@ -2495,6 +2537,24 @@ function renderWorldBossCalendarGrid(byDate) {
   });
 }
 
+function formatLootValue(n) {
+  return n === null || n === undefined ? '' : Number(n).toLocaleString();
+}
+
+// Small inline summary line used under a boss's attendee list -- the full
+// Item/Quantity/Crows/Diamonds breakdown lives in the monthly loot table.
+function lootRowsHtml(lootItems) {
+  if (!lootItems || !lootItems.length) return '';
+  const parts = lootItems.map((l) => {
+    const values = [];
+    if (l.crowsValue !== null) values.push(`${formatLootValue(l.crowsValue)} Crows`);
+    if (l.diamondsValue !== null) values.push(`${formatLootValue(l.diamondsValue)} Diamonds`);
+    const valueStr = values.length ? ` (${values.join(' / ')})` : '';
+    return `${escapeHtml(l.itemName)} x${l.quantity}${valueStr}`;
+  });
+  return `<div style="padding:0 0 8px; color:var(--text-muted);"><strong style="color:var(--text);">Loot:</strong> ${parts.join(', ')}</div>`;
+}
+
 function renderWorldBossDayDetail(byDate) {
   const detail = document.getElementById('worldBossCalendarDayDetail');
   if (!worldBossSelectedDate || !byDate.has(worldBossSelectedDate)) {
@@ -2529,7 +2589,7 @@ function renderWorldBossDayDetail(byDate) {
       <div class="hidden" id="worldBossAttendees-${ev.id}" style="padding:8px 0 4px; display:flex; flex-wrap:wrap; gap:8px;">
         ${attendeeBadges(ev.attendees)}
       </div>
-      ${ev.loot ? `<div style="padding:0 0 8px; color:var(--text-muted);"><strong style="color:var(--text);">Loot:</strong> ${escapeHtml(ev.loot)}</div>` : ''}
+      ${lootRowsHtml(ev.lootItems)}
     </div>`
     )
     .join('');
@@ -2597,13 +2657,49 @@ document.getElementById('worldBossCalTodayBtn').addEventListener('click', () => 
   renderWorldBossLog();
 });
 
+// Renders the repeatable Item/Quantity/Crows/Diamonds rows in the log-attendance
+// form. Each row is standalone markup (not tied to a form field array by
+// index) so rows can be added/removed freely; values are read back by
+// collectLootRowsFromForm() at submit time.
+function renderWorldBossLootRows(lootItems) {
+  const container = document.getElementById('worldBossLootRows');
+  container.innerHTML = '';
+  (lootItems && lootItems.length ? lootItems : []).forEach((item) => addWorldBossLootRow(item));
+}
+
+function addWorldBossLootRow(item) {
+  const row = document.createElement('div');
+  row.className = 'crusade-loot-row';
+  row.innerHTML = `
+    <input type="text" data-loot-field="itemName" placeholder="Item name" maxlength="120" value="${escapeHtml(item?.itemName || '')}">
+    <input type="number" data-loot-field="quantity" placeholder="Qty" min="1" step="1" value="${item?.quantity ?? 1}">
+    <input type="number" data-loot-field="crowsValue" placeholder="Crows" min="0" step="1" value="${item?.crowsValue ?? ''}">
+    <input type="number" data-loot-field="diamondsValue" placeholder="Diamonds" min="0" step="1" value="${item?.diamondsValue ?? ''}">
+    <button type="button" class="icon-btn" title="Remove item">✕</button>`;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  document.getElementById('worldBossLootRows').appendChild(row);
+}
+
+document.getElementById('worldBossAddLootRowBtn').addEventListener('click', () => addWorldBossLootRow());
+
+function collectLootRowsFromForm() {
+  return Array.from(document.querySelectorAll('#worldBossLootRows .crusade-loot-row'))
+    .map((row) => ({
+      itemName: row.querySelector('[data-loot-field="itemName"]').value.trim(),
+      quantity: Number(row.querySelector('[data-loot-field="quantity"]').value) || 1,
+      crowsValue: row.querySelector('[data-loot-field="crowsValue"]').value === '' ? null : Number(row.querySelector('[data-loot-field="crowsValue"]').value),
+      diamondsValue: row.querySelector('[data-loot-field="diamondsValue"]').value === '' ? null : Number(row.querySelector('[data-loot-field="diamondsValue"]').value),
+    }))
+    .filter((item) => item.itemName);
+}
+
 function startEditingWorldBossEvent(ev) {
   worldBossEditingId = ev.id;
   const form = document.getElementById('worldBossForm');
   form.elements.eventId.value = ev.id;
   form.elements.bossName.value = ev.bossName;
   form.elements.eventDate.value = String(ev.eventDate).slice(0, 10);
-  form.elements.loot.value = ev.loot || '';
+  renderWorldBossLootRows(ev.lootItems);
   renderWorldBossMemberGrid(new Set(ev.attendees.map((a) => a.name)));
   document.getElementById('worldBossFormHeading').textContent = `${t('sovereign.worldBoss.editHeading')} — ${ev.bossName}`;
   document.getElementById('worldBossCancelEditBtn').classList.remove('hidden');
@@ -2615,6 +2711,7 @@ function resetWorldBossForm() {
   const form = document.getElementById('worldBossForm');
   form.reset();
   form.elements.eventId.value = '';
+  renderWorldBossLootRows([]);
   renderWorldBossMemberGrid(new Set());
   document.getElementById('worldBossFormHeading').textContent = t('sovereign.worldBoss.logHeading');
   document.getElementById('worldBossCancelEditBtn').classList.add('hidden');
@@ -2633,7 +2730,7 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
   const payload = {
     bossName: form.elements.bossName.value,
     eventDate: form.elements.eventDate.value,
-    loot: form.elements.loot.value.trim() || null,
+    lootItems: collectLootRowsFromForm(),
     attendeeNames,
   };
   try {

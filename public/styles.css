@@ -775,6 +775,29 @@ select:focus, input:focus, textarea:focus {
 .crusade-header-form .crusade-notes-field { flex-basis: 100%; }
 .crusade-header-form > button { flex: none; align-self: flex-end; }
 
+.crusade-loot-editor { margin-top: 14px; }
+.crusade-loot-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.crusade-loot-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.crusade-loot-row input[data-loot-field="itemName"] { flex: 2 1 160px; min-width: 120px; }
+.crusade-loot-row input[data-loot-field="quantity"] { flex: 1 1 70px; min-width: 60px; }
+.crusade-loot-row input[data-loot-field="crowsValue"],
+.crusade-loot-row input[data-loot-field="diamondsValue"] { flex: 1 1 90px; min-width: 80px; }
+.crusade-loot-row .icon-btn { flex: none; }
+
 .crusade-guild-badge {
   display: inline-block;
   padding: 2px 8px;
