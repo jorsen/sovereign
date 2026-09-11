@@ -2657,7 +2657,12 @@ function formatLootValue(n) {
 // Known misspellings of an item name, mapped to the correct one -- corrects
 // display and merges them with the correctly-spelled entries everywhere,
 // without needing to go fix every already-submitted record in the database.
-const ITEM_NAME_ALIASES = new Map([['golden inner armor insignia fragmer', 'Golden Inner Armor Insignia Fragment']]);
+const ITEM_NAME_ALIASES = new Map([
+  ['golden inner armor insignia fragmer', 'Golden Inner Armor Insignia Fragment'],
+  ['aura of circulatingg manifestation', 'Aura of Circulating Manifestation'],
+  ["forgotten arbitter's remnant", "Forgotten Arbiter's Remnant"],
+  ['silver insignia fragment', 'Silver Shield Insignia Fragment'],
+]);
 function canonicalizeItemName(name) {
   const cleaned = name.trim().replace(/\s+/g, ' ');
   return ITEM_NAME_ALIASES.get(cleaned.toLowerCase()) || cleaned;
