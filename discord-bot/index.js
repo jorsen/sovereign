@@ -133,6 +133,17 @@ async function handleGrowthCommand(interaction) {
     await interaction.editReply('The screenshot attachment has to be an image.');
     return;
   }
+  // A cropped-down shot of just the stats popup (portrait/near-square) is
+  // easy to fake or reuse -- a real capture of the Character Details screen
+  // is landscape and shows the character on screen next to the panel.
+  // Discord already reports image dimensions on the attachment, no
+  // downloading/decoding needed to check this.
+  if (attachment.width && attachment.height && attachment.width <= attachment.height) {
+    await interaction.editReply(
+      "That looks like a cropped screenshot of just the stats popup. Please attach a full screenshot that also shows your character on screen (like a normal landscape screen capture), not just the popup by itself."
+    );
+    return;
+  }
   // The command's own .addChoices() already constrains these in the Discord
   // UI, but a stale client cache or a raw API call could still send
   // something else -- worth a clear error instead of an opaque 400 later.
