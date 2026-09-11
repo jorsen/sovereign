@@ -2448,6 +2448,7 @@ function renderWorldBossSummary() {
 // back, which is fine -- same idiom as worldBossEditingId below).
 let worldBossCalendarMonth = null; // Date, always the 1st of whichever month is showing
 let worldBossSelectedDate = null; // 'YYYY-MM-DD', or null if nothing's selected yet
+let worldBossMonthlyLootRows = []; // last rendered This Month's Loot rows, incl. their source loot_items -- read by saveMonthlyLootEdit
 
 function worldBossEventsByDate() {
   const byDate = new Map();
@@ -2492,40 +2493,58 @@ function renderWorldBossMonthlyLoot() {
     year: 'numeric',
   });
 
-  const monthEvents = (sovereignState.worldBossEvents || []).filter((ev) => {
-    const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
-    return d.getFullYear() === year && d.getMonth() === month;
-  });
+  const monthEvents = (sovereignState.worldBossEvents || [])
+    .filter((ev) => {
+      const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
+      return d.getFullYear() === year && d.getMonth() === month;
+    })
+    // Stable order (earliest kill first) so "which source absorbs an edit"
+    // below is deterministic instead of depending on object insertion order.
+    .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)) || String(a.createdAt).localeCompare(String(b.createdAt)));
 
   // Merge key ignores case and collapses/trims whitespace -- catches typos
   // like "frozen tear", "Frozen  Tear", or " Frozen Tear " all landing as
-  // the same item instead of splitting into separate rows.
+  // the same item instead of splitting into separate rows. `sources` tracks
+  // every individual loot_item row (by its event + item id) that feeds this
+  // merged row, so editing Crows/Diamonds below still has somewhere real to
+  // save to even though what's on screen is a sum.
   const byItem = new Map();
   monthEvents.forEach((ev) => {
     (ev.lootItems || []).forEach((item) => {
       const cleanName = item.itemName.trim().replace(/\s+/g, ' ');
       const key = cleanName.toLowerCase();
-      if (!byItem.has(key)) byItem.set(key, { itemName: cleanName, quantity: 0, crowsValue: null, diamondsValue: null });
+      if (!byItem.has(key)) byItem.set(key, { itemName: cleanName, quantity: 0, crowsValue: null, diamondsValue: null, sources: [] });
       const entry = byItem.get(key);
       entry.quantity += item.quantity || 0;
       if (item.crowsValue !== null) entry.crowsValue = (entry.crowsValue || 0) + item.crowsValue;
       if (item.diamondsValue !== null) entry.diamondsValue = (entry.diamondsValue || 0) + item.diamondsValue;
+      entry.sources.push({ eventId: ev.id, itemId: item.id });
     });
   });
   const rows = Array.from(byItem.values()).sort((a, b) => b.quantity - a.quantity);
+  worldBossMonthlyLootRows = rows; // read by the change handler below via data-loot-row-index
 
   document.getElementById('worldBossMonthlyLootEmptyState').classList.toggle('hidden', rows.length !== 0);
-  document.getElementById('worldBossMonthlyLootBody').innerHTML = rows
+  const body = document.getElementById('worldBossMonthlyLootBody');
+  body.innerHTML = rows
     .map(
-      (r) => `
+      (r, i) => `
     <tr>
       <td><span class="crusade-loot-item-badge">${escapeHtml(r.itemName)}</span></td>
       <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
-      <td class="crusade-loot-num">${r.crowsValue !== null ? `<span class="crusade-loot-currency crows">🪙 ${formatLootValue(r.crowsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
-      <td class="crusade-loot-num">${r.diamondsValue !== null ? `<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(r.diamondsValue)}</span>` : '<span class="crusade-loot-dash">—</span>'}</td>
+      <td class="crusade-loot-num">
+        <span class="crusade-loot-edit-cell crows">🪙 <input type="number" min="0" step="1" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="crowsValue" value="${r.crowsValue !== null ? r.crowsValue : ''}" placeholder="—"></span>
+      </td>
+      <td class="crusade-loot-num">
+        <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="1" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? r.diamondsValue : ''}" placeholder="—"></span>
+      </td>
     </tr>`
     )
     .join('');
+
+  body.querySelectorAll('.crusade-loot-edit-input').forEach((input) => {
+    input.addEventListener('change', () => saveMonthlyLootEdit(input));
+  });
 
   const totals = rows.reduce(
     (acc, r) => {
@@ -2552,6 +2571,42 @@ function renderWorldBossMonthlyLoot() {
     <span class="crusade-loot-chip crows">🪙 ${formatLootValue(totals.crows)}</span>
     <span class="crusade-loot-chip diamonds">💎 ${formatLootValue(totals.diamonds)}</span>`
     : '';
+}
+
+// Editing a Crows/Diamonds cell in This Month's Loot edits a *merged* total,
+// which has no single row of its own to save to -- so the whole delta (new
+// total minus old total) gets applied to the earliest kill that contributed
+// to this item, and everything downstream (this table's totals/chips, the
+// day-detail loot card, the attendance summary) re-renders from the saved
+// result, giving the "auto compute" the edit needs.
+async function saveMonthlyLootEdit(input) {
+  const row = worldBossMonthlyLootRows[Number(input.getAttribute('data-loot-row-index'))];
+  const field = input.getAttribute('data-loot-field');
+  const source = row?.sources[0];
+  if (!row || !source) return;
+
+  const newTotal = input.value === '' ? 0 : Math.max(0, Number(input.value));
+  const delta = newTotal - (row[field] || 0);
+
+  const ev = sovereignState.worldBossEvents.find((e) => e.id === source.eventId);
+  if (!ev) return;
+  const updatedLootItems = ev.lootItems.map((l) => {
+    const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue };
+    if (l.id !== source.itemId) return base;
+    base[field] = Math.max(0, (l[field] || 0) + delta);
+    return base;
+  });
+
+  try {
+    const updated = await api(`/api/world-boss-attendance/${ev.id}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) });
+    const idx = sovereignState.worldBossEvents.findIndex((e) => e.id === ev.id);
+    if (idx !== -1) sovereignState.worldBossEvents[idx] = updated;
+    renderWorldBossLog(); // re-renders the calendar/day-detail/monthly loot/summary together
+    toast('Loot updated');
+  } catch (err) {
+    toast(err.message);
+    renderWorldBossMonthlyLoot(); // revert the input back to the last known-good value
+  }
 }
 
 function renderWorldBossCalendarGrid(byDate) {

@@ -840,6 +840,36 @@ select:focus, input:focus, textarea:focus {
 .crusade-loot-currency.crows { color: #e0b64d; }
 .crusade-loot-currency.diamonds { color: #6dd3f0; }
 
+/* Inline-editable Crows/Diamonds cell in This Month's Loot -- looks like the
+   plain colored value until focused, since it edits a merged total rather
+   than being an obvious form field. */
+.crusade-loot-edit-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.crusade-loot-edit-cell.crows { color: #e0b64d; }
+.crusade-loot-edit-cell.diamonds { color: #6dd3f0; }
+.crusade-loot-edit-input {
+  width: 64px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: right;
+  padding: 2px 4px;
+}
+.crusade-loot-edit-input:hover { border-color: var(--border); }
+.crusade-loot-edit-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: var(--surface-1);
+}
+
 /* Standalone loot card nested inside a boss's day-row (World Boss Attendance
    Log day-detail panel) -- deliberately louder than the rest of that row so
    drops don't read as an afterthought. */
