@@ -2511,7 +2511,7 @@ function renderWorldBossMonthlyLoot() {
   const byItem = new Map();
   monthEvents.forEach((ev) => {
     (ev.lootItems || []).forEach((item) => {
-      const cleanName = item.itemName.trim().replace(/\s+/g, ' ');
+      const cleanName = canonicalizeItemName(item.itemName);
       const key = cleanName.toLowerCase();
       if (!byItem.has(key)) byItem.set(key, { itemName: cleanName, quantity: 0, crowsValue: null, diamondsValue: null, sources: [] });
       const entry = byItem.get(key);
@@ -2654,6 +2654,15 @@ function formatLootValue(n) {
   return n === null || n === undefined ? '' : Number(n).toLocaleString();
 }
 
+// Known misspellings of an item name, mapped to the correct one -- corrects
+// display and merges them with the correctly-spelled entries everywhere,
+// without needing to go fix every already-submitted record in the database.
+const ITEM_NAME_ALIASES = new Map([['golden inner armor insignia fragmer', 'Golden Inner Armor Insignia Fragment']]);
+function canonicalizeItemName(name) {
+  const cleaned = name.trim().replace(/\s+/g, ' ');
+  return ITEM_NAME_ALIASES.get(cleaned.toLowerCase()) || cleaned;
+}
+
 // Items that can be minted -- highlighted in blue wherever a loot item badge
 // shows up, so they stand out from ordinary drops at a glance.
 const MINTABLE_ITEM_NAMES = new Set(
@@ -2670,12 +2679,13 @@ function lootRowsHtml(lootItems) {
   if (!lootItems || !lootItems.length) return '';
   const rows = lootItems
     .map((l) => {
+      const itemName = canonicalizeItemName(l.itemName);
       const values = [];
       if (l.crowsValue !== null) values.push(`<span class="crusade-loot-currency crows">🪙 ${formatLootValue(l.crowsValue)}</span>`);
       if (l.diamondsValue !== null) values.push(`<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(l.diamondsValue)}</span>`);
       return `
       <div class="crusade-loot-highlight-row">
-        <span class="${lootItemBadgeClass(l.itemName)}">${escapeHtml(l.itemName)} ×${l.quantity}</span>
+        <span class="${lootItemBadgeClass(itemName)}">${escapeHtml(itemName)} ×${l.quantity}</span>
         ${values.join(' ')}
       </div>`;
     })
