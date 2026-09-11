@@ -2662,6 +2662,7 @@ const ITEM_NAME_ALIASES = new Map([
   ['aura of circulatingg manifestation', 'Aura of Circulating Manifestation'],
   ["forgotten arbitter's remnant", "Forgotten Arbiter's Remnant"],
   ['silver insignia fragment', 'Silver Shield Insignia Fragment'],
+  ['higher seal of advancemment', 'Higher Seal of Advancement'],
 ]);
 function canonicalizeItemName(name) {
   const cleaned = name.trim().replace(/\s+/g, ' ');
