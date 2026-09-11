@@ -2671,7 +2671,7 @@ function canonicalizeItemName(name) {
 // Items that can be minted -- highlighted in blue wherever a loot item badge
 // shows up, so they stand out from ordinary drops at a glance.
 const MINTABLE_ITEM_NAMES = new Set(
-  ['Frozen Tear', 'Higher Seal of Advancement', 'Piece of the Sky', 'Meticulous Aircraft Component'].map((n) => n.toLowerCase())
+  ['Frozen Tear', 'Higher Seal of Advancement', 'Piece of the Sky', 'Meticulous Aircraft Component', 'Essence of Curses'].map((n) => n.toLowerCase())
 );
 function lootItemBadgeClass(itemName) {
   return MINTABLE_ITEM_NAMES.has(itemName.trim().toLowerCase()) ? 'crusade-loot-item-badge is-mintable' : 'crusade-loot-item-badge';
