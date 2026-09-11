@@ -892,6 +892,52 @@ select:focus, input:focus, textarea:focus {
   font-size: 13px;
 }
 
+/* World Boss Attendance Log's month calendar -- 7 columns (Sun-Sat), each
+   cell a fixed-ish square that shows the day number and, if logged events
+   exist that day, a small attendee-count badge. */
+.crusade-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.crusade-calendar-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding-bottom: 4px;
+}
+.crusade-calendar-cell {
+  min-height: 64px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.crusade-calendar-cell.is-empty { visibility: hidden; }
+.crusade-calendar-cell.has-events { cursor: pointer; border-color: var(--border-strong); }
+.crusade-calendar-cell.has-events:hover { background: var(--surface-2); }
+.crusade-calendar-cell.is-selected { border-color: var(--gold); background: var(--gold-soft); }
+.crusade-calendar-cell.is-today .crusade-calendar-daynum { color: var(--gold); }
+.crusade-calendar-daynum { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.crusade-calendar-badge {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--series-1-strong);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+@media (max-width: 640px) {
+  .crusade-calendar-cell { min-height: 44px; padding: 4px; }
+  .crusade-calendar-badge { font-size: 10px; padding: 0 5px; }
+}
+
 .crusade-party-card {
   /* Grid items default to a content-based min-width, so a wide table inside
      would otherwise stretch the card (and its column) past the track

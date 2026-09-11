@@ -2421,20 +2421,89 @@ function renderWorldBossSummary() {
     .join('');
 }
 
-function renderWorldBossLog() {
-  const events = sovereignState.worldBossEvents || [];
-  document.getElementById('worldBossLogEmptyState').classList.toggle('hidden', events.length !== 0);
-  const list = document.getElementById('worldBossLogList');
+// Persist across re-renders of this page (but not across navigating away and
+// back, which is fine -- same idiom as worldBossEditingId below).
+let worldBossCalendarMonth = null; // Date, always the 1st of whichever month is showing
+let worldBossSelectedDate = null; // 'YYYY-MM-DD', or null if nothing's selected yet
 
-  // Grouped by date -- the API already returns events newest-date-first, and
-  // that order is preserved going into the Map, so Array.from(...) below
-  // stays newest-first without needing to re-sort.
+function worldBossEventsByDate() {
   const byDate = new Map();
-  events.forEach((ev) => {
+  (sovereignState.worldBossEvents || []).forEach((ev) => {
     const dateKey = String(ev.eventDate).slice(0, 10);
     if (!byDate.has(dateKey)) byDate.set(dateKey, []);
     byDate.get(dateKey).push(ev);
   });
+  return byDate;
+}
+
+function renderWorldBossLog() {
+  const byDate = worldBossEventsByDate();
+  document.getElementById('worldBossLogEmptyState').classList.toggle('hidden', byDate.size !== 0);
+
+  if (!worldBossCalendarMonth) {
+    // First render ever on this page visit -- default to whichever month has
+    // the most recent logged event (today's, if there are none yet).
+    const dateKeys = Array.from(byDate.keys()).sort();
+    const anchor = dateKeys.length ? dateKeys[dateKeys.length - 1] : new Date().toISOString().slice(0, 10);
+    const [y, m] = anchor.split('-').map(Number);
+    worldBossCalendarMonth = new Date(y, m - 1, 1);
+    worldBossSelectedDate = dateKeys.length ? anchor : null;
+  }
+
+  renderWorldBossCalendarGrid(byDate);
+  renderWorldBossDayDetail(byDate);
+}
+
+function renderWorldBossCalendarGrid(byDate) {
+  const year = worldBossCalendarMonth.getFullYear();
+  const month = worldBossCalendarMonth.getMonth();
+  document.getElementById('worldBossCalMonthLabel').textContent = worldBossCalendarMonth.toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const firstWeekday = new Date(year, month, 1).getDay(); // 0 = Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push('<div class="crusade-calendar-cell is-empty"></div>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayEvents = byDate.get(dateKey);
+    const classes = ['crusade-calendar-cell'];
+    if (dayEvents) classes.push('has-events');
+    if (dateKey === todayKey) classes.push('is-today');
+    if (dateKey === worldBossSelectedDate) classes.push('is-selected');
+    cells.push(`
+      <div class="${classes.join(' ')}" ${dayEvents ? `data-calendar-date="${dateKey}"` : ''}>
+        <span class="crusade-calendar-daynum">${day}</span>
+        ${dayEvents ? `<span class="crusade-calendar-badge">${dayEvents.length} boss${dayEvents.length === 1 ? '' : 'es'}</span>` : ''}
+      </div>`);
+  }
+  while (cells.length % 7 !== 0) cells.push('<div class="crusade-calendar-cell is-empty"></div>');
+
+  const grid = document.getElementById('worldBossCalendarGrid');
+  grid.innerHTML = weekdayLabels.map((w) => `<div class="crusade-calendar-weekday">${w}</div>`).join('') + cells.join('');
+
+  grid.querySelectorAll('[data-calendar-date]').forEach((cell) => {
+    cell.addEventListener('click', () => {
+      worldBossSelectedDate = cell.getAttribute('data-calendar-date');
+      renderWorldBossLog();
+    });
+  });
+}
+
+function renderWorldBossDayDetail(byDate) {
+  const detail = document.getElementById('worldBossCalendarDayDetail');
+  if (!worldBossSelectedDate || !byDate.has(worldBossSelectedDate)) {
+    detail.innerHTML = byDate.size ? `<p class="empty-state">Click a highlighted day above to see its records.</p>` : '';
+    return;
+  }
+
+  const dayEvents = byDate.get(worldBossSelectedDate);
+  const totalAttended = new Set(dayEvents.flatMap((ev) => ev.attendees.map((a) => a.name.toLowerCase()))).size;
 
   function attendeeBadges(attendees) {
     return attendees
@@ -2445,58 +2514,54 @@ function renderWorldBossLog() {
       .join('');
   }
 
-  list.innerHTML = Array.from(byDate.entries())
-    .map(([dateKey, dayEvents]) => {
-      const totalAttended = new Set(dayEvents.flatMap((ev) => ev.attendees.map((a) => a.name.toLowerCase()))).size;
-      const bossRows = dayEvents
-        .map(
-          (ev) => `
-        <div class="crusade-world-boss-day-row">
-          <div class="crusade-world-boss-day-row-header" data-toggle-world-boss-log="${ev.id}">
-            <span style="font-weight:600;">${escapeHtml(ev.bossName)}</span>
-            <span style="color:var(--text-muted);">${ev.attendees.length} attended</span>
-            <div class="admin-only" style="display:flex; gap:6px; margin-left:auto;">
-              <button type="button" class="icon-btn" data-edit-world-boss="${ev.id}" title="Edit">✎</button>
-              <button type="button" class="icon-btn" data-delete-world-boss="${ev.id}" title="Remove">✕</button>
-            </div>
-          </div>
-          <div class="hidden" id="worldBossAttendees-${ev.id}" style="padding:8px 0 4px; display:flex; flex-wrap:wrap; gap:8px;">
-            ${attendeeBadges(ev.attendees)}
-          </div>
-        </div>`
-        )
-        .join('');
-      return `
-      <div class="crusade-party-card">
-        <div class="crusade-party-card-header">
-          <h3 style="margin:0;">${formatLongDate(dateKey)} <span style="color:var(--text-muted); font-weight:400;">(${dayEvents.length} boss${dayEvents.length === 1 ? '' : 'es'}, ${totalAttended} unique attendee${totalAttended === 1 ? '' : 's'})</span></h3>
+  const bossRows = dayEvents
+    .map(
+      (ev) => `
+    <div class="crusade-world-boss-day-row">
+      <div class="crusade-world-boss-day-row-header" data-toggle-world-boss-log="${ev.id}">
+        <span style="font-weight:600;">${escapeHtml(ev.bossName)}</span>
+        <span style="color:var(--text-muted);">${ev.attendees.length} attended</span>
+        <div class="admin-only" style="display:flex; gap:6px; margin-left:auto;">
+          <button type="button" class="icon-btn" data-edit-world-boss="${ev.id}" title="Edit">✎</button>
+          <button type="button" class="icon-btn" data-delete-world-boss="${ev.id}" title="Remove">✕</button>
         </div>
-        <div style="padding:0 16px 12px;">${bossRows}</div>
-      </div>`;
-    })
+      </div>
+      <div class="hidden" id="worldBossAttendees-${ev.id}" style="padding:8px 0 4px; display:flex; flex-wrap:wrap; gap:8px;">
+        ${attendeeBadges(ev.attendees)}
+      </div>
+    </div>`
+    )
     .join('');
 
-  list.querySelectorAll('[data-toggle-world-boss-log]').forEach((header) => {
+  detail.innerHTML = `
+    <div class="crusade-party-card">
+      <div class="crusade-party-card-header">
+        <h3 style="margin:0;">${formatLongDate(worldBossSelectedDate)} <span style="color:var(--text-muted); font-weight:400;">(${dayEvents.length} boss${dayEvents.length === 1 ? '' : 'es'}, ${totalAttended} unique attendee${totalAttended === 1 ? '' : 's'})</span></h3>
+      </div>
+      <div style="padding:0 16px 12px;">${bossRows}</div>
+    </div>`;
+
+  detail.querySelectorAll('[data-toggle-world-boss-log]').forEach((header) => {
     header.addEventListener('click', () => {
       const id = header.getAttribute('data-toggle-world-boss-log');
       document.getElementById(`worldBossAttendees-${id}`).classList.toggle('hidden');
     });
   });
 
-  list.querySelectorAll('[data-edit-world-boss]').forEach((btn) => {
+  detail.querySelectorAll('[data-edit-world-boss]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.getAttribute('data-edit-world-boss');
-      const ev = events.find((x) => x.id === id);
+      const ev = (sovereignState.worldBossEvents || []).find((x) => x.id === id);
       if (ev) startEditingWorldBossEvent(ev);
     });
   });
 
-  list.querySelectorAll('[data-delete-world-boss]').forEach((btn) => {
+  detail.querySelectorAll('[data-delete-world-boss]').forEach((btn) => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = btn.getAttribute('data-delete-world-boss');
-      const ev = events.find((x) => x.id === id);
+      const ev = (sovereignState.worldBossEvents || []).find((x) => x.id === id);
       if (!confirm(`Remove the ${ev?.bossName} attendance record for ${ev?.eventDate}?`)) return;
       try {
         await api(`/api/world-boss-attendance/${id}`, { method: 'DELETE' });
@@ -2510,6 +2575,15 @@ function renderWorldBossLog() {
     });
   });
 }
+
+document.getElementById('worldBossCalPrevBtn').addEventListener('click', () => {
+  worldBossCalendarMonth = new Date(worldBossCalendarMonth.getFullYear(), worldBossCalendarMonth.getMonth() - 1, 1);
+  renderWorldBossLog();
+});
+document.getElementById('worldBossCalNextBtn').addEventListener('click', () => {
+  worldBossCalendarMonth = new Date(worldBossCalendarMonth.getFullYear(), worldBossCalendarMonth.getMonth() + 1, 1);
+  renderWorldBossLog();
+});
 
 function startEditingWorldBossEvent(ev) {
   worldBossEditingId = ev.id;
@@ -2560,6 +2634,12 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
       toast('Attendance logged');
     }
     resetWorldBossForm();
+    // Jump the calendar to whatever day was just logged/edited, so the
+    // result is immediately visible instead of leaving the admin to hunt
+    // for it.
+    const [y, m] = payload.eventDate.split('-').map(Number);
+    worldBossCalendarMonth = new Date(y, m - 1, 1);
+    worldBossSelectedDate = payload.eventDate;
     renderWorldBossSummary();
     renderWorldBossLog();
   } catch (err) {

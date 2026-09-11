@@ -467,9 +467,17 @@
       </section>
 
       <section class="panel">
-        <h2 data-i18n="sovereign.worldBoss.logListHeading">Attendance Log</h2>
+        <div class="view-header space-between" style="margin-bottom:10px;">
+          <h2 style="margin:0;" data-i18n="sovereign.worldBoss.logListHeading">Attendance Log</h2>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button type="button" id="worldBossCalPrevBtn" class="icon-btn" title="Previous month">‹</button>
+            <span id="worldBossCalMonthLabel" style="font-weight:700; min-width:140px; text-align:center;"></span>
+            <button type="button" id="worldBossCalNextBtn" class="icon-btn" title="Next month">›</button>
+          </div>
+        </div>
         <p id="worldBossLogEmptyState" class="empty-state hidden" data-i18n="sovereign.worldBoss.logEmpty">No events logged yet.</p>
-        <div id="worldBossLogList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <div id="worldBossCalendarGrid" class="crusade-calendar-grid"></div>
+        <div id="worldBossCalendarDayDetail" style="margin-top:16px;"></div>
       </section>
     </div>
   </div>
