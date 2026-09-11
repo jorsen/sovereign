@@ -43,6 +43,12 @@ function isValidLampLevel(n) {
   return Number.isInteger(n) && n >= LAMP_MIN && n <= LAMP_MAX;
 }
 
+// A blank-name field with a line of block characters as its value -- Discord
+// embeds have no built-in separator, so this is the usual way to visually
+// split sections apart. ​ (zero-width space) keeps the name from
+// rendering as a literal empty header.
+const DIVIDER_FIELD = { name: '​', value: '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬' };
+
 // Submissions only come through the /uniongr slash command -- interactions
 // always carry their option values regardless of message content, so no
 // MessageContent privileged intent is needed here.
@@ -223,6 +229,7 @@ client.on('messageCreate', async (message) => {
           '4. Attach a **screenshot** of your Growth Rate/Artifacts tab.\n' +
           '5. Send it -- your entry shows up on the website automatically.',
       },
+      DIVIDER_FIELD,
       {
         name: '🇨🇳 如何提交你的成长率 (Mandarin)',
         value:
@@ -232,6 +239,7 @@ client.on('messageCreate', async (message) => {
           '4. 附上你 成长率/artifacts 页面的 **截图**。\n' +
           '5. 发送即可 -- 你的数据会自动显示在网站上。',
       },
+      DIVIDER_FIELD,
       {
         name: '🇯🇵 成長率の提出方法 (Japanese)',
         value:
@@ -241,6 +249,7 @@ client.on('messageCreate', async (message) => {
           '4. 成長率/アーティファクトタブの **スクリーンショット** を添付します。\n' +
           '5. 送信すれば完了です -- あなたのデータは自動的にウェブサイトに表示されます。',
       },
+      DIVIDER_FIELD,
       {
         name: '🇹🇭 วิธีส่ง Growth Rate ของคุณ (Thai)',
         value:
@@ -250,6 +259,7 @@ client.on('messageCreate', async (message) => {
           '4. แนบ **ภาพหน้าจอ** ของแท็บ Growth Rate/Artifacts\n' +
           '5. กดส่ง -- ข้อมูลของคุณจะแสดงบนเว็บไซต์โดยอัตโนมัติ',
       },
+      DIVIDER_FIELD,
       {
         name: '🇻🇳 Cách gửi Growth Rate của bạn (Vietnamese)',
         value:
