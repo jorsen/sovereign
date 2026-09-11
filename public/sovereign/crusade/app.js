@@ -2646,10 +2646,12 @@ function renderWorldBossDayDetail(byDate) {
           <button type="button" class="icon-btn" data-delete-world-boss="${ev.id}" title="Remove">✕</button>
         </div>
       </div>
-      <div class="hidden" id="worldBossAttendees-${ev.id}" style="padding:8px 0 4px; display:flex; flex-wrap:wrap; gap:8px;">
-        ${attendeeBadges(ev.attendees)}
+      <div class="hidden" id="worldBossAttendees-${ev.id}">
+        <div style="padding:8px 0 4px; display:flex; flex-wrap:wrap; gap:8px;">
+          ${attendeeBadges(ev.attendees)}
+        </div>
+        ${lootRowsHtml(ev.lootItems)}
       </div>
-      ${lootRowsHtml(ev.lootItems)}
     </div>`
     )
     .join('');
