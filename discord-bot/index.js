@@ -261,7 +261,7 @@ client.on('messageCreate', async (message) => {
       }
     );
   const notice = await message.channel.send({ embeds: [guide] }).catch(() => null);
-  if (notice) setTimeout(() => notice.delete().catch(() => {}), 20000);
+  if (notice) setTimeout(() => notice.delete().catch(() => {}), 60000);
 });
 
 // Deleting the bot's own /uniongr confirmation post removes the growth-rate
