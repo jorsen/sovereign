@@ -2323,6 +2323,33 @@ function readFileAsBase64(file) {
   });
 }
 
+// Same reasoning as the Discord bot's own screenshot compression: a raw
+// full-size PNG screenshot can blow past both Express's body-size limit and
+// Vercel's own request-size cap once base64-inflated. Only resizes/re-encodes
+// when the file is actually large -- most screenshots come back untouched.
+const MAX_UPLOAD_IMAGE_BYTES = 3 * 1024 * 1024;
+function compressImageFileIfNeeded(file) {
+  if (file.size <= MAX_UPLOAD_IMAGE_BYTES) return Promise.resolve(file);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => resolve(blob ? new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }) : file),
+        'image/jpeg',
+        0.8
+      );
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => resolve(file); // fall back to the original rather than blocking the submission
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 // Holds whatever image is currently staged for the Add Record form -- either
 // the <input type="file">'s own selection, or a screenshot pasted straight
 // from the clipboard (a file input's FileList can't be set programmatically
@@ -2392,7 +2419,8 @@ document.getElementById('growthAddForm').addEventListener('submit', async (e) =>
     return;
   }
   try {
-    const imageBase64 = await readFileAsBase64(file);
+    const uploadFile = await compressImageFileIfNeeded(file);
+    const imageBase64 = await readFileAsBase64(uploadFile);
     const created = await api('/api/growth-submissions', {
       method: 'POST',
       body: JSON.stringify({
@@ -2402,7 +2430,7 @@ document.getElementById('growthAddForm').addEventListener('submit', async (e) =>
         lampLevel: Number(form.elements.lampLevel.value),
         growthRate: Number(form.elements.growthRate.value),
         imageBase64,
-        imageContentType: file.type,
+        imageContentType: uploadFile.type,
       }),
     });
     const idx = sovereignState.growthSubmissions.findIndex((s) => s.id === created.id);
