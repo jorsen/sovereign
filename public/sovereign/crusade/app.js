@@ -2530,7 +2530,7 @@ function renderWorldBossMonthlyLoot() {
     .map(
       (r, i) => `
     <tr>
-      <td><span class="crusade-loot-item-badge">${escapeHtml(r.itemName)}</span></td>
+      <td><span class="${lootItemBadgeClass(r.itemName)}">${escapeHtml(r.itemName)}</span></td>
       <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
       <td class="crusade-loot-num">
         <span class="crusade-loot-edit-cell crows">🪙 <input type="number" min="0" step="1" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="crowsValue" value="${r.crowsValue !== null ? r.crowsValue : ''}" placeholder="—"></span>
@@ -2654,6 +2654,15 @@ function formatLootValue(n) {
   return n === null || n === undefined ? '' : Number(n).toLocaleString();
 }
 
+// Items that can be minted -- highlighted in blue wherever a loot item badge
+// shows up, so they stand out from ordinary drops at a glance.
+const MINTABLE_ITEM_NAMES = new Set(
+  ['Frozen Tear', 'Higher Seal of Advancement', 'Piece of the Sky', 'Meticulous Aircraft Component'].map((n) => n.toLowerCase())
+);
+function lootItemBadgeClass(itemName) {
+  return MINTABLE_ITEM_NAMES.has(itemName.trim().toLowerCase()) ? 'crusade-loot-item-badge is-mintable' : 'crusade-loot-item-badge';
+}
+
 // Its own standout card under a boss's attendee list (still nested inside
 // that boss's day-row) -- the full Item/Quantity/Crows/Diamonds breakdown
 // as a table lives separately in the monthly loot view.
@@ -2666,7 +2675,7 @@ function lootRowsHtml(lootItems) {
       if (l.diamondsValue !== null) values.push(`<span class="crusade-loot-currency diamonds">💎 ${formatLootValue(l.diamondsValue)}</span>`);
       return `
       <div class="crusade-loot-highlight-row">
-        <span class="crusade-loot-item-badge">${escapeHtml(l.itemName)} ×${l.quantity}</span>
+        <span class="${lootItemBadgeClass(l.itemName)}">${escapeHtml(l.itemName)} ×${l.quantity}</span>
         ${values.join(' ')}
       </div>`;
     })
