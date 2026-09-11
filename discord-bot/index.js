@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, EmbedBuilder } = require('discord.js');
+const sharp = require('sharp');
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '1547642467728236706';
@@ -50,6 +51,31 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel],
 });
 
+// Vercel's serverless functions hard-cap the request body around 4.5MB --
+// staying comfortably under that (base64 alone inflates size by ~1/3) means
+// the screenshot itself needs to be smaller than the raw limit implies.
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
+// Downscales/re-encodes as JPEG only if the screenshot is actually large --
+// most full-size game screenshots shrink dramatically this way with no
+// visible quality loss on a normal display, while a small file passes
+// through untouched. Falls back to the original buffer if sharp fails for
+// any reason (better to attempt the original than to lose the submission).
+async function compressImageIfNeeded(buffer, contentType) {
+  if (buffer.length <= MAX_IMAGE_BYTES) return { buffer, contentType };
+  try {
+    const resized = await sharp(buffer)
+      .rotate()
+      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    return { buffer: resized, contentType: 'image/jpeg' };
+  } catch (err) {
+    console.error('Failed to compress screenshot, sending original:', err);
+    return { buffer, contentType };
+  }
+}
+
 // Downloads the screenshot and POSTs everything to the app under one
 // discordMessageId, which is what the upsert-on-conflict in
 // POST /api/growth-submissions/bot keys on.
@@ -57,8 +83,8 @@ async function submitToApi({ discordMessageId, discordUserId, discordUsername, i
   const imageResponse = await fetch(attachmentUrl);
   if (!imageResponse.ok) throw new Error(`failed to download the attachment (${imageResponse.status})`);
   const arrayBuffer = await imageResponse.arrayBuffer();
-  const imageBase64 = Buffer.from(arrayBuffer).toString('base64');
-  const imageContentType = attachmentContentType || 'image/png';
+  const { buffer, contentType: imageContentType } = await compressImageIfNeeded(Buffer.from(arrayBuffer), attachmentContentType || 'image/png');
+  const imageBase64 = buffer.toString('base64');
 
   const res = await fetch(`${API_BASE}/api/growth-submissions/bot`, {
     method: 'POST',
@@ -77,6 +103,7 @@ async function submitToApi({ discordMessageId, discordUserId, discordUsername, i
     }),
   });
   if (!res.ok) {
+    if (res.status === 413) throw new Error('the screenshot is too large even after compression -- try a smaller/cropped screenshot');
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `the app returned ${res.status}`);
   }
