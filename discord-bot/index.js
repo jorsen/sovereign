@@ -213,15 +213,53 @@ client.on('messageCreate', async (message) => {
     .setDescription(
       `${message.author}, plain messages aren't allowed here -- please use the **/uniongr** slash command instead.`
     )
-    .addFields({
-      name: 'How to submit your Growth Rate',
-      value:
-        '1. Type `/uniongr` in this channel and pick it from the command list that pops up (don\'t just type it as text).\n' +
-        '2. Fill in your **IGN**, **Class**, **Guild**, and **Volcano Lamp** level.\n' +
-        '3. Enter your **Growth Rate** number.\n' +
-        '4. Attach a **screenshot** of your Growth Rate/Artifacts tab.\n' +
-        '5. Send it -- your entry shows up on the website automatically.',
-    });
+    .addFields(
+      {
+        name: '🇬🇧 How to submit your Growth Rate',
+        value:
+          '1. Type `/uniongr` in this channel and pick it from the command list that pops up (don\'t just type it as text).\n' +
+          '2. Fill in your **IGN**, **Class**, **Guild**, and **Volcano Lamp** level.\n' +
+          '3. Enter your **Growth Rate** number.\n' +
+          '4. Attach a **screenshot** of your Growth Rate/Artifacts tab.\n' +
+          '5. Send it -- your entry shows up on the website automatically.',
+      },
+      {
+        name: '🇨🇳 如何提交你的成长率 (Mandarin)',
+        value:
+          '1. 在此频道输入 `/uniongr`，并从弹出的指令列表中选择它（不要直接打字发送）。\n' +
+          '2. 填写你的 **IGN**、**职业**、**公会** 和 **火山灯** 等级。\n' +
+          '3. 输入你的 **成长率** 数值。\n' +
+          '4. 附上你 成长率/artifacts 页面的 **截图**。\n' +
+          '5. 发送即可 -- 你的数据会自动显示在网站上。',
+      },
+      {
+        name: '🇯🇵 成長率の提出方法 (Japanese)',
+        value:
+          '1. このチャンネルで `/uniongr` と入力し、表示されるコマンド一覧から選択してください（文字として直接送信しないでください）。\n' +
+          '2. **IGN**、**クラス**、**ギルド**、**火山ランプ** レベルを入力します。\n' +
+          '3. **成長率** の数値を入力します。\n' +
+          '4. 成長率/アーティファクトタブの **スクリーンショット** を添付します。\n' +
+          '5. 送信すれば完了です -- あなたのデータは自動的にウェブサイトに表示されます。',
+      },
+      {
+        name: '🇹🇭 วิธีส่ง Growth Rate ของคุณ (Thai)',
+        value:
+          '1. พิมพ์ `/uniongr` ในช่องนี้ แล้วเลือกจากรายการคำสั่งที่ปรากฏขึ้น (อย่าพิมพ์เป็นข้อความธรรมดา)\n' +
+          '2. กรอก **IGN**, **Class**, **Guild** และระดับ **Volcano Lamp** ของคุณ\n' +
+          '3. กรอกตัวเลข **Growth Rate** ของคุณ\n' +
+          '4. แนบ **ภาพหน้าจอ** ของแท็บ Growth Rate/Artifacts\n' +
+          '5. กดส่ง -- ข้อมูลของคุณจะแสดงบนเว็บไซต์โดยอัตโนมัติ',
+      },
+      {
+        name: '🇻🇳 Cách gửi Growth Rate của bạn (Vietnamese)',
+        value:
+          '1. Gõ `/uniongr` trong kênh này và chọn nó từ danh sách lệnh hiện ra (đừng gõ như một tin nhắn thường).\n' +
+          '2. Điền **IGN**, **Class**, **Guild**, và cấp độ **Volcano Lamp** của bạn.\n' +
+          '3. Nhập số **Growth Rate** của bạn.\n' +
+          '4. Đính kèm **ảnh chụp màn hình** tab Growth Rate/Artifacts.\n' +
+          '5. Gửi đi -- thông tin của bạn sẽ tự động hiển thị trên website.',
+      }
+    );
   const notice = await message.channel.send({ embeds: [guide] }).catch(() => null);
   if (notice) setTimeout(() => notice.delete().catch(() => {}), 20000);
 });
