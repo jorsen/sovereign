@@ -3832,7 +3832,7 @@ function renderSalaryComputation() {
   const growthByIgn = new Map();
   (sovereignState.growthSubmissions || []).forEach((s) => {
     const key = s.ign.trim().toLowerCase();
-    if (!growthByIgn.has(key)) growthByIgn.set(key, { name: s.ign, growthRate: Number(s.growthRate) || 0 });
+    if (!growthByIgn.has(key)) growthByIgn.set(key, { name: s.ign, growthRate: Number(s.growthRate) || 0, guildName: s.guildName });
   });
 
   const attendanceByIgn = new Map();
@@ -3857,7 +3857,7 @@ function renderSalaryComputation() {
     const g = growthByIgn.get(key);
     const growthRate = g ? g.growthRate : 0;
     const multiplier = attendance ? multiplierForGrowthRate(growthRate) : 0;
-    return { ign: g ? g.name : key, growthRate, attendance, multiplier };
+    return { ign: g ? g.name : key, guildName: g ? g.guildName : null, growthRate, attendance, multiplier };
   });
 
   const totalAttendance = rows.reduce((sum, r) => sum + r.attendance, 0);
@@ -3917,6 +3917,38 @@ function renderSalaryComputation() {
   totalsRow.innerHTML = rows.length
     ? `<td colspan="7" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td><td><strong>${formatLootValue(totals.diamondFinal)}</strong></td><td></td><td><strong>${formatLootValue(totals.crowFinal)}</strong></td>`
     : '';
+
+  renderSalaryGuildTotals(rows);
+}
+
+// Every player's Final Salary summed per guild -- "how much does each
+// guild receive in total", not just per-person.
+function renderSalaryGuildTotals(rows) {
+  const byGuild = new Map();
+  rows.forEach((r) => {
+    const key = r.guildName || 'Unassigned';
+    if (!byGuild.has(key)) byGuild.set(key, { guildName: key, diamondFinal: 0, crowFinal: 0, members: 0 });
+    const g = byGuild.get(key);
+    g.diamondFinal += r.diamondFinal;
+    g.crowFinal += r.crowFinal;
+    g.members += 1;
+  });
+  const guildRows = Array.from(byGuild.values()).sort((a, b) => b.diamondFinal - a.diamondFinal);
+
+  document.getElementById('salaryGuildTotalsEmptyState').classList.toggle('hidden', guildRows.length !== 0);
+  document.getElementById('salaryGuildTotalsBody').innerHTML = guildRows
+    .map((g) => {
+      const color = g.guildName === 'Unassigned' ? null : crusadeGuildColor(g.guildName);
+      const label = g.guildName === 'Unassigned' ? t('sovereign.common.unassigned') : escapeHtml(g.guildName);
+      return `
+    <tr>
+      <td style="${color ? `color:${color}; font-weight:600;` : ''}">${label}</td>
+      <td>${g.members.toLocaleString()}</td>
+      <td><strong>${formatLootValue(g.diamondFinal)}</strong></td>
+      <td><strong>${formatLootValue(g.crowFinal)}</strong></td>
+    </tr>`;
+    })
+    .join('');
 }
 
 // ---------- Raffle (standalone, independent of any crusade) ----------

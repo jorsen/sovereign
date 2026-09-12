@@ -372,6 +372,8 @@ const TRANSLATIONS = {
     'sovereign.salary.thCrowFinal': 'Crows Final',
     'sovereign.salary.empty': 'No World Boss attendance logged for this month yet.',
     'sovereign.salary.thTotal': 'Total',
+    'sovereign.salary.guildTotalsHeading': 'Total Guild Receives',
+    'sovereign.salary.thMembers': 'Members',
     'sovereign.worldBoss.cancelEdit': 'Cancel Edit',
     'sovereign.worldBoss.summaryHeading': 'Attendance Summary',
     'sovereign.worldBoss.summaryHint': 'Across every World Boss event logged so far.',
