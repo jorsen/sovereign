@@ -2898,19 +2898,29 @@ function distributeProportionally(total, weights) {
 // a total you only know in aggregate (sold everything at once) still ends
 // up attributed sensibly per kill. Sources can span multiple different
 // kills, so this may update more than one attendance record at once.
+//
+// Sources already marked Sold are left out of the split: they were priced
+// separately (e.g. sold in an earlier batch at a different rate), so an
+// aggregate edit only redistributes the new total across the still-unsold
+// sources, never overwriting a price that's already locked in by a sale.
+// If every source is already sold, fall back to splitting across all of
+// them since there's nothing else to distribute into.
 async function saveMonthlyLootEdit(input) {
   const row = worldBossMonthlyLootRows[Number(input.getAttribute('data-loot-row-index'))];
   const field = input.getAttribute('data-loot-field');
   if (!row || !row.sources.length) return;
 
+  const unsold = row.sources.filter((s) => !s.sold);
+  const targets = unsold.length ? unsold : row.sources;
+
   const newTotal = input.value === '' ? 0 : Math.max(0, Number(input.value));
   const shares = distributeProportionally(
     newTotal,
-    row.sources.map((s) => s.quantity)
+    targets.map((s) => s.quantity)
   );
 
   const updatesByEvent = new Map();
-  row.sources.forEach((s, i) => {
+  targets.forEach((s, i) => {
     if (!updatesByEvent.has(s.eventId)) updatesByEvent.set(s.eventId, []);
     updatesByEvent.get(s.eventId).push({ itemId: s.itemId, share: shares[i] });
   });
@@ -2938,7 +2948,13 @@ async function saveMonthlyLootEdit(input) {
       if (idx !== -1) sovereignState.worldBossEvents[idx] = r.updated;
     });
     renderWorldBossLog(); // re-renders the calendar/day-detail/monthly loot/summary together
-    toast(row.sources.length > 1 ? 'Loot updated — split across kills by quantity' : 'Loot updated');
+    toast(
+      targets.length > 1
+        ? unsold.length
+          ? 'Loot updated — split across unsold kills by quantity'
+          : 'Loot updated — split across kills by quantity'
+        : 'Loot updated'
+    );
   } catch (err) {
     toast(err.message);
     renderWorldBossMonthlyLoot(); // revert the input back to the last known-good value
