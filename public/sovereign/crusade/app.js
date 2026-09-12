@@ -2846,30 +2846,69 @@ async function toggleLootItemSold(btn) {
 // to this item, and everything downstream (this table's totals/chips, the
 // day-detail loot card, the attendance summary) re-renders from the saved
 // result, giving the "auto compute" the edit needs.
+// Splits `total` into integers proportional to `weights`, guaranteed to sum
+// back to exactly `total` (largest-remainder method: floor each share, then
+// hand out the few leftover units to whichever shares had the biggest
+// fractional remainder, so it's not always the same source absorbing the
+// rounding error).
+function distributeProportionally(total, weights) {
+  const sumWeights = weights.reduce((a, b) => a + b, 0);
+  if (sumWeights === 0) return weights.map(() => 0);
+  const raw = weights.map((w) => (total * w) / sumWeights);
+  const shares = raw.map(Math.floor);
+  let remainder = total - shares.reduce((a, b) => a + b, 0);
+  const byRemainder = raw.map((r, i) => ({ i, frac: r - shares[i] })).sort((a, b) => b.frac - a.frac);
+  for (let k = 0; k < remainder; k++) shares[byRemainder[k % byRemainder.length].i] += 1;
+  return shares;
+}
+
+// Editing the aggregate row's Crows/Diamonds total splits it across every
+// contributing kill proportional to how much quantity each one contributed,
+// rather than dumping the whole amount into a single kill -- e.g. entering
+// a total you only know in aggregate (sold everything at once) still ends
+// up attributed sensibly per kill. Sources can span multiple different
+// kills, so this may update more than one attendance record at once.
 async function saveMonthlyLootEdit(input) {
   const row = worldBossMonthlyLootRows[Number(input.getAttribute('data-loot-row-index'))];
   const field = input.getAttribute('data-loot-field');
-  const source = row?.sources[0];
-  if (!row || !source) return;
+  if (!row || !row.sources.length) return;
 
-  const newTotal = input.value === '' ? 0 : Math.max(0, Number(input.value));
-  const delta = newTotal - (row[field] || 0);
+  const newTotal = input.value === '' ? 0 : Math.max(0, Math.round(Number(input.value)));
+  const shares = distributeProportionally(
+    newTotal,
+    row.sources.map((s) => s.quantity)
+  );
 
-  const ev = sovereignState.worldBossEvents.find((e) => e.id === source.eventId);
-  if (!ev) return;
-  const updatedLootItems = ev.lootItems.map((l) => {
-    const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
-    if (l.id !== source.itemId) return base;
-    base[field] = Math.max(0, (l[field] || 0) + delta);
-    return base;
+  const updatesByEvent = new Map();
+  row.sources.forEach((s, i) => {
+    if (!updatesByEvent.has(s.eventId)) updatesByEvent.set(s.eventId, []);
+    updatesByEvent.get(s.eventId).push({ itemId: s.itemId, share: shares[i] });
   });
 
   try {
-    const updated = await api(`/api/world-boss-attendance/${ev.id}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) });
-    const idx = sovereignState.worldBossEvents.findIndex((e) => e.id === ev.id);
-    if (idx !== -1) sovereignState.worldBossEvents[idx] = updated;
+    const results = await Promise.all(
+      Array.from(updatesByEvent.entries()).map(([eventId, updates]) => {
+        const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
+        if (!ev) return null;
+        const updatedLootItems = ev.lootItems.map((l) => {
+          const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
+          const match = updates.find((u) => u.itemId === l.id);
+          if (match) base[field] = match.share;
+          return base;
+        });
+        return api(`/api/world-boss-attendance/${eventId}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) }).then((updated) => ({
+          eventId,
+          updated,
+        }));
+      })
+    );
+    results.forEach((r) => {
+      if (!r) return;
+      const idx = sovereignState.worldBossEvents.findIndex((e) => e.id === r.eventId);
+      if (idx !== -1) sovereignState.worldBossEvents[idx] = r.updated;
+    });
     renderWorldBossLog(); // re-renders the calendar/day-detail/monthly loot/summary together
-    toast('Loot updated');
+    toast(row.sources.length > 1 ? 'Loot updated — split across kills by quantity' : 'Loot updated');
   } catch (err) {
     toast(err.message);
     renderWorldBossMonthlyLoot(); // revert the input back to the last known-good value
