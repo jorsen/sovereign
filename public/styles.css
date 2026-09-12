@@ -953,6 +953,66 @@ select:focus, input:focus, textarea:focus {
 .crusade-loot-currency.crows { color: #e0b64d; }
 .crusade-loot-currency.diamonds { color: #6dd3f0; }
 
+/* Sale batches -- independent of any specific kill, see loadWorldBossAttendance */
+.crusade-loot-sales {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.crusade-loot-sales h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+.crusade-loot-sales-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.crusade-loot-sales-summary strong { color: inherit; font-weight: 600; }
+.crusade-loot-sales-empty { font-size: 12px; color: var(--text-muted); margin: 0 0 8px; }
+.crusade-loot-sales-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
+.crusade-loot-sales-table th {
+  text-align: left;
+  padding: 4px 8px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+.crusade-loot-sales-table td { padding: 4px 8px; border-top: 1px solid var(--gridline); }
+.crusade-loot-sales-table th:nth-child(n+2),
+.crusade-loot-sales-table td.crusade-loot-num { text-align: right; }
+.crusade-loot-sale-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 4px;
+}
+.crusade-loot-sale-delete:hover { color: #e05d5d; }
+.crusade-loot-sale-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.crusade-loot-sale-add-form input {
+  width: 90px;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+.crusade-loot-sale-add-form button {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
 /* Inline-editable Crows/Diamonds cell in This Month's Loot -- looks like the
    plain colored value until focused, since it edits a merged total rather
    than being an obvious form field. */

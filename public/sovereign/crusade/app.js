@@ -2464,16 +2464,18 @@ const WORLD_BOSS_NAMES = [
 let worldBossEditingId = null;
 
 async function loadWorldBossAttendance() {
-  const [events, growthSubmissions, guilds, lootItemSources] = await Promise.all([
+  const [events, growthSubmissions, guilds, lootItemSources, saleBatches] = await Promise.all([
     api('/api/world-boss-attendance'),
     api('/api/growth-submissions'),
     api('/api/crusade-guilds'),
     api('/api/loot-item-sources'),
+    api('/api/loot-sale-batches'),
   ]);
   sovereignState.worldBossEvents = events;
   sovereignState.growthSubmissions = growthSubmissions;
   sovereignState.guilds = guilds;
   sovereignState.lootItemSources = new Map(lootItemSources.map((s) => [s.itemKey, s.bossName]));
+  sovereignState.lootSaleBatches = saleBatches; // flat list; grouped by itemKey at render time
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
@@ -2630,6 +2632,16 @@ function formatWorldBossEventDateTime(isoString) {
   return `${formatLongDate(String(isoString).slice(0, 10))}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 }
 
+// Unlike event_date (a literal wall-clock value, see parseWorldBossEventDate),
+// a sale batch's sold_at is a real TIMESTAMPTZ instant -- parse it normally
+// so it converts to the viewer's own local time instead of being misread as
+// a literal.
+function formatSaleBatchDate(isoString) {
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return String(isoString);
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 function worldBossEventsByDate() {
   const byDate = new Map();
   (sovereignState.worldBossEvents || []).forEach((ev) => {
@@ -2718,6 +2730,27 @@ function renderWorldBossMonthlyLoot() {
   rows.forEach((r) => {
     r.guessedBoss = Array.from(r.bossCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   });
+
+  // Sales are tracked independently of which month/kill an item dropped in
+  // (see loadWorldBossAttendance), so "Total Quantity" and "sold so far"
+  // are computed against every kill ever logged, not just this month's --
+  // otherwise an item collected in August and sold in September would look
+  // like it has leftover stock it doesn't.
+  const totalQuantityByKey = new Map();
+  (sovereignState.worldBossEvents || []).forEach((ev) => {
+    (ev.lootItems || []).forEach((item) => {
+      const key = canonicalizeItemName(item.itemName).toLowerCase();
+      totalQuantityByKey.set(key, (totalQuantityByKey.get(key) || 0) + (item.quantity || 0));
+    });
+  });
+  rows.forEach((r) => {
+    r.totalQuantityEver = totalQuantityByKey.get(r.itemKey) || r.quantity;
+    r.saleBatches = (sovereignState.lootSaleBatches || [])
+      .filter((b) => b.itemKey === r.itemKey)
+      .sort((a, b) => String(b.soldAt).localeCompare(String(a.soldAt)));
+    r.soldQuantity = r.saleBatches.reduce((sum, b) => sum + b.quantity, 0);
+    r.remainingQuantity = Math.max(0, r.totalQuantityEver - r.soldQuantity);
+  });
   worldBossMonthlyLootRows = rows; // read by the change handler below via data-loot-row-index -- indices below are into this full (unfiltered) array
 
   const search = document.getElementById('worldBossMonthlyLootSearchInput').value.trim().toLowerCase();
@@ -2784,6 +2817,41 @@ function renderWorldBossMonthlyLoot() {
             <tbody>${breakdownRows}</tbody>
           </table>
         </div>
+        <div class="crusade-loot-sales ${isExpanded ? '' : 'hidden'}" id="worldBossLootSales-${i}">
+          <h4>${t('sovereign.worldBoss.salesHeading')}</h4>
+          <div class="crusade-loot-sales-summary">
+            <span>${t('sovereign.worldBoss.salesTotalQty')}: <strong>${r.totalQuantityEver.toLocaleString()}</strong></span>
+            <span>${t('sovereign.worldBoss.salesSold')}: <strong>${r.soldQuantity.toLocaleString()}</strong></span>
+            <span>${t('sovereign.worldBoss.salesRemaining')}: <strong>${r.remainingQuantity.toLocaleString()}</strong></span>
+          </div>
+          ${
+            r.saleBatches.length
+              ? `<table class="crusade-loot-sales-table">
+            <thead><tr><th>${t('sovereign.worldBoss.salesDate')}</th><th>${t('sovereign.worldBoss.thQuantity')}</th><th>${t('sovereign.worldBoss.thCrows')}</th><th>${t('sovereign.worldBoss.thDiamonds')}</th><th></th></tr></thead>
+            <tbody>
+              ${r.saleBatches
+                .map(
+                  (b) => `
+                <tr>
+                  <td class="crusade-loot-date">${formatSaleBatchDate(b.soldAt)}</td>
+                  <td class="crusade-loot-num">${b.quantity.toLocaleString()}</td>
+                  <td class="crusade-loot-num">${b.crowsValue !== null ? '🪙 ' + formatLootValue(b.crowsValue) : '—'}</td>
+                  <td class="crusade-loot-num">${b.diamondsValue !== null ? '💎 ' + formatLootValue(b.diamondsValue) : '—'}</td>
+                  <td><button type="button" class="crusade-loot-sale-delete admin-disable" data-delete-sale-batch="${b.id}">✕</button></td>
+                </tr>`
+                )
+                .join('')}
+            </tbody>
+          </table>`
+              : `<p class="crusade-loot-sales-empty">${t('sovereign.worldBoss.salesEmpty')}</p>`
+          }
+          <form class="crusade-loot-sale-add-form admin-disable" data-add-sale-row="${i}">
+            <input type="number" min="0.01" step="0.01" name="quantity" placeholder="${t('sovereign.worldBoss.salesQtyPlaceholder')}" required>
+            <input type="number" min="0" step="0.01" name="crowsValue" placeholder="🪙">
+            <input type="number" min="0" step="0.01" name="diamondsValue" placeholder="💎">
+            <button type="submit">${t('sovereign.worldBoss.salesAdd')}</button>
+          </form>
+        </div>
       </td>
       <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
       <td class="crusade-loot-num">
@@ -2792,6 +2860,7 @@ function renderWorldBossMonthlyLoot() {
       <td class="crusade-loot-num">
         <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? r.diamondsValue : ''}" placeholder="—"></span>
       </td>
+      <td class="crusade-loot-num">${r.soldQuantity.toLocaleString()} / ${r.totalQuantityEver.toLocaleString()}</td>
     </tr>`;
       }
     )
@@ -2822,6 +2891,15 @@ function renderWorldBossMonthlyLoot() {
   body.querySelectorAll('[data-toggle-sold]').forEach((btn) => {
     btn.addEventListener('click', () => toggleLootItemSold(btn));
   });
+  body.querySelectorAll('[data-add-sale-row]').forEach((form) => {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      addSaleBatch(form, rows[Number(form.getAttribute('data-add-sale-row'))]);
+    });
+  });
+  body.querySelectorAll('[data-delete-sale-batch]').forEach((btn) => {
+    btn.addEventListener('click', () => deleteSaleBatch(btn.getAttribute('data-delete-sale-batch')));
+  });
 
   const totals = rows.reduce(
     (acc, r) => {
@@ -2839,7 +2917,8 @@ function renderWorldBossMonthlyLoot() {
     <td class="crusade-loot-total-label">${t('sovereign.worldBoss.thTotal')}</td>
     <td class="crusade-loot-num crusade-loot-total-value">${totals.quantity.toLocaleString()}</td>
     <td class="crusade-loot-num crusade-loot-total-value"><span class="crusade-loot-currency crows">🪙 ${formatLootValue(totals.crows)}</span></td>
-    <td class="crusade-loot-num crusade-loot-total-value"><span class="crusade-loot-currency diamonds">💎 ${formatLootValue(totals.diamonds)}</span></td>`
+    <td class="crusade-loot-num crusade-loot-total-value"><span class="crusade-loot-currency diamonds">💎 ${formatLootValue(totals.diamonds)}</span></td>
+    <td></td>`
     : '';
 
   document.getElementById('worldBossMonthlyLootChips').innerHTML = rows.length
@@ -2862,6 +2941,43 @@ async function toggleLootItemSold(btn) {
       if (item) item.sold = nextSold;
     }
     renderWorldBossMonthlyLoot();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+// Records a sale against the item's shared pool (see loadWorldBossAttendance
+// / renderWorldBossMonthlyLoot) rather than any specific kill's row, so
+// selling the same item again later at a different price is just another
+// independent batch -- it never touches this one's price.
+async function addSaleBatch(form, row) {
+  const quantity = Number(form.elements.quantity.value);
+  if (!Number.isFinite(quantity) || quantity <= 0) return;
+  if (quantity > row.remainingQuantity) {
+    toast(`Only ${row.remainingQuantity.toLocaleString()} left unsold`);
+    return;
+  }
+  const crowsValue = form.elements.crowsValue.value === '' ? null : Number(form.elements.crowsValue.value);
+  const diamondsValue = form.elements.diamondsValue.value === '' ? null : Number(form.elements.diamondsValue.value);
+  try {
+    const created = await api('/api/loot-sale-batches', {
+      method: 'POST',
+      body: JSON.stringify({ itemName: row.itemName, quantity, crowsValue, diamondsValue }),
+    });
+    sovereignState.lootSaleBatches.push(created);
+    renderWorldBossMonthlyLoot();
+    toast('Sale recorded');
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function deleteSaleBatch(batchId) {
+  try {
+    await api(`/api/loot-sale-batches/${batchId}`, { method: 'DELETE' });
+    sovereignState.lootSaleBatches = sovereignState.lootSaleBatches.filter((b) => b.id !== batchId);
+    renderWorldBossMonthlyLoot();
+    toast('Sale removed');
   } catch (err) {
     toast(err.message);
   }
