@@ -3094,10 +3094,10 @@ function renderWorldBossDayDetail(byDate) {
     return;
   }
 
-  // Earliest kill of the day first -- byDate's own grouping doesn't
+  // Most recent kill of the day first -- byDate's own grouping doesn't
   // guarantee any particular order, and now that a kill records a specific
-  // time (not just the day), the natural reading order is chronological.
-  const dayEvents = byDate.get(worldBossSelectedDate).slice().sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
+  // time (not just the day), the natural reading order is latest-first.
+  const dayEvents = byDate.get(worldBossSelectedDate).slice().sort((a, b) => String(b.eventDate).localeCompare(String(a.eventDate)));
   const totalAttended = new Set(dayEvents.flatMap((ev) => ev.attendees.map((a) => a.name.toLowerCase()))).size;
 
   function attendeeBadges(attendees) {
