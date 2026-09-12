@@ -2938,7 +2938,7 @@ function renderWorldBossMonthlyLoot() {
       <td class="crusade-loot-num">
         <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? r.diamondsValue : ''}" placeholder="—"></span>
       </td>
-      <td class="crusade-loot-num">${r.soldQuantity.toLocaleString()} / ${r.totalQuantityEver.toLocaleString()}</td>
+      <td class="crusade-loot-num"><span class="crusade-loot-sold-ratio ${r.totalQuantityEver > 0 && r.soldQuantity >= r.totalQuantityEver ? 'is-fully-sold' : 'is-partially-sold'}">${r.soldQuantity.toLocaleString()} / ${r.totalQuantityEver.toLocaleString()}</span></td>
     </tr>`;
       }
     )

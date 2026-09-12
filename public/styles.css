@@ -952,6 +952,9 @@ select:focus, input:focus, textarea:focus {
 .crusade-loot-currency { white-space: nowrap; font-weight: 600; }
 .crusade-loot-currency.crows { color: #e0b64d; }
 .crusade-loot-currency.diamonds { color: #6dd3f0; }
+.crusade-loot-sold-ratio { font-weight: 600; }
+.crusade-loot-sold-ratio.is-partially-sold { color: var(--bad); }
+.crusade-loot-sold-ratio.is-fully-sold { color: var(--good); }
 
 /* Sale batches -- independent of any specific kill, see loadWorldBossAttendance */
 .crusade-loot-sales {
