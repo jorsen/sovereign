@@ -31,6 +31,7 @@
           <a href="#worldboss" data-panel="worldboss" class="nav-link" data-i18n="sovereign.nav.worldBoss">World Boss</a>
           <a href="#bf4boss" data-panel="bf4boss" class="nav-link" data-i18n="sovereign.nav.bf4Boss">BF4 Boss</a>
           <a href="#points" data-panel="points" class="nav-link" data-i18n="sovereign.nav.points">Points</a>
+          <a href="#salary" data-panel="salary" class="nav-link" data-i18n="sovereign.nav.salary">Salary</a>
           <a href="#activitylog" data-panel="activitylog" class="nav-link owner-only" data-i18n="sovereign.nav.activityLog">Activity Log</a>
           <a href="#users" data-panel="users" class="nav-link owner-only" data-i18n="sovereign.nav.users">Users</a>
         </nav>
@@ -561,6 +562,68 @@
       </section>
     </div>
 
+    <!-- ===================== SALARY PANEL ===================== -->
+    <div id="sovereignSalaryPanel" class="hidden">
+      <div class="view-header space-between">
+        <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.salary.hint">Splits the Diamonds/Crows pool by World Boss attendance, weighted by growth rate.</p>
+      </div>
+
+      <section class="panel">
+        <div class="crusade-header-form">
+          <label><span data-i18n="sovereign.salary.monthLabel">Month</span>
+            <input type="month" id="salaryMonthInput">
+          </label>
+          <label><span data-i18n="sovereign.salary.diamondPoolLabel">Diamonds Pool</span>
+            <input type="number" min="0" step="0.01" id="salaryDiamondPoolInput" placeholder="0">
+          </label>
+          <label><span data-i18n="sovereign.salary.crowPoolLabel">Crows Pool</span>
+            <input type="number" min="0" step="0.01" id="salaryCrowPoolInput" placeholder="0">
+          </label>
+        </div>
+      </section>
+
+      <section class="panel admin-only">
+        <h2 data-i18n="sovereign.salary.feesHeading">Accounting / Management Fees</h2>
+        <p style="color:var(--text-muted); font-size:13px; margin-top:-8px;" data-i18n="sovereign.salary.feesHint">An extra cut of the pool, added on top of that IGN's own share -- not deducted from anyone else.</p>
+        <div class="crusade-header-form">
+          <div class="crusade-loot-item-field" style="flex:2 1 160px;">
+            <input type="text" id="salaryFeeIgnInput" autocomplete="off" data-i18n-placeholder="sovereign.salary.feeIgnPlaceholder" placeholder="IGN">
+            <div class="crusade-loot-suggest-list hidden" id="salaryFeeIgnSuggestList"></div>
+          </div>
+          <input type="number" min="0.01" max="100" step="0.01" id="salaryFeePercentInput" placeholder="%" style="flex:0 0 90px;">
+          <button type="button" id="salaryFeeAddBtn" class="btn small" data-i18n="sovereign.salary.feeAdd">+ Add Fee</button>
+        </div>
+        <div id="salaryFeeList" class="crusade-loot-summary-chips" style="margin-top:10px;"></div>
+      </section>
+
+      <section class="panel">
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead>
+              <tr>
+                <th data-i18n="sovereign.common.ign">IGN</th>
+                <th data-i18n="sovereign.salary.thGrowthRate">Growth Rate</th>
+                <th data-i18n="sovereign.salary.thAttendance">Attendance</th>
+                <th data-i18n="sovereign.salary.thMultiplier">Multiplier</th>
+                <th data-i18n="sovereign.salary.thBaseShare">Base Share</th>
+                <th data-i18n="sovereign.salary.thBaseMult">Base + Mult.</th>
+                <th data-i18n="sovereign.salary.thNormShare">Norm. Share</th>
+                <th data-i18n="sovereign.salary.thDiamondInitial">Diamonds Initial</th>
+                <th data-i18n="sovereign.salary.thDiamondFinal">Diamonds Final</th>
+                <th data-i18n="sovereign.salary.thCrowInitial">Crows Initial</th>
+                <th data-i18n="sovereign.salary.thCrowFinal">Crows Final</th>
+              </tr>
+            </thead>
+            <tbody id="salaryComputationBody"></tbody>
+            <tfoot>
+              <tr id="salaryComputationTotals" class="hidden"></tr>
+            </tfoot>
+          </table>
+        </div>
+        <p id="salaryComputationEmptyState" class="empty-state hidden" data-i18n="sovereign.salary.empty">No World Boss attendance logged for this month yet.</p>
+      </section>
+    </div>
+
     <div id="sovereignActivityLogPanel" class="hidden">
       <div class="view-header space-between">
         <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.activityLog.hint">Every create, update, and delete across the app -- including bot-driven /uniongr submissions -- newest first.</p>
@@ -842,6 +905,6 @@
 
   <script src="/common.js?v=35"></script>
   <script src="/i18n.js?v=10"></script>
-  <script src="/sovereign/crusade/app.js?v=110"></script>
+  <script src="/sovereign/crusade/app.js?v=111"></script>
 </body>
 </html>

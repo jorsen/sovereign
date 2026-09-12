@@ -31,7 +31,7 @@ function deriveMembersFromGrowthSubmissions(submissions) {
   const byName = new Map();
   (submissions || []).forEach((s) => {
     const key = s.ign.trim().toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, lampLevel: s.lampLevel });
+    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, lampLevel: s.lampLevel, growthRate: s.growthRate });
   });
   return Array.from(byName.values());
 }
@@ -176,6 +176,12 @@ function route() {
     loadPointsLeaderboard().catch((err) => toast(err.message));
     return;
   }
+  if (hash === 'salary') {
+    sovereignState.mode = null;
+    showPanel('salary');
+    loadSalaryComputation().catch((err) => toast(err.message));
+    return;
+  }
   if (hash === 'activitylog') {
     sovereignState.mode = null;
     showPanel('activitylog');
@@ -222,11 +228,12 @@ function showPanel(name) {
   // set of DOM elements, so both hashes show this one panel.
   document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss' && name !== 'bf4boss');
   document.getElementById('sovereignPointsPanel').classList.toggle('hidden', name !== 'points');
+  document.getElementById('sovereignSalaryPanel').classList.toggle('hidden', name !== 'salary');
   document.getElementById('sovereignActivityLogPanel').classList.toggle('hidden', name !== 'activitylog');
   document.getElementById('sovereignUsersPanel').classList.toggle('hidden', name !== 'users');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'points', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
+  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'points', 'salary', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -3663,6 +3670,222 @@ function renderPointsLeaderboard(rows) {
     </tr>`
     )
     .join('');
+}
+
+// ---------- Salary (standalone, independent of any crusade) ----------
+// Splits a Diamonds/Crows pool across everyone who attended World Boss in
+// the selected month, weighted by both how often they showed up and their
+// Growth Rate. Attendance is World Boss only (not BF4 Boss) -- a different,
+// higher-gear roster that isn't meant to factor into this.
+//
+// Brackets picked from the actual live Growth Rate spread the day this was
+// built (roughly 447k-921k across ~90 submissions, median ~628k) --
+// spaced in even 100k steps from 500k so the multiplier climbs smoothly
+// across that range instead of clustering everyone into one or two tiers.
+// Adjust freely; there's nothing else derived from these exact numbers.
+const SALARY_GR_MULTIPLIER_BRACKETS = [
+  { min: 0, max: 500000, multiplier: 1.0 },
+  { min: 500000, max: 600000, multiplier: 1.1 },
+  { min: 600000, max: 700000, multiplier: 1.2 },
+  { min: 700000, max: 800000, multiplier: 1.3 },
+  { min: 800000, max: Infinity, multiplier: 1.4 },
+];
+function multiplierForGrowthRate(growthRate) {
+  const rate = Number(growthRate) || 0;
+  const bracket = SALARY_GR_MULTIPLIER_BRACKETS.find((b) => rate >= b.min && rate < b.max);
+  return bracket ? bracket.multiplier : SALARY_GR_MULTIPLIER_BRACKETS[SALARY_GR_MULTIPLIER_BRACKETS.length - 1].multiplier;
+}
+
+let salarySelectedMonth = null; // 'YYYY-MM'
+
+async function loadSalaryComputation() {
+  const [growthSubmissions, events, fees] = await Promise.all([
+    api('/api/growth-submissions'),
+    api('/api/world-boss-attendance'),
+    api('/api/world-boss-management-fees'),
+  ]);
+  sovereignState.growthSubmissions = growthSubmissions;
+  sovereignState.worldBossEvents = events;
+  sovereignState.salaryManagementFees = fees;
+  if (!salarySelectedMonth) salarySelectedMonth = new Date().toISOString().slice(0, 7);
+  document.getElementById('salaryMonthInput').value = salarySelectedMonth;
+  renderSalaryManagementFees();
+  renderSalaryComputation();
+}
+
+document.getElementById('salaryMonthInput').addEventListener('change', (e) => {
+  salarySelectedMonth = e.target.value || new Date().toISOString().slice(0, 7);
+  renderSalaryComputation();
+});
+document.getElementById('salaryDiamondPoolInput').addEventListener('input', renderSalaryComputation);
+document.getElementById('salaryCrowPoolInput').addEventListener('input', renderSalaryComputation);
+
+function renderSalaryManagementFees() {
+  const fees = sovereignState.salaryManagementFees || [];
+  document.getElementById('salaryFeeList').innerHTML = fees
+    .map(
+      (f) => `
+    <span class="crusade-loot-chip">${escapeHtml(f.ign)} — ${f.percent}% <button type="button" class="icon-btn admin-only" data-delete-salary-fee="${f.id}" title="Remove">✕</button></span>`
+    )
+    .join('');
+  document.getElementById('salaryFeeList').querySelectorAll('[data-delete-salary-fee]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api(`/api/world-boss-management-fees/${btn.getAttribute('data-delete-salary-fee')}`, { method: 'DELETE' });
+        sovereignState.salaryManagementFees = sovereignState.salaryManagementFees.filter((f) => f.id !== btn.getAttribute('data-delete-salary-fee'));
+        renderSalaryManagementFees();
+        renderSalaryComputation();
+        toast('Fee removed');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+}
+
+function showSalaryFeeIgnSuggestions() {
+  const input = document.getElementById('salaryFeeIgnInput');
+  const list = document.getElementById('salaryFeeIgnSuggestList');
+  const query = input.value.trim().toLowerCase();
+  const known = deriveMembersFromGrowthSubmissions(sovereignState.growthSubmissions);
+  const matches = (query ? known.filter((m) => m.name.toLowerCase().includes(query)) : known).slice(0, 20);
+  if (!matches.length) {
+    list.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = matches.map((m) => `<div class="crusade-loot-suggest-item" data-suggest-name="${escapeHtml(m.name)}">${escapeHtml(m.name)}</div>`).join('');
+  list.classList.remove('hidden');
+  list.querySelectorAll('[data-suggest-name]').forEach((el) => {
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      input.value = el.getAttribute('data-suggest-name');
+      list.classList.add('hidden');
+    });
+  });
+}
+const salaryFeeIgnInput = document.getElementById('salaryFeeIgnInput');
+salaryFeeIgnInput.addEventListener('input', showSalaryFeeIgnSuggestions);
+salaryFeeIgnInput.addEventListener('focus', showSalaryFeeIgnSuggestions);
+salaryFeeIgnInput.addEventListener('blur', () => setTimeout(() => document.getElementById('salaryFeeIgnSuggestList').classList.add('hidden'), 150));
+
+document.getElementById('salaryFeeAddBtn').addEventListener('click', async () => {
+  const ignInput = document.getElementById('salaryFeeIgnInput');
+  const percentInput = document.getElementById('salaryFeePercentInput');
+  const ign = ignInput.value.trim();
+  const percent = Number(percentInput.value);
+  if (!ign) return;
+  if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+    toast('Percent must be between 0 and 100');
+    return;
+  }
+  try {
+    const created = await api('/api/world-boss-management-fees', { method: 'POST', body: JSON.stringify({ ign, percent }) });
+    sovereignState.salaryManagementFees.push(created);
+    ignInput.value = '';
+    percentInput.value = '';
+    renderSalaryManagementFees();
+    renderSalaryComputation();
+    toast('Fee added');
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+// Largest-remainder proportional split already exists (distributeProportionally,
+// see the World Boss loot code above) but this needs plain fractional shares,
+// not a rounded-to-cents split of one fixed total -- kept separate on purpose.
+function renderSalaryComputation() {
+  const [year, month] = salarySelectedMonth.split('-').map(Number);
+
+  const growthByIgn = new Map();
+  (sovereignState.growthSubmissions || []).forEach((s) => {
+    const key = s.ign.trim().toLowerCase();
+    if (!growthByIgn.has(key)) growthByIgn.set(key, { name: s.ign, growthRate: Number(s.growthRate) || 0 });
+  });
+
+  const attendanceByIgn = new Map();
+  (sovereignState.worldBossEvents || []).forEach((ev) => {
+    if ((ev.schedule || 'world_boss') !== 'world_boss') return;
+    const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1) return;
+    ev.attendees.forEach((a) => {
+      const key = a.name.trim().toLowerCase();
+      attendanceByIgn.set(key, (attendanceByIgn.get(key) || 0) + 1);
+    });
+  });
+
+  const feeByIgn = new Map((sovereignState.salaryManagementFees || []).map((f) => [f.ign.toLowerCase(), f.percent]));
+
+  // A management fee still pays out even for someone with zero attendance
+  // this month (an officer who manages but didn't personally fight) -- so
+  // the row set is attendees UNION fee recipients, not just attendees.
+  const allKeys = new Set([...attendanceByIgn.keys(), ...feeByIgn.keys()]);
+  const rows = Array.from(allKeys).map((key) => {
+    const attendance = attendanceByIgn.get(key) || 0;
+    const g = growthByIgn.get(key);
+    const growthRate = g ? g.growthRate : 0;
+    const multiplier = attendance ? multiplierForGrowthRate(growthRate) : 0;
+    return { ign: g ? g.name : key, growthRate, attendance, multiplier };
+  });
+
+  const totalAttendance = rows.reduce((sum, r) => sum + r.attendance, 0);
+  rows.forEach((r) => {
+    r.baseShare = totalAttendance ? r.attendance / totalAttendance : 0;
+  });
+  rows.forEach((r) => {
+    r.baseMult = r.baseShare * r.multiplier;
+  });
+  const totalBaseMult = rows.reduce((sum, r) => sum + r.baseMult, 0);
+  rows.forEach((r) => {
+    r.normShare = totalBaseMult ? r.baseMult / totalBaseMult : 0;
+  });
+
+  const diamondPool = Number(document.getElementById('salaryDiamondPoolInput').value) || 0;
+  const crowPool = Number(document.getElementById('salaryCrowPoolInput').value) || 0;
+  rows.forEach((r) => {
+    const feePercent = feeByIgn.get(r.ign.toLowerCase()) || 0;
+    r.diamondInitial = r.normShare * diamondPool;
+    r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondPool;
+    r.crowInitial = r.normShare * crowPool;
+    r.crowFinal = r.crowInitial + (feePercent / 100) * crowPool;
+  });
+
+  rows.sort((a, b) => b.diamondFinal - a.diamondFinal || b.attendance - a.attendance);
+
+  document.getElementById('salaryComputationEmptyState').classList.toggle('hidden', rows.length !== 0);
+  document.getElementById('salaryComputationBody').innerHTML = rows
+    .map(
+      (r) => `
+    <tr>
+      <td>${escapeHtml(r.ign)}</td>
+      <td>${r.growthRate.toLocaleString()}</td>
+      <td>${r.attendance.toLocaleString()}</td>
+      <td>${r.multiplier.toFixed(2)}x</td>
+      <td>${(r.baseShare * 100).toFixed(2)}%</td>
+      <td>${r.baseMult.toFixed(4)}</td>
+      <td>${(r.normShare * 100).toFixed(2)}%</td>
+      <td>${formatLootValue(r.diamondInitial)}</td>
+      <td><strong>${formatLootValue(r.diamondFinal)}</strong></td>
+      <td>${formatLootValue(r.crowInitial)}</td>
+      <td><strong>${formatLootValue(r.crowFinal)}</strong></td>
+    </tr>`
+    )
+    .join('');
+
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.diamondFinal += r.diamondFinal;
+      acc.crowFinal += r.crowFinal;
+      return acc;
+    },
+    { diamondFinal: 0, crowFinal: 0 }
+  );
+  const totalsRow = document.getElementById('salaryComputationTotals');
+  totalsRow.classList.toggle('hidden', rows.length === 0);
+  totalsRow.innerHTML = rows.length
+    ? `<td colspan="7" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td><td><strong>${formatLootValue(totals.diamondFinal)}</strong></td><td></td><td><strong>${formatLootValue(totals.crowFinal)}</strong></td>`
+    : '';
 }
 
 // ---------- Raffle (standalone, independent of any crusade) ----------
