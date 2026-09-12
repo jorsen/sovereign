@@ -2737,14 +2737,20 @@ function renderWorldBossMonthlyLoot() {
   // otherwise an item collected in August and sold in September would look
   // like it has leftover stock it doesn't.
   const totalQuantityByKey = new Map();
+  const allSourcesByKey = new Map();
   (sovereignState.worldBossEvents || []).forEach((ev) => {
     (ev.lootItems || []).forEach((item) => {
       const key = canonicalizeItemName(item.itemName).toLowerCase();
       totalQuantityByKey.set(key, (totalQuantityByKey.get(key) || 0) + (item.quantity || 0));
+      if (!allSourcesByKey.has(key)) allSourcesByKey.set(key, []);
+      allSourcesByKey.get(key).push({ eventId: ev.id, itemId: item.id, quantity: item.quantity });
     });
   });
   rows.forEach((r) => {
     r.totalQuantityEver = totalQuantityByKey.get(r.itemKey) || r.quantity;
+    // Every kill that ever dropped this item, not just this month's --
+    // used to spread a sale's price across the whole pool it was sold from.
+    r.allSources = allSourcesByKey.get(r.itemKey) || r.sources;
     r.saleBatches = (sovereignState.lootSaleBatches || [])
       .filter((b) => b.itemKey === r.itemKey)
       .sort((a, b) => String(b.soldAt).localeCompare(String(a.soldAt)));
@@ -2898,7 +2904,10 @@ function renderWorldBossMonthlyLoot() {
     });
   });
   body.querySelectorAll('[data-delete-sale-batch]').forEach((btn) => {
-    btn.addEventListener('click', () => deleteSaleBatch(btn.getAttribute('data-delete-sale-batch')));
+    btn.addEventListener('click', () => {
+      const rowIndex = Number(btn.closest('[id^="worldBossLootSales-"]').id.replace('worldBossLootSales-', ''));
+      deleteSaleBatch(rows[rowIndex], btn.getAttribute('data-delete-sale-batch'));
+    });
   });
 
   const totals = rows.reduce(
@@ -2965,21 +2974,46 @@ async function addSaleBatch(form, row) {
       body: JSON.stringify({ itemName: row.itemName, quantity, crowsValue, diamondsValue }),
     });
     sovereignState.lootSaleBatches.push(created);
-    renderWorldBossMonthlyLoot();
+    await syncLootPricesFromSales(row);
+    renderWorldBossLog();
     toast('Sale recorded');
   } catch (err) {
     toast(err.message);
   }
 }
 
-async function deleteSaleBatch(batchId) {
+async function deleteSaleBatch(row, batchId) {
   try {
     await api(`/api/loot-sale-batches/${batchId}`, { method: 'DELETE' });
     sovereignState.lootSaleBatches = sovereignState.lootSaleBatches.filter((b) => b.id !== batchId);
-    renderWorldBossMonthlyLoot();
+    await syncLootPricesFromSales(row);
+    renderWorldBossLog();
     toast('Sale removed');
   } catch (err) {
     toast(err.message);
+  }
+}
+
+// Whenever an item's sale batches change, recompute the implied per-kill
+// price from scratch: sum every batch's Crows/Diamonds and spread that
+// total across every kill that ever dropped the item (its full pool, not
+// just this month's), proportional to quantity -- so the per-kill
+// breakdown always reflects what it actually sold for instead of showing
+// the 0/blank values a drop starts out with. Recomputed fresh each time
+// rather than incrementally, since an earlier or later batch at a
+// different price changes what "proportional" means for everyone.
+async function syncLootPricesFromSales(row) {
+  if (!row.allSources || !row.allSources.length) return;
+  const batches = (sovereignState.lootSaleBatches || []).filter((b) => b.itemKey === row.itemKey);
+  const anyCrows = batches.some((b) => b.crowsValue !== null);
+  const anyDiamonds = batches.some((b) => b.diamondsValue !== null);
+  if (anyCrows) {
+    const totalCrows = batches.reduce((sum, b) => sum + (b.crowsValue || 0), 0);
+    await splitLootFieldAcrossSources(row.allSources, 'crowsValue', totalCrows);
+  }
+  if (anyDiamonds) {
+    const totalDiamonds = batches.reduce((sum, b) => sum + (b.diamondsValue || 0), 0);
+    await splitLootFieldAcrossSources(row.allSources, 'diamondsValue', totalDiamonds);
   }
 }
 
@@ -3021,6 +3055,57 @@ function distributeProportionally(total, weights) {
 // sources, never overwriting a price that's already locked in by a sale.
 // If every source is already sold, fall back to splitting across all of
 // them since there's nothing else to distribute into.
+// Shared by manual aggregate edits and the sale-driven auto-fill below:
+// splits `newTotal` across `targets` (each {eventId, itemId, quantity})
+// proportional to quantity, and PUTs the result back into whichever
+// attendance records those sources belong to.
+async function splitLootFieldAcrossSources(targets, field, newTotal) {
+  const shares = distributeProportionally(
+    newTotal,
+    targets.map((s) => s.quantity)
+  );
+  const updatesByEvent = new Map();
+  targets.forEach((s, i) => {
+    if (!updatesByEvent.has(s.eventId)) updatesByEvent.set(s.eventId, []);
+    updatesByEvent.get(s.eventId).push({ itemId: s.itemId, share: shares[i] });
+  });
+
+  const results = await Promise.all(
+    Array.from(updatesByEvent.entries()).map(([eventId, updates]) => {
+      const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
+      if (!ev) return null;
+      const updatedLootItems = ev.lootItems.map((l) => {
+        const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
+        const match = updates.find((u) => u.itemId === l.id);
+        if (match) base[field] = match.share;
+        return base;
+      });
+      return api(`/api/world-boss-attendance/${eventId}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) }).then((updated) => ({
+        eventId,
+        updated,
+      }));
+    })
+  );
+  results.forEach((r) => {
+    if (!r) return;
+    const idx = sovereignState.worldBossEvents.findIndex((e) => e.id === r.eventId);
+    if (idx !== -1) sovereignState.worldBossEvents[idx] = r.updated;
+  });
+}
+
+// Editing the aggregate row's Crows/Diamonds total splits it across every
+// contributing kill proportional to how much quantity each one contributed,
+// rather than dumping the whole amount into a single kill -- e.g. entering
+// a total you only know in aggregate (sold everything at once) still ends
+// up attributed sensibly per kill. Sources can span multiple different
+// kills, so this may update more than one attendance record at once.
+//
+// Sources already marked Sold are left out of the split: they were priced
+// separately (e.g. sold in an earlier batch at a different rate), so an
+// aggregate edit only redistributes the new total across the still-unsold
+// sources, never overwriting a price that's already locked in by a sale.
+// If every source is already sold, fall back to splitting across all of
+// them since there's nothing else to distribute into.
 async function saveMonthlyLootEdit(input) {
   const row = worldBossMonthlyLootRows[Number(input.getAttribute('data-loot-row-index'))];
   const field = input.getAttribute('data-loot-field');
@@ -3028,41 +3113,10 @@ async function saveMonthlyLootEdit(input) {
 
   const unsold = row.sources.filter((s) => !s.sold);
   const targets = unsold.length ? unsold : row.sources;
-
   const newTotal = input.value === '' ? 0 : Math.max(0, Number(input.value));
-  const shares = distributeProportionally(
-    newTotal,
-    targets.map((s) => s.quantity)
-  );
-
-  const updatesByEvent = new Map();
-  targets.forEach((s, i) => {
-    if (!updatesByEvent.has(s.eventId)) updatesByEvent.set(s.eventId, []);
-    updatesByEvent.get(s.eventId).push({ itemId: s.itemId, share: shares[i] });
-  });
 
   try {
-    const results = await Promise.all(
-      Array.from(updatesByEvent.entries()).map(([eventId, updates]) => {
-        const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
-        if (!ev) return null;
-        const updatedLootItems = ev.lootItems.map((l) => {
-          const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
-          const match = updates.find((u) => u.itemId === l.id);
-          if (match) base[field] = match.share;
-          return base;
-        });
-        return api(`/api/world-boss-attendance/${eventId}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) }).then((updated) => ({
-          eventId,
-          updated,
-        }));
-      })
-    );
-    results.forEach((r) => {
-      if (!r) return;
-      const idx = sovereignState.worldBossEvents.findIndex((e) => e.id === r.eventId);
-      if (idx !== -1) sovereignState.worldBossEvents[idx] = r.updated;
-    });
+    await splitLootFieldAcrossSources(targets, field, newTotal);
     renderWorldBossLog(); // re-renders the calendar/day-detail/monthly loot/summary together
     toast(
       targets.length > 1
