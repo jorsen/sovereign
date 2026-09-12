@@ -2580,6 +2580,38 @@ document.getElementById('worldBossExtraAttendeeAddBtn').addEventListener('click'
   renderWorldBossMemberGrid(currentlyChecked);
 });
 
+// In-page clipboard for the attendee checklist -- lets an admin check off
+// one boss's roster, copy it, then paste the same roster into the next
+// boss killed by the same raid group instead of re-checking everyone.
+// Kept in memory (not the real OS clipboard) since it only ever needs to
+// survive within this page session.
+let worldBossCopiedRosterNames = [];
+
+document.getElementById('worldBossCopyRosterBtn').addEventListener('click', () => {
+  worldBossCopiedRosterNames = Array.from(document.querySelectorAll('.world-boss-attendee-check:checked')).map((cb) => cb.value);
+  if (!worldBossCopiedRosterNames.length) {
+    toast('Check off some attendees first');
+    return;
+  }
+  toast(`Copied ${worldBossCopiedRosterNames.length} attendee${worldBossCopiedRosterNames.length === 1 ? '' : 's'}`);
+});
+
+document.getElementById('worldBossPasteRosterBtn').addEventListener('click', () => {
+  if (!worldBossCopiedRosterNames.length) {
+    toast('Nothing copied yet');
+    return;
+  }
+  // A pasted name that doesn't meet the current schedule's normal filter
+  // (e.g. BF4's +13 lamp) becomes an exception, same as the manual adder --
+  // pasting a World Boss roster into BF4 shouldn't silently drop people.
+  const candidateKeys = new Set(getWorldBossCandidates().map((m) => m.name.toLowerCase()));
+  worldBossCopiedRosterNames.forEach((name) => {
+    if (!candidateKeys.has(name.toLowerCase())) worldBossExtraAttendeeNames.add(name);
+  });
+  renderWorldBossMemberGrid(new Set(worldBossCopiedRosterNames));
+  toast(`Pasted ${worldBossCopiedRosterNames.length} attendee${worldBossCopiedRosterNames.length === 1 ? '' : 's'}`);
+});
+
 // One row per person who attended at least one event in the month the
 // calendar is currently showing, ranked by attendance count within that
 // month -- scoped to the visible month rather than all-time history, so

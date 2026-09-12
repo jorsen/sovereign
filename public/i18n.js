@@ -341,6 +341,8 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.resultLose': 'Lose',
     'sovereign.worldBoss.bonusPointsLabel': 'Bonus Points (per attendee)',
     'sovereign.worldBoss.backfillGuilds': 'Fix missing guilds',
+    'sovereign.worldBoss.copyRoster': 'Copy Roster',
+    'sovereign.worldBoss.pasteRoster': 'Paste Roster',
     'sovereign.points.hint': 'Bonus points awarded to attendees of a World Boss / BF4 Boss fight, win or lose.',
     'sovereign.points.thRank': '#',
     'sovereign.points.thIgn': 'IGN',

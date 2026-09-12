@@ -451,7 +451,13 @@
           </div>
           <button type="button" id="worldBossExtraAttendeeAddBtn" class="btn small" data-i18n="sovereign.worldBoss.addException">+ Add member without +13 lamp</button>
         </div>
-        <p style="color:var(--text-muted); font-size:13px; margin:14px 0 6px;" data-i18n="sovereign.worldBoss.checkHint">Check off everyone who attended.</p>
+        <div class="view-header space-between" style="margin:14px 0 6px;">
+          <p style="color:var(--text-muted); font-size:13px; margin:0;" data-i18n="sovereign.worldBoss.checkHint">Check off everyone who attended.</p>
+          <div style="display:flex; gap:8px;">
+            <button type="button" id="worldBossCopyRosterBtn" class="btn small" data-i18n="sovereign.worldBoss.copyRoster">Copy Roster</button>
+            <button type="button" id="worldBossPasteRosterBtn" class="btn small" data-i18n="sovereign.worldBoss.pasteRoster">Paste Roster</button>
+          </div>
+        </div>
         <div id="worldBossMemberGrid" class="crusade-party-grid"></div>
         <div style="display:flex; gap:8px; margin-top:14px;">
           <button type="submit" form="worldBossForm" class="btn primary" data-i18n="sovereign.common.save">Save</button>
@@ -836,6 +842,6 @@
 
   <script src="/common.js?v=35"></script>
   <script src="/i18n.js?v=10"></script>
-  <script src="/sovereign/crusade/app.js?v=109"></script>
+  <script src="/sovereign/crusade/app.js?v=110"></script>
 </body>
 </html>
