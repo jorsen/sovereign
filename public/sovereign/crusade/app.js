@@ -2815,7 +2815,7 @@ function renderWorldBossMonthlyLoot() {
       const key = canonicalizeItemName(item.itemName).toLowerCase();
       totalQuantityByKey.set(key, (totalQuantityByKey.get(key) || 0) + (item.quantity || 0));
       if (!allSourcesByKey.has(key)) allSourcesByKey.set(key, []);
-      allSourcesByKey.get(key).push({ eventId: ev.id, itemId: item.id, quantity: item.quantity });
+      allSourcesByKey.get(key).push({ eventId: ev.id, itemId: item.id, quantity: item.quantity, eventDate: ev.eventDate, sold: item.sold });
     });
   });
   rows.forEach((r) => {
@@ -3047,6 +3047,7 @@ async function addSaleBatch(form, row) {
     });
     sovereignState.lootSaleBatches.push(created);
     await syncLootPricesFromSales(row);
+    await syncSoldFlagsFromSales(row);
     renderWorldBossLog();
     toast('Sale recorded');
   } catch (err) {
@@ -3059,6 +3060,7 @@ async function deleteSaleBatch(row, batchId) {
     await api(`/api/loot-sale-batches/${batchId}`, { method: 'DELETE' });
     sovereignState.lootSaleBatches = sovereignState.lootSaleBatches.filter((b) => b.id !== batchId);
     await syncLootPricesFromSales(row);
+    await syncSoldFlagsFromSales(row);
     renderWorldBossLog();
     toast('Sale removed');
   } catch (err) {
@@ -3087,6 +3089,41 @@ async function syncLootPricesFromSales(row) {
     const totalDiamonds = batches.reduce((sum, b) => sum + (b.diamondsValue || 0), 0);
     await splitLootFieldAcrossSources(row.allSources, 'diamondsValue', totalDiamonds);
   }
+}
+
+// Flips each individual kill's own Sold toggle to match the item's overall
+// sold quantity, so the per-kill breakdown doesn't sit stuck on "Not Sold"
+// forever once a sale's been recorded for it. There's no way to know
+// *which* specific kill a given sale actually came from, so this is FIFO:
+// oldest kills are treated as sold first, up to however many full kills'
+// worth of quantity the recorded sales cover -- a sale that only partially
+// covers the next kill in line leaves that one (and everything after it)
+// Not Sold rather than guessing. Recomputed fresh each time (not just the
+// newly-added/removed batch) since the total sold quantity is what
+// determines the cutoff, not any single sale.
+async function syncSoldFlagsFromSales(row) {
+  if (!row.allSources || !row.allSources.length) return;
+  // Recomputed fresh rather than trusting row.soldQuantity, which reflects
+  // whatever the sale batches were at the last render -- stale by the time
+  // this runs right after adding/removing one.
+  const batches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === row.itemKey);
+  let remaining = batches.reduce((sum, b) => sum + b.quantity, 0);
+  const ordered = row.allSources.slice().sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
+  const updates = [];
+  ordered.forEach((s) => {
+    const shouldBeSold = remaining >= s.quantity;
+    if (shouldBeSold) remaining -= s.quantity;
+    if (Boolean(s.sold) !== shouldBeSold) updates.push({ itemId: s.itemId, eventId: s.eventId, sold: shouldBeSold });
+  });
+  if (!updates.length) return;
+  await Promise.all(
+    updates.map(async (u) => {
+      await api(`/api/world-boss-attendance/loot-items/${u.itemId}/sold`, { method: 'PUT', body: JSON.stringify({ sold: u.sold }) });
+      const ev = sovereignState.worldBossEvents.find((e) => e.id === u.eventId);
+      const item = ev?.lootItems?.find((l) => l.id === u.itemId);
+      if (item) item.sold = u.sold;
+    })
+  );
 }
 
 // Editing a Crows/Diamonds cell in This Month's Loot edits a *merged* total,
