@@ -2461,6 +2461,23 @@ const WORLD_BOSS_NAMES = [
   'Ducas / Dergio',
 ];
 
+// A "schedule" is an independent tracker (own calendar/log/loot) sharing
+// this same module's code via a `schedule` tag on every row instead of a
+// separate copy of it -- see WORLD_BOSS_SCHEDULES in lib/app.js. Kept in
+// sync with that map.
+const WORLD_BOSS_SCHEDULES = {
+  world_boss: { label: 'World Boss', bossNames: WORLD_BOSS_NAMES },
+  bf4: { label: 'BF4 Boss', bossNames: ['BF4 Boss'] },
+};
+let worldBossActiveSchedule = 'world_boss';
+
+// Every worldBossEvents entry belongs to a schedule; every view (calendar,
+// day detail, monthly loot, summary, item-name suggestions) reads through
+// this so switching schedules never mixes their data.
+function getScheduleEvents() {
+  return (sovereignState.worldBossEvents || []).filter((ev) => (ev.schedule || 'world_boss') === worldBossActiveSchedule);
+}
+
 let worldBossEditingId = null;
 
 async function loadWorldBossAttendance() {
@@ -2474,8 +2491,11 @@ async function loadWorldBossAttendance() {
   sovereignState.worldBossEvents = events;
   sovereignState.growthSubmissions = growthSubmissions;
   sovereignState.guilds = guilds;
-  sovereignState.lootItemSources = new Map(lootItemSources.map((s) => [s.itemKey, s.bossName]));
-  sovereignState.lootSaleBatches = saleBatches; // flat list; grouped by itemKey at render time
+  // Keyed by `${schedule}:${itemKey}` so the same item name under two
+  // different schedules (e.g. 'world_boss' and 'bf4') can't collide.
+  sovereignState.lootItemSources = new Map(lootItemSources.map((s) => [`${s.schedule || 'world_boss'}:${s.itemKey}`, s.bossName]));
+  sovereignState.lootSaleBatches = saleBatches; // flat list; grouped by itemKey+schedule at render time
+  renderWorldBossScheduleTabs();
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
@@ -2493,9 +2513,32 @@ function getWorldBossCandidates() {
   return Array.from(byName.values());
 }
 
+function renderWorldBossScheduleTabs() {
+  const container = document.getElementById('worldBossScheduleTabs');
+  container.innerHTML = Object.entries(WORLD_BOSS_SCHEDULES)
+    .map(
+      ([key, s]) =>
+        `<button type="button" class="crusade-schedule-tab ${key === worldBossActiveSchedule ? 'is-active' : ''}" data-schedule-tab="${key}">${escapeHtml(s.label)}</button>`
+    )
+    .join('');
+  container.querySelectorAll('[data-schedule-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.getAttribute('data-schedule-tab');
+      if (key === worldBossActiveSchedule) return;
+      worldBossActiveSchedule = key;
+      resetWorldBossForm(); // an in-progress edit/add belongs to the schedule we're leaving
+      worldBossCalendarMonth = null; // let renderWorldBossLog re-anchor to this schedule's own most recent event
+      populateWorldBossNameSelect();
+      renderWorldBossScheduleTabs();
+      renderWorldBossLog();
+    });
+  });
+}
+
 function populateWorldBossNameSelect() {
   const select = document.getElementById('worldBossNameSelect');
-  select.innerHTML = WORLD_BOSS_NAMES.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+  const names = WORLD_BOSS_SCHEDULES[worldBossActiveSchedule].bossNames;
+  select.innerHTML = names.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
 }
 
 // Grouped by guild, same ordering convention as the Member List page, with a
@@ -2557,7 +2600,7 @@ function renderWorldBossMemberGrid(selectedNames) {
 function computeWorldBossSummary() {
   const year = worldBossCalendarMonth.getFullYear();
   const month = worldBossCalendarMonth.getMonth();
-  const events = (sovereignState.worldBossEvents || []).filter((ev) => {
+  const events = getScheduleEvents().filter((ev) => {
     const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
     return d.getFullYear() === year && d.getMonth() === month;
   });
@@ -2644,7 +2687,7 @@ function formatSaleBatchDate(isoString) {
 
 function worldBossEventsByDate() {
   const byDate = new Map();
-  (sovereignState.worldBossEvents || []).forEach((ev) => {
+  getScheduleEvents().forEach((ev) => {
     const dateKey = String(ev.eventDate).slice(0, 10);
     if (!byDate.has(dateKey)) byDate.set(dateKey, []);
     byDate.get(dateKey).push(ev);
@@ -2685,7 +2728,7 @@ function renderWorldBossMonthlyLoot() {
     year: 'numeric',
   });
 
-  const monthEvents = (sovereignState.worldBossEvents || [])
+  const monthEvents = getScheduleEvents()
     .filter((ev) => {
       const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
       return d.getFullYear() === year && d.getMonth() === month;
@@ -2738,7 +2781,7 @@ function renderWorldBossMonthlyLoot() {
   // like it has leftover stock it doesn't.
   const totalQuantityByKey = new Map();
   const allSourcesByKey = new Map();
-  (sovereignState.worldBossEvents || []).forEach((ev) => {
+  getScheduleEvents().forEach((ev) => {
     (ev.lootItems || []).forEach((item) => {
       const key = canonicalizeItemName(item.itemName).toLowerCase();
       totalQuantityByKey.set(key, (totalQuantityByKey.get(key) || 0) + (item.quantity || 0));
@@ -2752,7 +2795,7 @@ function renderWorldBossMonthlyLoot() {
     // used to spread a sale's price across the whole pool it was sold from.
     r.allSources = allSourcesByKey.get(r.itemKey) || r.sources;
     r.saleBatches = (sovereignState.lootSaleBatches || [])
-      .filter((b) => b.itemKey === r.itemKey)
+      .filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === r.itemKey)
       .sort((a, b) => String(b.soldAt).localeCompare(String(a.soldAt)));
     r.soldQuantity = r.saleBatches.reduce((sum, b) => sum + b.quantity, 0);
     r.remainingQuantity = Math.max(0, r.totalQuantityEver - r.soldQuantity);
@@ -2774,7 +2817,7 @@ function renderWorldBossMonthlyLoot() {
       ({ r, i }) => {
         // A manually-set source always wins; otherwise fall back to the
         // guessed boss from kill history rather than defaulting to blank.
-        const savedSource = sovereignState.lootItemSources?.get(r.itemKey);
+        const savedSource = sovereignState.lootItemSources?.get(`${worldBossActiveSchedule}:${r.itemKey}`);
         const selectedBoss = savedSource !== undefined ? savedSource : r.guessedBoss;
         const breakdownRows = r.sources
           .slice()
@@ -2804,7 +2847,7 @@ function renderWorldBossMonthlyLoot() {
           <span>${t('sovereign.worldBoss.dropsFrom')}</span>
           <select class="admin-disable" data-loot-source-row="${i}">
             <option value="">— Unknown —</option>
-            ${WORLD_BOSS_NAMES.map((b) => `<option value="${escapeHtml(b)}" ${selectedBoss === b ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
+            ${WORLD_BOSS_SCHEDULES[worldBossActiveSchedule].bossNames.map((b) => `<option value="${escapeHtml(b)}" ${selectedBoss === b ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
           </select>
           ${!savedSource && r.guessedBoss ? `<span class="crusade-loot-source-guess-hint">(guessed from kill history)</span>` : ''}
         </div>
@@ -2971,7 +3014,7 @@ async function addSaleBatch(form, row) {
   try {
     const created = await api('/api/loot-sale-batches', {
       method: 'POST',
-      body: JSON.stringify({ itemName: row.itemName, quantity, crowsValue, diamondsValue }),
+      body: JSON.stringify({ itemName: row.itemName, quantity, crowsValue, diamondsValue, schedule: worldBossActiveSchedule }),
     });
     sovereignState.lootSaleBatches.push(created);
     await syncLootPricesFromSales(row);
@@ -3004,7 +3047,7 @@ async function deleteSaleBatch(row, batchId) {
 // different price changes what "proportional" means for everyone.
 async function syncLootPricesFromSales(row) {
   if (!row.allSources || !row.allSources.length) return;
-  const batches = (sovereignState.lootSaleBatches || []).filter((b) => b.itemKey === row.itemKey);
+  const batches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === row.itemKey);
   const anyCrows = batches.some((b) => b.crowsValue !== null);
   const anyDiamonds = batches.some((b) => b.diamondsValue !== null);
   if (anyCrows) {
@@ -3138,8 +3181,8 @@ async function saveLootItemSource(select, row) {
   if (!row) return;
   const bossName = select.value || null;
   try {
-    await api('/api/loot-item-sources', { method: 'PUT', body: JSON.stringify({ itemName: row.itemName, bossName }) });
-    sovereignState.lootItemSources.set(row.itemKey, bossName);
+    await api('/api/loot-item-sources', { method: 'PUT', body: JSON.stringify({ itemName: row.itemName, bossName, schedule: worldBossActiveSchedule }) });
+    sovereignState.lootItemSources.set(`${worldBossActiveSchedule}:${row.itemKey}`, bossName);
     toast(bossName ? `${row.itemName} now shows as dropping from ${bossName}` : `Cleared ${row.itemName}'s drop source`);
   } catch (err) {
     toast(err.message);
@@ -3395,7 +3438,7 @@ function renderWorldBossLootRows(lootItems) {
 // whichever occurrence is seen first per item is already the latest one.
 function computeKnownLootItems() {
   const known = new Map();
-  (sovereignState.worldBossEvents || []).forEach((ev) => {
+  getScheduleEvents().forEach((ev) => {
     (ev.lootItems || []).forEach((item) => {
       const itemName = canonicalizeItemName(item.itemName);
       const key = itemName.toLowerCase();
@@ -3529,6 +3572,7 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
     return;
   }
   const payload = {
+    schedule: worldBossActiveSchedule,
     bossName: form.elements.bossName.value,
     eventDate: form.elements.eventDate.value,
     lootItems: collectLootRowsFromForm(),
