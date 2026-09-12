@@ -3718,16 +3718,16 @@ async function loadSalaryComputation() {
   if (!salarySelectedMonth) salarySelectedMonth = new Date().toISOString().slice(0, 7);
   document.getElementById('salaryMonthInput').value = salarySelectedMonth;
   renderSalaryManagementFees();
-  renderSalaryComputation();
+  fillSalaryPoolsFromSoldItems();
 }
 
-// Sums what actually sold this month (Sales section on the World Boss
-// page) rather than making the admin recompute it by hand -- World Boss
-// only, same scoping as the rest of this page (see the schedule check on
-// updateWorldBossBonusPointsVisibility for why BF4 is excluded).
-document.getElementById('salaryUseSoldTotalsBtn').addEventListener('click', () => {
+// Sums what actually sold in salarySelectedMonth (Sales section on the
+// World Boss page) -- World Boss only, same scoping as the rest of this
+// page (see the schedule check on updateWorldBossBonusPointsVisibility for
+// why BF4 is excluded).
+function computeSoldTotalsForSalaryMonth() {
   const [year, month] = salarySelectedMonth.split('-').map(Number);
-  const totals = (sovereignState.lootSaleBatches || []).reduce(
+  return (sovereignState.lootSaleBatches || []).reduce(
     (acc, b) => {
       if ((b.schedule || 'world_boss') !== 'world_boss') return acc;
       const d = new Date(b.soldAt);
@@ -3738,15 +3738,22 @@ document.getElementById('salaryUseSoldTotalsBtn').addEventListener('click', () =
     },
     { diamonds: 0, crows: 0 }
   );
+}
+
+// Pools fill in automatically from sold items whenever the page loads or
+// the month changes -- no button to click. Still just a starting point:
+// typing over either field (see the 'input' listeners below) is preserved
+// until the month changes again.
+function fillSalaryPoolsFromSoldItems() {
+  const totals = computeSoldTotalsForSalaryMonth();
   document.getElementById('salaryDiamondPoolInput').value = totals.diamonds ? totals.diamonds.toFixed(2) : '';
   document.getElementById('salaryCrowPoolInput').value = totals.crows ? totals.crows.toFixed(2) : '';
   renderSalaryComputation();
-  toast(`Filled from ${formatLootValue(totals.diamonds)} diamonds / ${formatLootValue(totals.crows)} crows sold this month`);
-});
+}
 
 document.getElementById('salaryMonthInput').addEventListener('change', (e) => {
   salarySelectedMonth = e.target.value || new Date().toISOString().slice(0, 7);
-  renderSalaryComputation();
+  fillSalaryPoolsFromSoldItems();
 });
 document.getElementById('salaryDiamondPoolInput').addEventListener('input', renderSalaryComputation);
 document.getElementById('salaryCrowPoolInput').addEventListener('input', renderSalaryComputation);
