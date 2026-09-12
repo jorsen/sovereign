@@ -2719,8 +2719,8 @@ function renderWorldBossMonthlyLoot() {
             <td class="crusade-loot-boss">⚔️ ${escapeHtml(s.bossName)}</td>
             <td class="crusade-loot-date">${formatLongDate(String(s.eventDate).slice(0, 10))}</td>
             <td class="crusade-loot-num"><input type="number" min="1" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="quantity" value="${s.quantity}"></td>
-            <td class="crusade-loot-num">🪙 <input type="number" min="0" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="crowsValue" value="${s.crowsValue !== null ? s.crowsValue : ''}" placeholder="—"></td>
-            <td class="crusade-loot-num">💎 <input type="number" min="0" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="diamondsValue" value="${s.diamondsValue !== null ? s.diamondsValue : ''}" placeholder="—"></td>
+            <td class="crusade-loot-num">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="crowsValue" value="${s.crowsValue !== null ? s.crowsValue : ''}" placeholder="—"></td>
+            <td class="crusade-loot-num">💎 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="diamondsValue" value="${s.diamondsValue !== null ? s.diamondsValue : ''}" placeholder="—"></td>
             <td>
               <button type="button" class="crusade-loot-sold-toggle admin-disable ${s.sold ? 'is-sold' : 'is-unsold'}" data-toggle-sold="${s.itemId}" data-sold="${s.sold ? '1' : '0'}">
                 ${s.sold ? '✅ Sold' : '⭕ Not Sold'}
@@ -2760,10 +2760,10 @@ function renderWorldBossMonthlyLoot() {
       </td>
       <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
       <td class="crusade-loot-num">
-        <span class="crusade-loot-edit-cell crows">🪙 <input type="number" min="0" step="1" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="crowsValue" value="${r.crowsValue !== null ? r.crowsValue : ''}" placeholder="—"></span>
+        <span class="crusade-loot-edit-cell crows">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="crowsValue" value="${r.crowsValue !== null ? r.crowsValue : ''}" placeholder="—"></span>
       </td>
       <td class="crusade-loot-num">
-        <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="1" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? r.diamondsValue : ''}" placeholder="—"></span>
+        <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? r.diamondsValue : ''}" placeholder="—"></span>
       </td>
     </tr>`;
       }
@@ -2846,20 +2846,23 @@ async function toggleLootItemSold(btn) {
 // to this item, and everything downstream (this table's totals/chips, the
 // day-detail loot card, the attendance summary) re-renders from the saved
 // result, giving the "auto compute" the edit needs.
-// Splits `total` into integers proportional to `weights`, guaranteed to sum
-// back to exactly `total` (largest-remainder method: floor each share, then
-// hand out the few leftover units to whichever shares had the biggest
-// fractional remainder, so it's not always the same source absorbing the
-// rounding error).
+// Splits `total` proportional to `weights`, to 2 decimal places, guaranteed
+// to sum back to exactly `total` (largest-remainder method run in "cents" --
+// floor each share, then hand out the few leftover cents to whichever
+// shares had the biggest fractional remainder, so it's not always the same
+// source absorbing the rounding error). Not rounded to whole numbers: these
+// are NUMERIC columns specifically so a total split across kills doesn't
+// have to land on whole units.
 function distributeProportionally(total, weights) {
   const sumWeights = weights.reduce((a, b) => a + b, 0);
   if (sumWeights === 0) return weights.map(() => 0);
-  const raw = weights.map((w) => (total * w) / sumWeights);
+  const totalCents = Math.round(total * 100);
+  const raw = weights.map((w) => (totalCents * w) / sumWeights);
   const shares = raw.map(Math.floor);
-  let remainder = total - shares.reduce((a, b) => a + b, 0);
+  let remainder = totalCents - shares.reduce((a, b) => a + b, 0);
   const byRemainder = raw.map((r, i) => ({ i, frac: r - shares[i] })).sort((a, b) => b.frac - a.frac);
   for (let k = 0; k < remainder; k++) shares[byRemainder[k % byRemainder.length].i] += 1;
-  return shares;
+  return shares.map((cents) => cents / 100);
 }
 
 // Editing the aggregate row's Crows/Diamonds total splits it across every
@@ -2873,7 +2876,7 @@ async function saveMonthlyLootEdit(input) {
   const field = input.getAttribute('data-loot-field');
   if (!row || !row.sources.length) return;
 
-  const newTotal = input.value === '' ? 0 : Math.max(0, Math.round(Number(input.value)));
+  const newTotal = input.value === '' ? 0 : Math.max(0, Number(input.value));
   const shares = distributeProportionally(
     newTotal,
     row.sources.map((s) => s.quantity)
@@ -3004,7 +3007,7 @@ function renderWorldBossCalendarGrid(byDate) {
 }
 
 function formatLootValue(n) {
-  return n === null || n === undefined ? '' : Number(n).toLocaleString();
+  return n === null || n === undefined ? '' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 // Known misspellings of an item name, mapped to the correct one -- corrects
@@ -3194,8 +3197,8 @@ function addWorldBossLootRow(item) {
       <div class="crusade-loot-suggest-list hidden"></div>
     </div>
     <input type="number" data-loot-field="quantity" placeholder="Qty" min="1" step="1" value="${item?.quantity ?? 1}">
-    <input type="number" data-loot-field="crowsValue" placeholder="Crows" min="0" step="1" value="${item?.crowsValue ?? ''}">
-    <input type="number" data-loot-field="diamondsValue" placeholder="Diamonds" min="0" step="1" value="${item?.diamondsValue ?? ''}">
+    <input type="number" data-loot-field="crowsValue" placeholder="Crows" min="0" step="0.01" value="${item?.crowsValue ?? ''}">
+    <input type="number" data-loot-field="diamondsValue" placeholder="Diamonds" min="0" step="0.01" value="${item?.diamondsValue ?? ''}">
     <button type="button" class="icon-btn" title="Remove item">✕</button>`;
   row.querySelector('button').addEventListener('click', () => row.remove());
 
