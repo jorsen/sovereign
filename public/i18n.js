@@ -298,6 +298,7 @@ const TRANSLATIONS = {
     'sovereign.growth.pasteZoneReplace': '📋 Screenshot pasted -- click here to paste a different one',
 
     'sovereign.nav.worldBoss': 'World Boss',
+    'sovereign.nav.bf4Boss': 'BF4 Boss',
     'sovereign.nav.activityLog': 'Activity Log',
     'sovereign.nav.users': 'Users',
     'sovereign.worldBoss.hint': 'Log who showed up for each World Boss, then track everyone\'s attendance over time.',

@@ -153,9 +153,12 @@ function route() {
     loadGrowthSubmissions().catch((err) => toast(err.message));
     return;
   }
-  if (hash === 'worldboss') {
+  if (hash === 'worldboss' || hash === 'bf4boss') {
     sovereignState.mode = null;
-    showPanel('worldboss');
+    const nextSchedule = hash === 'bf4boss' ? 'bf4' : 'world_boss';
+    if (nextSchedule !== worldBossActiveSchedule) worldBossCalendarMonth = null; // re-anchor to this schedule's own most recent event
+    worldBossActiveSchedule = nextSchedule;
+    showPanel(hash);
     loadWorldBossAttendance().catch((err) => toast(err.message));
     return;
   }
@@ -201,12 +204,15 @@ function showPanel(name) {
   document.getElementById('sovereignMembersPanel').classList.toggle('hidden', name !== 'members');
   document.getElementById('sovereignRafflePanel').classList.toggle('hidden', name !== 'raffle');
   document.getElementById('sovereignGrowthPanel').classList.toggle('hidden', name !== 'growth');
-  document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss');
+  // BF4 Boss reuses the same World Boss Attendance panel/markup (see
+  // worldBossActiveSchedule) -- it's a separate nav entry, not a separate
+  // set of DOM elements, so both hashes show this one panel.
+  document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss' && name !== 'bf4boss');
   document.getElementById('sovereignActivityLogPanel').classList.toggle('hidden', name !== 'activitylog');
   document.getElementById('sovereignUsersPanel').classList.toggle('hidden', name !== 'users');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (name === 'list' || name === 'members' || name === 'raffle' || name === 'growth' || name === 'worldboss' || name === 'activitylog' || name === 'users') document.title = 'Sovereign — Crusade';
+  if (['list', 'members', 'raffle', 'growth', 'worldboss', 'bf4boss', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -2481,58 +2487,31 @@ function getScheduleEvents() {
 let worldBossEditingId = null;
 
 async function loadWorldBossAttendance() {
-  const [events, growthSubmissions, guilds, lootItemSources, saleBatches] = await Promise.all([
+  const [events, members, guilds, lootItemSources, saleBatches] = await Promise.all([
     api('/api/world-boss-attendance'),
-    api('/api/growth-submissions'),
+    api('/api/sovereign-members'),
     api('/api/crusade-guilds'),
     api('/api/loot-item-sources'),
     api('/api/loot-sale-batches'),
   ]);
   sovereignState.worldBossEvents = events;
-  sovereignState.growthSubmissions = growthSubmissions;
+  sovereignState.memberList = members;
   sovereignState.guilds = guilds;
   // Keyed by `${schedule}:${itemKey}` so the same item name under two
   // different schedules (e.g. 'world_boss' and 'bf4') can't collide.
   sovereignState.lootItemSources = new Map(lootItemSources.map((s) => [`${s.schedule || 'world_boss'}:${s.itemKey}`, s.bossName]));
   sovereignState.lootSaleBatches = saleBatches; // flat list; grouped by itemKey+schedule at render time
-  renderWorldBossScheduleTabs();
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
 }
 
-// Whoever's posted a Growth Rate submission (deduped by IGN, case-
-// insensitive) -- not the master Member List, since attendance here is
-// meant to track the same roster the Growth Rate page tracks.
+// The master Member List (same roster/guild grouping as the Member List
+// page) -- who can actually be checked off for attendance, not whoever
+// happens to have posted a Growth Rate submission (that included people
+// from every guild, since Growth Rate submissions aren't guild-scoped).
 function getWorldBossCandidates() {
-  const byName = new Map();
-  (sovereignState.growthSubmissions || []).forEach((s) => {
-    const key = s.ign.trim().toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName });
-  });
-  return Array.from(byName.values());
-}
-
-function renderWorldBossScheduleTabs() {
-  const container = document.getElementById('worldBossScheduleTabs');
-  container.innerHTML = Object.entries(WORLD_BOSS_SCHEDULES)
-    .map(
-      ([key, s]) =>
-        `<button type="button" class="crusade-schedule-tab ${key === worldBossActiveSchedule ? 'is-active' : ''}" data-schedule-tab="${key}">${escapeHtml(s.label)}</button>`
-    )
-    .join('');
-  container.querySelectorAll('[data-schedule-tab]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const key = btn.getAttribute('data-schedule-tab');
-      if (key === worldBossActiveSchedule) return;
-      worldBossActiveSchedule = key;
-      resetWorldBossForm(); // an in-progress edit/add belongs to the schedule we're leaving
-      worldBossCalendarMonth = null; // let renderWorldBossLog re-anchor to this schedule's own most recent event
-      populateWorldBossNameSelect();
-      renderWorldBossScheduleTabs();
-      renderWorldBossLog();
-    });
-  });
+  return (sovereignState.memberList || []).map((m) => ({ name: m.name, guildName: m.guildName }));
 }
 
 function populateWorldBossNameSelect() {
