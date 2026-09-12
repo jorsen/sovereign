@@ -31,7 +31,7 @@ function deriveMembersFromGrowthSubmissions(submissions) {
   const byName = new Map();
   (submissions || []).forEach((s) => {
     const key = s.ign.trim().toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName });
+    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, lampLevel: s.lampLevel });
   });
   return Array.from(byName.values());
 }
@@ -2416,8 +2416,15 @@ async function loadWorldBossAttendance() {
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
 }
 
+// BF4 Boss is a higher-gear event: only members with a +13 (or higher)
+// Volcano Lamp can attend, unlike World Boss which is open to everyone
+// who's posted a Growth Rate submission.
+const BF4_BOSS_MIN_LAMP_LEVEL = 13;
+
 function getWorldBossCandidates() {
-  return deriveMembersFromGrowthSubmissions(sovereignState.growthSubmissions);
+  const members = deriveMembersFromGrowthSubmissions(sovereignState.growthSubmissions);
+  if (worldBossActiveSchedule === 'bf4') return members.filter((m) => Number(m.lampLevel) >= BF4_BOSS_MIN_LAMP_LEVEL);
+  return members;
 }
 
 function populateWorldBossNameSelect() {
