@@ -3512,12 +3512,12 @@ function collectLootRowsFromForm() {
     .filter((item) => item.itemName);
 }
 
-// Bonus Points only makes sense once a fight is marked Lost -- keep the
-// field hidden otherwise so it doesn't look like a routine part of every
-// log entry.
+// Bonus Points only makes sense once a result is actually decided (win or
+// lose, admin's call either way) -- keep the field hidden while Pending so
+// it doesn't look like a routine part of every log entry.
 function updateWorldBossBonusPointsVisibility() {
-  const isLose = document.getElementById('worldBossResultSelect').value === 'lose';
-  document.getElementById('worldBossBonusPointsField').classList.toggle('hidden', !isLose);
+  const isDecided = document.getElementById('worldBossResultSelect').value !== 'pending';
+  document.getElementById('worldBossBonusPointsField').classList.toggle('hidden', !isDecided);
 }
 document.getElementById('worldBossResultSelect').addEventListener('change', updateWorldBossBonusPointsVisibility);
 
@@ -3569,7 +3569,7 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
     lootItems: collectLootRowsFromForm(),
     attendeeNames,
     result: form.elements.result.value,
-    bonusPoints: form.elements.result.value === 'lose' && form.elements.bonusPoints.value !== '' ? Number(form.elements.bonusPoints.value) : null,
+    bonusPoints: form.elements.result.value !== 'pending' && form.elements.bonusPoints.value !== '' ? Number(form.elements.bonusPoints.value) : null,
   };
   try {
     if (worldBossEditingId) {
