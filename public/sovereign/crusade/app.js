@@ -2423,6 +2423,20 @@ async function loadWorldBossAttendance() {
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
 }
 
+// Re-resolves guild names for any attendee row saved before
+// resolveAttendeeGuilds (server-side) pointed at Growth Rate submissions
+// -- those rows are stuck with a null guild_name forever otherwise, since
+// it's denormalized at record time rather than looked up live.
+document.getElementById('worldBossBackfillGuildsBtn').addEventListener('click', async () => {
+  try {
+    const { updated } = await api('/api/world-boss-attendance/backfill-guilds', { method: 'POST' });
+    toast(updated ? `Filled in ${updated} missing guild${updated === 1 ? '' : 's'}` : 'No missing guilds found');
+    if (updated) await loadWorldBossAttendance();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
 // BF4 Boss is a higher-gear event: only members with a +13 (or higher)
 // Volcano Lamp can attend, unlike World Boss which is open to everyone
 // who's posted a Growth Rate submission.
