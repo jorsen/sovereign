@@ -3881,11 +3881,18 @@ function renderSalaryComputation() {
 
   const diamondPool = Number(document.getElementById('salaryDiamondPoolInput').value) || 0;
   const crowPool = Number(document.getElementById('salaryCrowPoolInput').value) || 0;
+  // Management fees come off the top of the pool first, then everyone
+  // (fee recipients included) splits whatever's left by Norm. Share --
+  // so total payouts always add back up to exactly the pool, instead of
+  // fees inflating the total beyond what was actually earned.
+  const totalFeePercent = Array.from(feeByIgn.values()).reduce((sum, p) => sum + p, 0);
+  const remainingDiamondPool = Math.max(0, diamondPool * (1 - totalFeePercent / 100));
+  const remainingCrowPool = Math.max(0, crowPool * (1 - totalFeePercent / 100));
   rows.forEach((r) => {
     const feePercent = feeByIgn.get(r.ign.toLowerCase()) || 0;
-    r.diamondInitial = r.normShare * diamondPool;
+    r.diamondInitial = r.normShare * remainingDiamondPool;
     r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondPool;
-    r.crowInitial = r.normShare * crowPool;
+    r.crowInitial = r.normShare * remainingCrowPool;
     r.crowFinal = r.crowInitial + (feePercent / 100) * crowPool;
   });
 

@@ -356,7 +356,7 @@ const TRANSLATIONS = {
     'sovereign.salary.crowPoolLabel': 'Crows Pool',
     'sovereign.salary.useSoldTotalsHint': "Filled automatically from this month's World Boss loot sales (Sales section on the World Boss page) -- overwrite either field manually if needed.",
     'sovereign.salary.feesHeading': 'Accounting / Management Fees',
-    'sovereign.salary.feesHint': "An extra cut of the pool, added on top of that IGN's own share -- not deducted from anyone else.",
+    'sovereign.salary.feesHint': "Each entry takes a flat % of the pool off the top, then that amount is added back on top of the recipient's own distributed share -- total payouts always add back up to the pool exactly.",
     'sovereign.salary.feeIgnPlaceholder': 'IGN',
     'sovereign.salary.feeAdd': '+ Add Fee',
     'sovereign.salary.thGrowthRate': 'Growth Rate',
