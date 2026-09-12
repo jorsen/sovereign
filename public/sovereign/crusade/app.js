@@ -2425,6 +2425,9 @@ async function loadWorldBossAttendance() {
   // different schedules (e.g. 'world_boss' and 'bf4') can't collide.
   sovereignState.lootItemSources = new Map(lootItemSources.map((s) => [`${s.schedule || 'world_boss'}:${s.itemKey}`, s.bossName]));
   sovereignState.lootSaleBatches = saleBatches; // flat list; grouped by itemKey+schedule at render time
+  // Points/Salary are a World Boss concept only.
+  document.getElementById('worldBossRelatedLinks').classList.toggle('hidden', worldBossActiveSchedule !== 'world_boss');
+  updateWorldBossBonusPointsVisibility();
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
@@ -3569,8 +3572,11 @@ function collectLootRowsFromForm() {
 // lose, admin's call either way) -- keep the field hidden while Pending so
 // it doesn't look like a routine part of every log entry.
 function updateWorldBossBonusPointsVisibility() {
+  // Bonus Points (and the Points/Salary pages built on it) are a World Boss
+  // concept only -- BF4 Boss is a separate, higher-gear roster that
+  // shouldn't feed into either.
   const isDecided = document.getElementById('worldBossResultSelect').value !== 'pending';
-  document.getElementById('worldBossBonusPointsField').classList.toggle('hidden', !isDecided);
+  document.getElementById('worldBossBonusPointsField').classList.toggle('hidden', !isDecided || worldBossActiveSchedule !== 'world_boss');
 }
 document.getElementById('worldBossResultSelect').addEventListener('change', updateWorldBossBonusPointsVisibility);
 
