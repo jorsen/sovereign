@@ -170,6 +170,12 @@ function route() {
     loadWorldBossAttendance().catch((err) => toast(err.message));
     return;
   }
+  if (hash === 'points') {
+    sovereignState.mode = null;
+    showPanel('points');
+    loadPointsLeaderboard().catch((err) => toast(err.message));
+    return;
+  }
   if (hash === 'activitylog') {
     sovereignState.mode = null;
     showPanel('activitylog');
@@ -215,11 +221,12 @@ function showPanel(name) {
   // worldBossActiveSchedule) -- it's a separate nav entry, not a separate
   // set of DOM elements, so both hashes show this one panel.
   document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss' && name !== 'bf4boss');
+  document.getElementById('sovereignPointsPanel').classList.toggle('hidden', name !== 'points');
   document.getElementById('sovereignActivityLogPanel').classList.toggle('hidden', name !== 'activitylog');
   document.getElementById('sovereignUsersPanel').classList.toggle('hidden', name !== 'users');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
+  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'points', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -3311,6 +3318,8 @@ function renderWorldBossDayDetail(byDate) {
         <span style="font-weight:600;">${escapeHtml(ev.bossName)}</span>
         <span style="color:var(--text-muted); font-size:12px;">${parseWorldBossEventDate(ev.eventDate).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
         <span style="color:var(--text-muted);">${ev.attendees.length} attended</span>
+        ${ev.result && ev.result !== 'pending' ? `<span class="crusade-status-badge ${ev.result}">${t(`sovereign.worldBoss.result${ev.result === 'win' ? 'Win' : 'Lose'}`)}</span>` : ''}
+        ${ev.bonusPoints ? `<span style="color:var(--text-muted); font-size:12px;">+${formatLootValue(ev.bonusPoints)} pts</span>` : ''}
         <div class="admin-only" style="display:flex; gap:6px; margin-left:auto;">
           <button type="button" class="icon-btn" data-edit-world-boss="${ev.id}" title="Edit">✎</button>
           <button type="button" class="icon-btn" data-delete-world-boss="${ev.id}" title="Remove">✕</button>
@@ -3503,6 +3512,15 @@ function collectLootRowsFromForm() {
     .filter((item) => item.itemName);
 }
 
+// Bonus Points only makes sense once a fight is marked Lost -- keep the
+// field hidden otherwise so it doesn't look like a routine part of every
+// log entry.
+function updateWorldBossBonusPointsVisibility() {
+  const isLose = document.getElementById('worldBossResultSelect').value === 'lose';
+  document.getElementById('worldBossBonusPointsField').classList.toggle('hidden', !isLose);
+}
+document.getElementById('worldBossResultSelect').addEventListener('change', updateWorldBossBonusPointsVisibility);
+
 function startEditingWorldBossEvent(ev) {
   worldBossEditingId = ev.id;
   worldBossExtraAttendeeNames = new Set();
@@ -3510,6 +3528,9 @@ function startEditingWorldBossEvent(ev) {
   form.elements.eventId.value = ev.id;
   form.elements.bossName.value = ev.bossName;
   form.elements.eventDate.value = toDatetimeLocalValue(ev.eventDate);
+  form.elements.result.value = ev.result || 'pending';
+  form.elements.bonusPoints.value = ev.bonusPoints ?? '';
+  updateWorldBossBonusPointsVisibility();
   renderWorldBossLootRows(ev.lootItems);
   renderWorldBossMemberGrid(new Set(ev.attendees.map((a) => a.name)));
   document.getElementById('worldBossFormHeading').textContent = `${t('sovereign.worldBoss.editHeading')} — ${ev.bossName}`;
@@ -3523,6 +3544,8 @@ function resetWorldBossForm() {
   const form = document.getElementById('worldBossForm');
   form.reset();
   form.elements.eventId.value = '';
+  form.elements.result.value = 'pending';
+  updateWorldBossBonusPointsVisibility();
   renderWorldBossLootRows([]);
   renderWorldBossMemberGrid(new Set());
   document.getElementById('worldBossFormHeading').textContent = t('sovereign.worldBoss.logHeading');
@@ -3545,6 +3568,8 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
     eventDate: form.elements.eventDate.value,
     lootItems: collectLootRowsFromForm(),
     attendeeNames,
+    result: form.elements.result.value,
+    bonusPoints: form.elements.result.value === 'lose' && form.elements.bonusPoints.value !== '' ? Number(form.elements.bonusPoints.value) : null,
   };
   try {
     if (worldBossEditingId) {
@@ -3569,6 +3594,30 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
     toast(err.message);
   }
 });
+
+// ---------- Points leaderboard (standalone, independent of any crusade) ----------
+// Bonus points awarded to attendees of a lost World Boss / BF4 Boss fight
+// (see the Result/Bonus Points fields on the attendance form above).
+
+async function loadPointsLeaderboard() {
+  const rows = await api('/api/world-boss-bonus-points/leaderboard');
+  renderPointsLeaderboard(rows);
+}
+
+function renderPointsLeaderboard(rows) {
+  document.getElementById('pointsLeaderboardEmptyState').classList.toggle('hidden', rows.length !== 0);
+  document.getElementById('pointsLeaderboardBody').innerHTML = rows
+    .map(
+      (r, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${formatLootValue(r.points)}</td>
+      <td>${r.eventCount.toLocaleString()}</td>
+    </tr>`
+    )
+    .join('');
+}
 
 // ---------- Raffle (standalone, independent of any crusade) ----------
 // Draws from the same master Member List as above. Anyone already in the
