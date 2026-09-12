@@ -3438,8 +3438,20 @@ function addWorldBossLootRow(item) {
   // width-constrained consistently across browsers.
   function showSuggestions() {
     const query = nameInput.value.trim().toLowerCase();
-    const known = Array.from(computeKnownLootItems().values()).sort((a, b) => a.itemName.localeCompare(b.itemName));
-    const matches = (query ? known.filter((o) => o.itemName.toLowerCase().includes(query)) : known).slice(0, 20);
+    const known = computeKnownLootItems();
+    // Also offer whatever's already typed into this form's other loot rows
+    // (including brand-new item names that haven't been saved anywhere
+    // yet) -- so adding "New Item" in row 1 then clicking + Add Item makes
+    // it suggestible in row 2 right away, instead of only after saving.
+    document.querySelectorAll('#worldBossLootRows .crusade-loot-row [data-loot-field="itemName"]').forEach((input) => {
+      if (input === nameInput) return;
+      const name = input.value.trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!known.has(key)) known.set(key, { itemName: name, crowsValue: null, diamondsValue: null });
+    });
+    const knownList = Array.from(known.values()).sort((a, b) => a.itemName.localeCompare(b.itemName));
+    const matches = (query ? knownList.filter((o) => o.itemName.toLowerCase().includes(query)) : knownList).slice(0, 20);
     if (!matches.length) {
       suggestList.classList.add('hidden');
       suggestList.innerHTML = '';
