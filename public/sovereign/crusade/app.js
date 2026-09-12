@@ -2603,6 +2603,34 @@ let worldBossSelectedDate = null; // 'YYYY-MM-DD', or null if nothing's selected
 let worldBossMonthlyLootRows = []; // last rendered This Month's Loot rows, incl. their source loot_items -- read by saveMonthlyLootEdit
 let worldBossExpandedLootKey = null; // itemKey of whichever row's breakdown is open, or null -- kept outside the render so saving inside it doesn't collapse it
 
+// world_boss_attendance.event_date is a naive "wall clock" timestamp (no
+// timezone) -- the admin's own local input from a <input
+// type="datetime-local">, stored and meant to display back exactly as
+// typed, same "never convert timezones" idea formatLongDate already uses
+// for plain dates. The API returns it JSON-serialized with a trailing "Z"
+// (an artifact of the server representing it as a Date object), which would
+// make the browser reinterpret it as UTC and shift it on display -- so that
+// "Z" is stripped before handing it to `new Date(...)` here.
+function parseWorldBossEventDate(isoString) {
+  return new Date(String(isoString).replace(/Z$/, ''));
+}
+
+// "YYYY-MM-DDTHH:mm" -- what a <input type="datetime-local"> element's own
+// value needs to be.
+function toDatetimeLocalValue(isoString) {
+  const d = parseWorldBossEventDate(isoString);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Long date plus a time-of-day, e.g. "September 11, 2026, 11:45 PM".
+function formatWorldBossEventDateTime(isoString) {
+  const d = parseWorldBossEventDate(isoString);
+  if (Number.isNaN(d.getTime())) return String(isoString);
+  return `${formatLongDate(String(isoString).slice(0, 10))}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+}
+
 function worldBossEventsByDate() {
   const byDate = new Map();
   (sovereignState.worldBossEvents || []).forEach((ev) => {
@@ -2717,7 +2745,7 @@ function renderWorldBossMonthlyLoot() {
             (s) => `
           <tr>
             <td class="crusade-loot-boss">⚔️ ${escapeHtml(s.bossName)}</td>
-            <td class="crusade-loot-date">${formatLongDate(String(s.eventDate).slice(0, 10))}</td>
+            <td class="crusade-loot-date">${formatWorldBossEventDateTime(s.eventDate)}</td>
             <td class="crusade-loot-num"><input type="number" min="1" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="quantity" value="${s.quantity}"></td>
             <td class="crusade-loot-num">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="crowsValue" value="${s.crowsValue !== null ? s.crowsValue : ''}" placeholder="—"></td>
             <td class="crusade-loot-num">💎 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="diamondsValue" value="${s.diamondsValue !== null ? s.diamondsValue : ''}" placeholder="—"></td>
@@ -3084,6 +3112,7 @@ function renderWorldBossDayDetail(byDate) {
     <div class="crusade-world-boss-day-row">
       <div class="crusade-world-boss-day-row-header" data-toggle-world-boss-log="${ev.id}">
         <span style="font-weight:600;">${escapeHtml(ev.bossName)}</span>
+        <span style="color:var(--text-muted); font-size:12px;">${parseWorldBossEventDate(ev.eventDate).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
         <span style="color:var(--text-muted);">${ev.attendees.length} attended</span>
         <div class="admin-only" style="display:flex; gap:6px; margin-left:auto;">
           <button type="button" class="icon-btn" data-edit-world-boss="${ev.id}" title="Edit">✎</button>
@@ -3270,7 +3299,7 @@ function startEditingWorldBossEvent(ev) {
   const form = document.getElementById('worldBossForm');
   form.elements.eventId.value = ev.id;
   form.elements.bossName.value = ev.bossName;
-  form.elements.eventDate.value = String(ev.eventDate).slice(0, 10);
+  form.elements.eventDate.value = toDatetimeLocalValue(ev.eventDate);
   renderWorldBossLootRows(ev.lootItems);
   renderWorldBossMemberGrid(new Set(ev.attendees.map((a) => a.name)));
   document.getElementById('worldBossFormHeading').textContent = `${t('sovereign.worldBoss.editHeading')} — ${ev.bossName}`;
@@ -3322,7 +3351,7 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
     // for it.
     const [y, m] = payload.eventDate.split('-').map(Number);
     worldBossCalendarMonth = new Date(y, m - 1, 1);
-    worldBossSelectedDate = payload.eventDate;
+    worldBossSelectedDate = payload.eventDate.slice(0, 10);
     renderWorldBossLog(); // also re-renders the attendance summary
   } catch (err) {
     toast(err.message);

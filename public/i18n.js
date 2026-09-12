@@ -320,6 +320,7 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.lootDetailsHint': "Every individual drop this month, and whether it's been sold yet.",
     'sovereign.worldBoss.thStatus': 'Status',
     'sovereign.worldBoss.bossLabel': 'Boss',
+    'sovereign.worldBoss.dateTimeLabel': 'Date & Time',
     'sovereign.worldBoss.checkHint': 'Check off everyone who attended.',
     'sovereign.worldBoss.cancelEdit': 'Cancel Edit',
     'sovereign.worldBoss.summaryHeading': 'Attendance Summary',
