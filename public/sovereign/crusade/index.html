@@ -26,7 +26,6 @@
         </button>
         <nav class="page-nav" id="pageNav">
           <a href="#" data-panel="list" class="nav-link" data-i18n="sovereign.nav.crusades">Crusades</a>
-          <a href="#members" data-panel="members" class="nav-link" data-i18n="sovereign.nav.members">Member List</a>
           <a href="#raffle" data-panel="raffle" class="nav-link" data-i18n="sovereign.nav.raffle">Raffle</a>
           <a href="#growth" data-panel="growth" class="nav-link" data-i18n="sovereign.nav.growth">Growth Rate</a>
           <a href="#worldboss" data-panel="worldboss" class="nav-link" data-i18n="sovereign.nav.worldBoss">World Boss</a>
@@ -333,21 +332,6 @@
       </section>
     </div>
 
-    <!-- ===================== MEMBER LIST PANEL ===================== -->
-    <div id="sovereignMembersPanel" class="hidden">
-      <div class="view-header space-between">
-        <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.members.hint">Everyone ever saved into a crusade team roster, grouped by guild — saving a participant here keeps this up to date automatically.</p>
-      </div>
-      <section class="panel">
-        <div class="table-scroll">
-          <table class="members-table crusade-member-list-table">
-            <thead><tr id="sovereignMemberListHead"></tr></thead>
-            <tbody id="sovereignMemberListBody"></tbody>
-          </table>
-        </div>
-        <p id="sovereignMemberListEmptyState" class="empty-state hidden" data-i18n="sovereign.members.empty">No members saved yet — add a participant to a crusade roster to populate this list.</p>
-      </section>
-    </div>
 
     <!-- ===================== RAFFLE PANEL ===================== -->
     <div id="sovereignRafflePanel" class="hidden">
@@ -808,6 +792,6 @@
 
   <script src="/common.js?v=35"></script>
   <script src="/i18n.js?v=10"></script>
-  <script src="/sovereign/crusade/app.js?v=102"></script>
+  <script src="/sovereign/crusade/app.js?v=103"></script>
 </body>
 </html>

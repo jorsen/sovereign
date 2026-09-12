@@ -22,6 +22,20 @@ function crusadeFormatItemQty(amount) {
   return `${Math.round(amount || 0).toLocaleString()} pcs`;
 }
 
+// Growth Rate submissions are the roster of record across the app (Crusade
+// participant/fee autocomplete, World Boss/BF4 attendance) -- there's no
+// separately-maintained "Member List" anymore, since that table drifted out
+// of sync with who's actually in each guild (missing/renamed guilds).
+// Deduped by IGN, case-insensitive; whichever submission is seen first wins.
+function deriveMembersFromGrowthSubmissions(submissions) {
+  const byName = new Map();
+  (submissions || []).forEach((s) => {
+    const key = s.ign.trim().toLowerCase();
+    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName });
+  });
+  return Array.from(byName.values());
+}
+
 function crusadeGuildColor(guildName) {
   const guild = sovereignState.guilds.find((g) => g.name === guildName);
   return guild ? guild.color : null;
@@ -135,12 +149,6 @@ function route() {
   const guildSalaryMatch = hash.match(/^crusade\/([^/]+)\/guild-salary$/);
   const crusadeMatch = hash.match(/^crusade\/([^/]+)$/);
 
-  if (hash === 'members') {
-    sovereignState.mode = null;
-    showPanel('members');
-    loadMemberList().catch((err) => toast(err.message));
-    return;
-  }
   if (hash === 'raffle') {
     sovereignState.mode = null;
     showPanel('raffle');
@@ -201,7 +209,6 @@ function showPanel(name) {
   document.getElementById('sovereignDetailPanel').classList.toggle('hidden', name !== 'detail');
   document.getElementById('sovereignGuildSalaryPanel').classList.toggle('hidden', name !== 'guildSalary');
   document.getElementById('sovereignTeamPanel').classList.toggle('hidden', name !== 'team');
-  document.getElementById('sovereignMembersPanel').classList.toggle('hidden', name !== 'members');
   document.getElementById('sovereignRafflePanel').classList.toggle('hidden', name !== 'raffle');
   document.getElementById('sovereignGrowthPanel').classList.toggle('hidden', name !== 'growth');
   // BF4 Boss reuses the same World Boss Attendance panel/markup (see
@@ -212,7 +219,7 @@ function showPanel(name) {
   document.getElementById('sovereignUsersPanel').classList.toggle('hidden', name !== 'users');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (['list', 'members', 'raffle', 'growth', 'worldboss', 'bf4boss', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
+  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -474,20 +481,20 @@ document.getElementById('addCrusadeDefaultFeeForm').addEventListener('submit', a
 // ---------- Crusade detail ----------
 
 async function loadCrusadeDetail(id) {
-  const [crusade, guilds, memberList, defaultFees] = await Promise.all([
+  const [crusade, guilds, growthSubmissions, defaultFees] = await Promise.all([
     api(`/api/crusades/${id}`),
     api('/api/crusade-guilds'),
-    api('/api/sovereign-members'),
+    api('/api/growth-submissions'),
     api('/api/crusade-default-fees'),
   ]);
   sovereignState.crusade = crusade;
   sovereignState.participants = crusade.participants;
   sovereignState.teams = crusade.teams;
   sovereignState.guilds = guilds;
-  sovereignState.memberList = memberList;
+  sovereignState.memberList = deriveMembersFromGrowthSubmissions(growthSubmissions);
   sovereignState.defaultFees = defaultFees;
   populateCrusadeGuildSelect(); // shared by the add/edit-participant modal regardless of which page opened it
-  populateSovereignMemberSuggestions(); // lets the participant modal's Name field search the master member list
+  populateSovereignMemberSuggestions(); // lets the participant modal's Name field search Growth Rate's roster
   populateCrusadeInfoForm();
 
   if (sovereignState.mode === 'team') {
@@ -2032,103 +2039,6 @@ function renderCrusadeGuildSummary(rows, containerId, formatFn, extraByGuild) {
 
 // ---------- Member list (master roster, grouped by guild column) ----------
 
-async function loadMemberList() {
-  const [members, guilds] = await Promise.all([api('/api/sovereign-members'), api('/api/crusade-guilds')]);
-  sovereignState.memberList = members;
-  sovereignState.guilds = guilds;
-  renderMemberList();
-}
-
-function renderMemberList() {
-  const members = sovereignState.memberList;
-  document.getElementById('sovereignMemberListEmptyState').classList.toggle('hidden', members.length !== 0);
-
-  const groups = new Map();
-  members.forEach((m) => {
-    const key = m.guildName || 'Unassigned';
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(m);
-  });
-  groups.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name)));
-
-  // Column order: guilds in the order they were created (Manage Guilds),
-  // then any guild name that only shows up via saved members but was since
-  // removed from the guild list, then "Unassigned" last.
-  const knownOrder = sovereignState.guilds.map((g) => g.name);
-  const guildKeys = Array.from(groups.keys()).filter((k) => k !== 'Unassigned');
-  guildKeys.sort((a, b) => {
-    const ai = knownOrder.indexOf(a);
-    const bi = knownOrder.indexOf(b);
-    if (ai === -1 && bi === -1) return a.localeCompare(b);
-    if (ai === -1) return 1;
-    if (bi === -1) return -1;
-    return ai - bi;
-  });
-  if (groups.has('Unassigned')) guildKeys.push('Unassigned');
-
-  const head = document.getElementById('sovereignMemberListHead');
-  head.innerHTML =
-    `<th style="width:4%;">#</th>` +
-    guildKeys
-      .map((g) => {
-        const color = g === 'Unassigned' ? null : crusadeGuildColor(g);
-        const label = g === 'Unassigned' ? t('sovereign.common.unassigned') : escapeHtml(g);
-        return `<th style="${color ? `color:${color};` : ''}">${label} <span style="color:var(--text-muted); font-weight:400;">(${groups.get(g).length})</span></th>`;
-      })
-      .join('');
-
-  const maxRows = guildKeys.reduce((max, g) => Math.max(max, groups.get(g).length), 0);
-  const rowsHtml = [];
-  for (let i = 0; i < maxRows; i++) {
-    const cells = guildKeys
-      .map((g) => {
-        const m = groups.get(g)[i];
-        if (!m) return '<td></td>';
-        return `<td style="white-space:nowrap;"><span class="crusade-roster-name-click admin-disable" data-rename-member="${m.id}" title="Click to rename">${escapeHtml(m.name)}</span> <button type="button" class="icon-btn admin-only" data-delete-member="${m.id}" title="Remove from member list">✕</button></td>`;
-      })
-      .join('');
-    rowsHtml.push(`<tr><td>${i + 1}</td>${cells}</tr>`);
-  }
-
-  const body = document.getElementById('sovereignMemberListBody');
-  body.innerHTML = rowsHtml.join('');
-  body.querySelectorAll('[data-delete-member]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-delete-member');
-      const member = sovereignState.memberList.find((m) => m.id === id);
-      if (!confirm(`Remove "${member?.name}" from the member list?`)) return;
-      try {
-        await api(`/api/sovereign-members/${id}`, { method: 'DELETE' });
-        sovereignState.memberList = sovereignState.memberList.filter((m) => m.id !== id);
-        renderMemberList();
-        toast('Member removed');
-      } catch (err) {
-        toast(err.message);
-      }
-    });
-  });
-  body.querySelectorAll('[data-rename-member]').forEach((span) => {
-    span.addEventListener('click', async () => {
-      const id = span.getAttribute('data-rename-member');
-      const member = sovereignState.memberList.find((m) => m.id === id);
-      if (!member) return;
-      const nextName = prompt('Rename member:', member.name);
-      if (nextName === null) return; // cancelled
-      const trimmed = nextName.trim();
-      if (!trimmed || trimmed === member.name) return;
-      try {
-        const updated = await api(`/api/sovereign-members/${id}`, { method: 'PUT', body: JSON.stringify({ name: trimmed }) });
-        const idx = sovereignState.memberList.findIndex((m) => m.id === id);
-        if (idx !== -1) sovereignState.memberList[idx] = updated;
-        renderMemberList();
-        toast('Member renamed');
-      } catch (err) {
-        toast(err.message);
-      }
-    });
-  });
-}
-
 // ---------- Growth Rate submissions (populated by the Discord bot) ----------
 // Read-only from this page's point of view -- the bot in the growth-rate
 // Discord channel is what actually creates/updates/deletes these; admins can
@@ -2506,17 +2416,8 @@ async function loadWorldBossAttendance() {
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
 }
 
-// Whoever's posted a Growth Rate submission (deduped by IGN, case-
-// insensitive) -- not the master Member List, which is missing/misaligned
-// guilds (e.g. no BUBBLEGANG, an unrelated "Hatred" instead) for who
-// actually attends World Boss / BF4 Boss.
 function getWorldBossCandidates() {
-  const byName = new Map();
-  (sovereignState.growthSubmissions || []).forEach((s) => {
-    const key = s.ign.trim().toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName });
-  });
-  return Array.from(byName.values());
+  return deriveMembersFromGrowthSubmissions(sovereignState.growthSubmissions);
 }
 
 function populateWorldBossNameSelect() {
