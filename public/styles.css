@@ -1150,9 +1150,12 @@ select:focus, input:focus, textarea:focus {
   gap: 8px;
   margin-top: 12px;
 }
-.crusade-extra-attendee-adder input {
+.crusade-extra-attendee-adder .crusade-loot-item-field {
   flex: 1;
   min-width: 200px;
+}
+.crusade-extra-attendee-adder .crusade-loot-item-field input {
+  width: 100%;
 }
 
 /* Each bidders card is full width (its container is .crusade-team-salary-

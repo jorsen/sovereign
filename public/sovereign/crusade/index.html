@@ -434,8 +434,10 @@
           <div id="worldBossLootRows"></div>
         </div>
         <div id="worldBossExtraAttendeeAdder" class="crusade-extra-attendee-adder hidden">
-          <input type="text" id="worldBossExtraAttendeeInput" list="worldBossAllMemberSuggestions" autocomplete="off" data-i18n-placeholder="sovereign.worldBoss.addExceptionPlaceholder" placeholder="Add a member without +13 lamp">
-          <datalist id="worldBossAllMemberSuggestions"></datalist>
+          <div class="crusade-loot-item-field">
+            <input type="text" id="worldBossExtraAttendeeInput" autocomplete="off" data-i18n-placeholder="sovereign.worldBoss.addExceptionPlaceholder" placeholder="Add a member without +13 lamp">
+            <div class="crusade-loot-suggest-list hidden" id="worldBossExtraAttendeeSuggestList"></div>
+          </div>
           <button type="button" id="worldBossExtraAttendeeAddBtn" class="btn small" data-i18n="sovereign.worldBoss.addException">+ Add member without +13 lamp</button>
         </div>
         <p style="color:var(--text-muted); font-size:13px; margin:14px 0 6px;" data-i18n="sovereign.worldBoss.checkHint">Check off everyone who attended.</p>
@@ -797,6 +799,6 @@
 
   <script src="/common.js?v=35"></script>
   <script src="/i18n.js?v=10"></script>
-  <script src="/sovereign/crusade/app.js?v=105"></script>
+  <script src="/sovereign/crusade/app.js?v=106"></script>
 </body>
 </html>

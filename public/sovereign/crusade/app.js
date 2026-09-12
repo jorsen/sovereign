@@ -2506,11 +2506,41 @@ function renderWorldBossMemberGrid(selectedNames) {
 
   // Suggestions exclude whoever's already shown above, so the exception
   // adder only ever offers someone actually missing from the checklist.
-  document.getElementById('worldBossAllMemberSuggestions').innerHTML = allMembers
-    .filter((m) => !includeKeys.has(m.name.toLowerCase()))
-    .map((m) => `<option value="${escapeHtml(m.name)}">`)
-    .join('');
+  worldBossExtraAttendeeCandidates = allMembers.filter((m) => !includeKeys.has(m.name.toLowerCase()));
 }
+
+let worldBossExtraAttendeeCandidates = [];
+
+// Custom dropdown (not a native <datalist>) so it can be sized to exactly
+// match the input's width, same reasoning as the loot item-name field's own
+// suggestion list.
+function showWorldBossExtraAttendeeSuggestions() {
+  const input = document.getElementById('worldBossExtraAttendeeInput');
+  const list = document.getElementById('worldBossExtraAttendeeSuggestList');
+  const query = input.value.trim().toLowerCase();
+  const matches = (query ? worldBossExtraAttendeeCandidates.filter((m) => m.name.toLowerCase().includes(query)) : worldBossExtraAttendeeCandidates).slice(0, 20);
+  if (!matches.length) {
+    list.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = matches.map((m) => `<div class="crusade-loot-suggest-item" data-suggest-name="${escapeHtml(m.name)}">${escapeHtml(m.name)}</div>`).join('');
+  list.classList.remove('hidden');
+  list.querySelectorAll('[data-suggest-name]').forEach((el) => {
+    // mousedown (not click) fires before the input's blur, so the
+    // dropdown's own blur-hide handler below doesn't swallow the pick.
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      input.value = el.getAttribute('data-suggest-name');
+      list.classList.add('hidden');
+    });
+  });
+}
+
+const worldBossExtraAttendeeInput = document.getElementById('worldBossExtraAttendeeInput');
+worldBossExtraAttendeeInput.addEventListener('input', showWorldBossExtraAttendeeSuggestions);
+worldBossExtraAttendeeInput.addEventListener('focus', showWorldBossExtraAttendeeSuggestions);
+worldBossExtraAttendeeInput.addEventListener('blur', () => setTimeout(() => document.getElementById('worldBossExtraAttendeeSuggestList').classList.add('hidden'), 150));
 
 document.getElementById('worldBossExtraAttendeeAddBtn').addEventListener('click', () => {
   const input = document.getElementById('worldBossExtraAttendeeInput');
@@ -2521,6 +2551,7 @@ document.getElementById('worldBossExtraAttendeeAddBtn').addEventListener('click'
     toast('No Growth Rate submission found for that IGN');
     return;
   }
+  document.getElementById('worldBossExtraAttendeeSuggestList').classList.add('hidden');
   worldBossExtraAttendeeNames.add(match.name);
   input.value = '';
   const currentlyChecked = new Set(Array.from(document.querySelectorAll('.world-boss-attendee-check:checked')).map((cb) => cb.value));
