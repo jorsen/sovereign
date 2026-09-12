@@ -354,6 +354,8 @@ const TRANSLATIONS = {
     'sovereign.salary.monthLabel': 'Month',
     'sovereign.salary.diamondPoolLabel': 'Diamonds Pool',
     'sovereign.salary.crowPoolLabel': 'Crows Pool',
+    'sovereign.salary.useSoldTotals': 'Use total from sold items',
+    'sovereign.salary.useSoldTotalsHint': "Fills both pools from this month's World Boss loot sales (Sales section on the World Boss page).",
     'sovereign.salary.feesHeading': 'Accounting / Management Fees',
     'sovereign.salary.feesHint': "An extra cut of the pool, added on top of that IGN's own share -- not deducted from anyone else.",
     'sovereign.salary.feeIgnPlaceholder': 'IGN',

@@ -3705,19 +3705,44 @@ function multiplierForGrowthRate(growthRate) {
 let salarySelectedMonth = null; // 'YYYY-MM'
 
 async function loadSalaryComputation() {
-  const [growthSubmissions, events, fees] = await Promise.all([
+  const [growthSubmissions, events, fees, saleBatches] = await Promise.all([
     api('/api/growth-submissions'),
     api('/api/world-boss-attendance'),
     api('/api/world-boss-management-fees'),
+    api('/api/loot-sale-batches'),
   ]);
   sovereignState.growthSubmissions = growthSubmissions;
   sovereignState.worldBossEvents = events;
   sovereignState.salaryManagementFees = fees;
+  sovereignState.lootSaleBatches = saleBatches;
   if (!salarySelectedMonth) salarySelectedMonth = new Date().toISOString().slice(0, 7);
   document.getElementById('salaryMonthInput').value = salarySelectedMonth;
   renderSalaryManagementFees();
   renderSalaryComputation();
 }
+
+// Sums what actually sold this month (Sales section on the World Boss
+// page) rather than making the admin recompute it by hand -- World Boss
+// only, same scoping as the rest of this page (see the schedule check on
+// updateWorldBossBonusPointsVisibility for why BF4 is excluded).
+document.getElementById('salaryUseSoldTotalsBtn').addEventListener('click', () => {
+  const [year, month] = salarySelectedMonth.split('-').map(Number);
+  const totals = (sovereignState.lootSaleBatches || []).reduce(
+    (acc, b) => {
+      if ((b.schedule || 'world_boss') !== 'world_boss') return acc;
+      const d = new Date(b.soldAt);
+      if (d.getFullYear() !== year || d.getMonth() !== month - 1) return acc;
+      acc.diamonds += b.diamondsValue || 0;
+      acc.crows += b.crowsValue || 0;
+      return acc;
+    },
+    { diamonds: 0, crows: 0 }
+  );
+  document.getElementById('salaryDiamondPoolInput').value = totals.diamonds ? totals.diamonds.toFixed(2) : '';
+  document.getElementById('salaryCrowPoolInput').value = totals.crows ? totals.crows.toFixed(2) : '';
+  renderSalaryComputation();
+  toast(`Filled from ${formatLootValue(totals.diamonds)} diamonds / ${formatLootValue(totals.crows)} crows sold this month`);
+});
 
 document.getElementById('salaryMonthInput').addEventListener('change', (e) => {
   salarySelectedMonth = e.target.value || new Date().toISOString().slice(0, 7);
