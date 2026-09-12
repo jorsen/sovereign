@@ -332,6 +332,8 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.bossLabel': 'Boss',
     'sovereign.worldBoss.dateTimeLabel': 'Date & Time',
     'sovereign.worldBoss.checkHint': 'Check off everyone who attended.',
+    'sovereign.worldBoss.addException': '+ Add member without +13 lamp',
+    'sovereign.worldBoss.addExceptionPlaceholder': 'Add a member without +13 lamp',
     'sovereign.worldBoss.cancelEdit': 'Cancel Edit',
     'sovereign.worldBoss.summaryHeading': 'Attendance Summary',
     'sovereign.worldBoss.summaryHint': 'Across every World Boss event logged so far.',

@@ -1142,6 +1142,19 @@ select:focus, input:focus, textarea:focus {
   .crusade-party-grid { grid-template-columns: 1fr; }
 }
 
+/* BF4 Boss only -- manually add someone who doesn't meet the +13 lamp
+   filter to this event's checklist. */
+.crusade-extra-attendee-adder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.crusade-extra-attendee-adder input {
+  flex: 1;
+  min-width: 200px;
+}
+
 /* Each bidders card is full width (its container is .crusade-team-salary-
    list, a plain stacked flex column), with its own list split into two
    side-by-side mini-tables (numbered continuously) instead of one long

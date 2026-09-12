@@ -2427,6 +2427,12 @@ function getWorldBossCandidates() {
   return members;
 }
 
+// Manual exceptions to the +13 lamp filter, added via the "+ Add member
+// without +13 lamp" button below -- reset whenever the form is reset or a
+// different event is loaded for editing, since it only applies to the
+// event currently being logged/edited.
+let worldBossExtraAttendeeNames = new Set();
+
 function populateWorldBossNameSelect() {
   const select = document.getElementById('worldBossNameSelect');
   const names = WORLD_BOSS_SCHEDULES[worldBossActiveSchedule].bossNames;
@@ -2435,10 +2441,24 @@ function populateWorldBossNameSelect() {
 
 // Grouped by guild, same ordering convention as the Member List page, with a
 // checkbox per person instead of a plain name -- `selectedNames` pre-checks
-// whichever names are already part of the event being edited.
+// whichever names are already part of the event being edited. Always
+// includes `selectedNames` and any manually-added exceptions even if they
+// don't meet the schedule's normal filter (e.g. BF4's +13 lamp requirement),
+// so editing an event that already has an exception attendee, or adding one,
+// never silently drops them from the checklist.
 function renderWorldBossMemberGrid(selectedNames) {
   const grid = document.getElementById('worldBossMemberGrid');
-  const members = getWorldBossCandidates();
+  const allMembers = deriveMembersFromGrowthSubmissions(sovereignState.growthSubmissions);
+  const allByLowerName = new Map(allMembers.map((m) => [m.name.toLowerCase(), m]));
+  const includeKeys = new Set(getWorldBossCandidates().map((m) => m.name.toLowerCase()));
+  selectedNames.forEach((n) => includeKeys.add(n.trim().toLowerCase()));
+  worldBossExtraAttendeeNames.forEach((n) => includeKeys.add(n.trim().toLowerCase()));
+  const members = Array.from(includeKeys)
+    .map((key) => allByLowerName.get(key))
+    .filter(Boolean);
+
+  const adder = document.getElementById('worldBossExtraAttendeeAdder');
+  adder.classList.toggle('hidden', worldBossActiveSchedule !== 'bf4');
 
   const groups = new Map();
   members.forEach((m) => {
@@ -2483,7 +2503,30 @@ function renderWorldBossMemberGrid(selectedNames) {
       </div>`;
     })
     .join('');
+
+  // Suggestions exclude whoever's already shown above, so the exception
+  // adder only ever offers someone actually missing from the checklist.
+  document.getElementById('worldBossAllMemberSuggestions').innerHTML = allMembers
+    .filter((m) => !includeKeys.has(m.name.toLowerCase()))
+    .map((m) => `<option value="${escapeHtml(m.name)}">`)
+    .join('');
 }
+
+document.getElementById('worldBossExtraAttendeeAddBtn').addEventListener('click', () => {
+  const input = document.getElementById('worldBossExtraAttendeeInput');
+  const name = input.value.trim();
+  if (!name) return;
+  const match = deriveMembersFromGrowthSubmissions(sovereignState.growthSubmissions).find((m) => m.name.toLowerCase() === name.toLowerCase());
+  if (!match) {
+    toast('No Growth Rate submission found for that IGN');
+    return;
+  }
+  worldBossExtraAttendeeNames.add(match.name);
+  input.value = '';
+  const currentlyChecked = new Set(Array.from(document.querySelectorAll('.world-boss-attendee-check:checked')).map((cb) => cb.value));
+  currentlyChecked.add(match.name);
+  renderWorldBossMemberGrid(currentlyChecked);
+});
 
 // One row per person who attended at least one event in the month the
 // calendar is currently showing, ranked by attendance count within that
@@ -3431,6 +3474,7 @@ function collectLootRowsFromForm() {
 
 function startEditingWorldBossEvent(ev) {
   worldBossEditingId = ev.id;
+  worldBossExtraAttendeeNames = new Set();
   const form = document.getElementById('worldBossForm');
   form.elements.eventId.value = ev.id;
   form.elements.bossName.value = ev.bossName;
@@ -3444,6 +3488,7 @@ function startEditingWorldBossEvent(ev) {
 
 function resetWorldBossForm() {
   worldBossEditingId = null;
+  worldBossExtraAttendeeNames = new Set();
   const form = document.getElementById('worldBossForm');
   form.reset();
   form.elements.eventId.value = '';
