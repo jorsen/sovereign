@@ -3076,18 +3076,33 @@ async function deleteSaleBatch(row, batchId) {
 // the 0/blank values a drop starts out with. Recomputed fresh each time
 // rather than incrementally, since an earlier or later batch at a
 // different price changes what "proportional" means for everyone.
+// Every kill that ever dropped this item, read fresh from current state
+// (not a snapshot from the last render) -- needed because
+// splitLootFieldAcrossSources replaces an event's whole lootItems array
+// (delete + reinsert with fresh ids) every time it runs, so a stale
+// {eventId, itemId} pair from before that call would 404 on the next one.
+function computeAllSourcesForItemKey(itemKey) {
+  const sources = [];
+  (sovereignState.worldBossEvents || []).forEach((ev) => {
+    (ev.lootItems || []).forEach((item) => {
+      if (canonicalizeItemName(item.itemName).toLowerCase() !== itemKey) return;
+      sources.push({ eventId: ev.id, itemId: item.id, quantity: item.quantity, eventDate: ev.eventDate, sold: item.sold });
+    });
+  });
+  return sources;
+}
+
 async function syncLootPricesFromSales(row) {
-  if (!row.allSources || !row.allSources.length) return;
   const batches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === row.itemKey);
   const anyCrows = batches.some((b) => b.crowsValue !== null);
   const anyDiamonds = batches.some((b) => b.diamondsValue !== null);
   if (anyCrows) {
     const totalCrows = batches.reduce((sum, b) => sum + (b.crowsValue || 0), 0);
-    await splitLootFieldAcrossSources(row.allSources, 'crowsValue', totalCrows);
+    await splitLootFieldAcrossSources(computeAllSourcesForItemKey(row.itemKey), 'crowsValue', totalCrows);
   }
   if (anyDiamonds) {
     const totalDiamonds = batches.reduce((sum, b) => sum + (b.diamondsValue || 0), 0);
-    await splitLootFieldAcrossSources(row.allSources, 'diamondsValue', totalDiamonds);
+    await splitLootFieldAcrossSources(computeAllSourcesForItemKey(row.itemKey), 'diamondsValue', totalDiamonds);
   }
 }
 
@@ -3102,13 +3117,15 @@ async function syncLootPricesFromSales(row) {
 // newly-added/removed batch) since the total sold quantity is what
 // determines the cutoff, not any single sale.
 async function syncSoldFlagsFromSales(row) {
-  if (!row.allSources || !row.allSources.length) return;
-  // Recomputed fresh rather than trusting row.soldQuantity, which reflects
-  // whatever the sale batches were at the last render -- stale by the time
-  // this runs right after adding/removing one.
+  // Recomputed fresh (both the sources -- run after syncLootPricesFromSales,
+  // whose delete+reinsert gives every item on the event a new id -- and the
+  // sold quantity, which reflects whatever the sale batches were at the
+  // last render otherwise) rather than trusting row.allSources/soldQuantity.
   const batches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === row.itemKey);
   let remaining = batches.reduce((sum, b) => sum + b.quantity, 0);
-  const ordered = row.allSources.slice().sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
+  const allSources = computeAllSourcesForItemKey(row.itemKey);
+  if (!allSources.length) return;
+  const ordered = allSources.slice().sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
   const updates = [];
   ordered.forEach((s) => {
     const shouldBeSold = remaining >= s.quantity;
