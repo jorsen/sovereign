@@ -3046,8 +3046,7 @@ async function addSaleBatch(form, row) {
       body: JSON.stringify({ itemName: row.itemName, quantity, crowsValue, diamondsValue, schedule: worldBossActiveSchedule }),
     });
     sovereignState.lootSaleBatches.push(created);
-    await syncLootPricesFromSales(row);
-    await syncSoldFlagsFromSales(row);
+    await applyFifoSalesToItem(row.itemKey);
     renderWorldBossLog();
     toast('Sale recorded');
   } catch (err) {
@@ -3059,8 +3058,7 @@ async function deleteSaleBatch(row, batchId) {
   try {
     await api(`/api/loot-sale-batches/${batchId}`, { method: 'DELETE' });
     sovereignState.lootSaleBatches = sovereignState.lootSaleBatches.filter((b) => b.id !== batchId);
-    await syncLootPricesFromSales(row);
-    await syncSoldFlagsFromSales(row);
+    await applyFifoSalesToItem(row.itemKey);
     renderWorldBossLog();
     toast('Sale removed');
   } catch (err) {
@@ -3092,55 +3090,84 @@ function computeAllSourcesForItemKey(itemKey) {
   return sources;
 }
 
-async function syncLootPricesFromSales(row) {
-  const batches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === row.itemKey);
-  const anyCrows = batches.some((b) => b.crowsValue !== null);
-  const anyDiamonds = batches.some((b) => b.diamondsValue !== null);
-  if (anyCrows) {
-    const totalCrows = batches.reduce((sum, b) => sum + (b.crowsValue || 0), 0);
-    await splitLootFieldAcrossSources(computeAllSourcesForItemKey(row.itemKey), 'crowsValue', totalCrows);
-  }
-  if (anyDiamonds) {
-    const totalDiamonds = batches.reduce((sum, b) => sum + (b.diamondsValue || 0), 0);
-    await splitLootFieldAcrossSources(computeAllSourcesForItemKey(row.itemKey), 'diamondsValue', totalDiamonds);
-  }
-}
+// Matches each kill to actual sale batches FIFO (oldest kill <-> oldest
+// sale) instead of proportionally splitting every batch's total evenly
+// across every kill by quantity -- two kills of quantity 1 sold for 4,167
+// and 4,273 used to both show 4,220 (the average). Now each kill gets the
+// price it actually came from (or a quantity-weighted blend of whichever
+// batches its units were drawn from, if its own quantity spans more than
+// one batch -- the row itself can't be split any finer than that). A kill
+// only counts as Sold once the batch queue can cover its *entire*
+// quantity; a kill only partially covered by what's left in the queue
+// stays Not Sold (and unpriced) rather than showing a guessed number, and
+// everything after it in date order stays Not Sold too. Recomputed from
+// scratch every time (not just the newly-added/removed batch), since one
+// batch changing shifts which units every later kill draws from.
+async function applyFifoSalesToItem(itemKey) {
+  const sources = computeAllSourcesForItemKey(itemKey).sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
+  if (!sources.length) return;
 
-// Flips each individual kill's own Sold toggle to match the item's overall
-// sold quantity, so the per-kill breakdown doesn't sit stuck on "Not Sold"
-// forever once a sale's been recorded for it. There's no way to know
-// *which* specific kill a given sale actually came from, so this is FIFO:
-// oldest kills are treated as sold first, up to however many full kills'
-// worth of quantity the recorded sales cover -- a sale that only partially
-// covers the next kill in line leaves that one (and everything after it)
-// Not Sold rather than guessing. Recomputed fresh each time (not just the
-// newly-added/removed batch) since the total sold quantity is what
-// determines the cutoff, not any single sale.
-async function syncSoldFlagsFromSales(row) {
-  // Recomputed fresh (both the sources -- run after syncLootPricesFromSales,
-  // whose delete+reinsert gives every item on the event a new id -- and the
-  // sold quantity, which reflects whatever the sale batches were at the
-  // last render otherwise) rather than trusting row.allSources/soldQuantity.
-  const batches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === row.itemKey);
-  let remaining = batches.reduce((sum, b) => sum + b.quantity, 0);
-  const allSources = computeAllSourcesForItemKey(row.itemKey);
-  if (!allSources.length) return;
-  const ordered = allSources.slice().sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
-  const updates = [];
-  ordered.forEach((s) => {
-    const shouldBeSold = remaining >= s.quantity;
-    if (shouldBeSold) remaining -= s.quantity;
-    if (Boolean(s.sold) !== shouldBeSold) updates.push({ itemId: s.itemId, eventId: s.eventId, sold: shouldBeSold });
-  });
-  if (!updates.length) return;
-  await Promise.all(
-    updates.map(async (u) => {
-      await api(`/api/world-boss-attendance/loot-items/${u.itemId}/sold`, { method: 'PUT', body: JSON.stringify({ sold: u.sold }) });
-      const ev = sovereignState.worldBossEvents.find((e) => e.id === u.eventId);
-      const item = ev?.lootItems?.find((l) => l.id === u.itemId);
-      if (item) item.sold = u.sold;
+  const batchQueue = (sovereignState.lootSaleBatches || [])
+    .filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === itemKey)
+    .slice()
+    .sort((a, b) => String(a.soldAt).localeCompare(String(b.soldAt)))
+    .map((b) => ({
+      remaining: b.quantity,
+      diamondsPerUnit: b.diamondsValue !== null ? b.diamondsValue / b.quantity : null,
+      crowsPerUnit: b.crowsValue !== null ? b.crowsValue / b.quantity : null,
+    }));
+
+  const updatesByEvent = new Map();
+  for (const s of sources) {
+    const availableAhead = batchQueue.reduce((sum, b) => sum + b.remaining, 0);
+    const isSold = availableAhead >= s.quantity;
+    let diamondsValue = null;
+    let crowsValue = null;
+    if (isSold) {
+      let need = s.quantity;
+      let diamondsTotal = 0;
+      let crowsTotal = 0;
+      let anyDiamonds = false;
+      let anyCrows = false;
+      while (need > 0) {
+        const b = batchQueue[0];
+        const take = Math.min(need, b.remaining);
+        if (b.diamondsPerUnit !== null) {
+          diamondsTotal += take * b.diamondsPerUnit;
+          anyDiamonds = true;
+        }
+        if (b.crowsPerUnit !== null) {
+          crowsTotal += take * b.crowsPerUnit;
+          anyCrows = true;
+        }
+        b.remaining -= take;
+        need -= take;
+        if (b.remaining <= 0) batchQueue.shift();
+      }
+      diamondsValue = anyDiamonds ? diamondsTotal : null;
+      crowsValue = anyCrows ? crowsTotal : null;
+    }
+    if (!updatesByEvent.has(s.eventId)) updatesByEvent.set(s.eventId, []);
+    updatesByEvent.get(s.eventId).push({ itemId: s.itemId, sold: isSold, diamondsValue, crowsValue });
+  }
+
+  const results = await Promise.all(
+    Array.from(updatesByEvent.entries()).map(([eventId, updates]) => {
+      const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
+      if (!ev) return null;
+      const updatedLootItems = ev.lootItems.map((l) => {
+        const match = updates.find((u) => u.itemId === l.id);
+        if (!match) return { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
+        return { itemName: l.itemName, quantity: l.quantity, crowsValue: match.crowsValue, diamondsValue: match.diamondsValue, sold: match.sold };
+      });
+      return api(`/api/world-boss-attendance/${eventId}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) }).then((updated) => ({ eventId, updated }));
     })
   );
+  results.forEach((r) => {
+    if (!r) return;
+    const idx = sovereignState.worldBossEvents.findIndex((e) => e.id === r.eventId);
+    if (idx !== -1) sovereignState.worldBossEvents[idx] = r.updated;
+  });
 }
 
 // Editing a Crows/Diamonds cell in This Month's Loot edits a *merged* total,
