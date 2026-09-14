@@ -3519,6 +3519,7 @@ function renderWorldBossDayDetail(byDate) {
         ${ev.result && ev.result !== 'pending' ? `<span class="crusade-status-badge ${ev.result}">${t(`sovereign.worldBoss.result${ev.result === 'win' ? 'Win' : 'Lose'}`)}</span>` : ''}
         ${ev.bonusPoints ? `<span style="color:var(--text-muted); font-size:12px;">+${formatLootValue(ev.bonusPoints)} pts</span>` : ''}
         <div class="admin-only" style="display:flex; gap:6px; margin-left:auto;">
+          <button type="button" class="icon-btn" data-copy-world-boss-attendees="${ev.id}" title="Copy attendee list">📋</button>
           <button type="button" class="icon-btn" data-edit-world-boss="${ev.id}" title="Edit">✎</button>
           <button type="button" class="icon-btn" data-delete-world-boss="${ev.id}" title="Remove">✕</button>
         </div>
@@ -3545,6 +3546,23 @@ function renderWorldBossDayDetail(byDate) {
     header.addEventListener('click', () => {
       const id = header.getAttribute('data-toggle-world-boss-log');
       document.getElementById(`worldBossAttendees-${id}`).classList.toggle('hidden');
+    });
+  });
+
+  detail.querySelectorAll('[data-copy-world-boss-attendees]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-copy-world-boss-attendees');
+      const ev = (sovereignState.worldBossEvents || []).find((x) => x.id === id);
+      if (!ev) return;
+      const names = ev.attendees.map((a) => a.name).join(', ');
+      const text = `${ev.bossName} — ${formatWorldBossEventDateTime(ev.eventDate)}\nAttendees (${ev.attendees.length}): ${names}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('Attendee list copied');
+      } catch (err) {
+        toast('Could not copy — clipboard access blocked');
+      }
     });
   });
 
