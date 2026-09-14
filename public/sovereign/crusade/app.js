@@ -3012,14 +3012,50 @@ function renderWorldBossMonthlyLoot() {
 
 document.getElementById('worldBossMonthlyLootSearchInput').addEventListener('input', renderWorldBossMonthlyLoot);
 
+// Marking one specific kill Sold here (as opposed to recording a sale in
+// the Sales section) creates a real, linked sale batch for exactly that
+// kill's own quantity/price -- otherwise this toggle was cosmetic and
+// never actually counted toward the item's Total/Sold/Remaining. Toggling
+// back to Not Sold removes that same linked sale. A linked kill is left
+// alone by applyFifoSalesToItem's generic matching (it only touches kills
+// still marked Not Sold), so this never gets silently overwritten by an
+// unrelated sale entered afterward.
 async function toggleLootItemSold(btn) {
   const itemId = btn.getAttribute('data-toggle-sold');
   const nextSold = btn.getAttribute('data-sold') !== '1';
   try {
     await api(`/api/world-boss-attendance/loot-items/${itemId}/sold`, { method: 'PUT', body: JSON.stringify({ sold: nextSold }) });
-    for (const ev of sovereignState.worldBossEvents) {
-      const item = ev.lootItems?.find((l) => l.id === itemId);
-      if (item) item.sold = nextSold;
+    let ev, item;
+    for (const e of sovereignState.worldBossEvents) {
+      const found = e.lootItems?.find((l) => l.id === itemId);
+      if (found) {
+        ev = e;
+        item = found;
+        break;
+      }
+    }
+    if (item) item.sold = nextSold;
+    if (ev && item) {
+      const itemKey = canonicalizeItemName(item.itemName).toLowerCase();
+      if (nextSold) {
+        const created = await api('/api/loot-sale-batches', {
+          method: 'POST',
+          body: JSON.stringify({
+            itemName: item.itemName,
+            quantity: item.quantity,
+            crowsValue: item.crowsValue,
+            diamondsValue: item.diamondsValue,
+            schedule: ev.schedule || 'world_boss',
+            sourceAttendanceId: ev.id,
+          }),
+        });
+        sovereignState.lootSaleBatches.push(created);
+      } else {
+        const linked = (sovereignState.lootSaleBatches || []).filter((b) => b.sourceAttendanceId === ev.id && b.itemKey === itemKey);
+        await Promise.all(linked.map((b) => api(`/api/loot-sale-batches/${b.id}`, { method: 'DELETE' })));
+        const linkedIds = new Set(linked.map((b) => b.id));
+        sovereignState.lootSaleBatches = (sovereignState.lootSaleBatches || []).filter((b) => !linkedIds.has(b.id));
+      }
     }
     renderWorldBossMonthlyLoot();
   } catch (err) {
@@ -3104,11 +3140,26 @@ function computeAllSourcesForItemKey(itemKey) {
 // scratch every time (not just the newly-added/removed batch), since one
 // batch changing shifts which units every later kill draws from.
 async function applyFifoSalesToItem(itemKey) {
-  const sources = computeAllSourcesForItemKey(itemKey).sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
+  const itemBatches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === itemKey);
+
+  // A kill with its own linked sale (from toggleLootItemSold) is locked --
+  // left exactly as it is, since it was deliberately marked/priced by hand
+  // for that specific kill, not derived by this generic matching. Anything
+  // else gets fully recomputed from scratch every time (including a kill
+  // that was previously *generically* matched sold, so deleting the sale
+  // that put it there correctly un-sells it again instead of leaving it
+  // stuck).
+  const lockedEventIds = new Set(itemBatches.filter((b) => b.sourceAttendanceId).map((b) => b.sourceAttendanceId));
+  const sources = computeAllSourcesForItemKey(itemKey)
+    .filter((s) => !lockedEventIds.has(s.eventId))
+    .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
   if (!sources.length) return;
 
-  const batchQueue = (sovereignState.lootSaleBatches || [])
-    .filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === itemKey)
+  // Linked sales already belong to one specific kill and are excluded from
+  // this generic pool -- only Sales-section entries (unlinked) get spread
+  // across whichever kills aren't individually locked.
+  const batchQueue = itemBatches
+    .filter((b) => !b.sourceAttendanceId)
     .slice()
     .sort((a, b) => String(a.soldAt).localeCompare(String(b.soldAt)))
     .map((b) => ({
