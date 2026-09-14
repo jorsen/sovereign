@@ -3555,8 +3555,8 @@ function renderWorldBossDayDetail(byDate) {
       const id = btn.getAttribute('data-copy-world-boss-attendees');
       const ev = (sovereignState.worldBossEvents || []).find((x) => x.id === id);
       if (!ev) return;
-      const names = ev.attendees.map((a) => a.name).join(', ');
-      const text = `${ev.bossName} — ${formatWorldBossEventDateTime(ev.eventDate)}\nAttendees (${ev.attendees.length}): ${names}`;
+      const names = ev.attendees.map((a, i) => `${i + 1}. ${a.name}`).join('\n');
+      const text = `${ev.bossName} — ${formatWorldBossEventDateTime(ev.eventDate)}\nAttendees (${ev.attendees.length}):\n${names}`;
       try {
         await navigator.clipboard.writeText(text);
         toast('Attendee list copied');
