@@ -878,6 +878,11 @@ select:focus, input:focus, textarea:focus {
   color: var(--good);
 }
 .crusade-loot-sold-toggle.is-unsold:hover { border-color: var(--text-muted); }
+.crusade-loot-sold-toggle.is-partial {
+  background: rgba(242,169,60,0.16);
+  border-color: rgba(242,169,60,0.4);
+  color: var(--gold);
+}
 /* Mintable items -- blue badge instead of the neutral default, in both the
    monthly loot table and the day-detail loot card. */
 .crusade-loot-item-badge.is-mintable {

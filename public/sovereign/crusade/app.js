@@ -2791,6 +2791,7 @@ function renderWorldBossMonthlyLoot() {
         crowsValue: item.crowsValue,
         diamondsValue: item.diamondsValue,
         sold: item.sold,
+        soldQuantity: item.soldQuantity ?? (item.sold ? item.quantity : 0),
       });
       entry.bossCounts.set(ev.bossName, (entry.bossCounts.get(ev.bossName) || 0) + 1);
     });
@@ -2860,8 +2861,8 @@ function renderWorldBossMonthlyLoot() {
             <td class="crusade-loot-num">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="crowsValue" value="${s.crowsValue !== null ? s.crowsValue : ''}" placeholder="—"></td>
             <td class="crusade-loot-num">💎 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="diamondsValue" value="${s.diamondsValue !== null ? s.diamondsValue : ''}" placeholder="—"></td>
             <td>
-              <button type="button" class="crusade-loot-sold-toggle admin-disable ${s.sold ? 'is-sold' : 'is-unsold'}" data-toggle-sold="${s.itemId}" data-sold="${s.sold ? '1' : '0'}">
-                ${s.sold ? '✅ Sold' : '⭕ Not Sold'}
+              <button type="button" class="crusade-loot-sold-toggle admin-disable ${s.sold ? 'is-sold' : s.soldQuantity > 0 ? 'is-partial' : 'is-unsold'}" data-toggle-sold="${s.itemId}" data-sold="${s.sold ? '1' : '0'}" title="${s.soldQuantity > 0 && !s.sold ? 'Click to mark the rest sold' : ''}">
+                ${s.sold ? '✅ Sold' : s.soldQuantity > 0 ? `◐ Partial (${s.soldQuantity}/${s.quantity})` : '⭕ Not Sold'}
               </button>
             </td>
           </tr>`
@@ -3034,7 +3035,10 @@ async function toggleLootItemSold(btn) {
         break;
       }
     }
-    if (item) item.sold = nextSold;
+    if (item) {
+      item.sold = nextSold;
+      item.soldQuantity = nextSold ? item.quantity : 0;
+    }
     if (ev && item) {
       const itemKey = canonicalizeItemName(item.itemName).toLowerCase();
       if (nextSold) {
@@ -3120,7 +3124,7 @@ function computeAllSourcesForItemKey(itemKey) {
   (sovereignState.worldBossEvents || []).forEach((ev) => {
     (ev.lootItems || []).forEach((item) => {
       if (canonicalizeItemName(item.itemName).toLowerCase() !== itemKey) return;
-      sources.push({ eventId: ev.id, itemId: item.id, quantity: item.quantity, eventDate: ev.eventDate, sold: item.sold });
+      sources.push({ eventId: ev.id, itemId: item.id, quantity: item.quantity, eventDate: ev.eventDate, sold: item.sold, soldQuantity: item.soldQuantity ?? (item.sold ? item.quantity : 0) });
     });
   });
   return sources;
@@ -3168,45 +3172,44 @@ async function applyFifoSalesToItem(itemKey) {
       crowsPerUnit: b.crowsValue !== null ? b.crowsValue / b.quantity : null,
     }));
 
+  // Walking kills and batches both in date order, oldest-to-oldest, and
+  // just taking whatever's actually left in the queue for each kill (not
+  // requiring it to fully cover the kill first) naturally handles all
+  // three cases: a kill whose quantity fits entirely gets marked fully
+  // Sold; a kill straddling the exact point the queue runs dry gets
+  // however much *is* left (a real partial, with a price scaled to just
+  // that covered portion); and every kill after that gets 0, since the
+  // queue is already empty by the time its turn comes -- without an
+  // earlier, larger kill's shortfall letting a later, smaller kill "jump
+  // the line" to grab leftover stock instead.
   const updatesByEvent = new Map();
-  // Once one kill in date order can't be fully covered, every kill after
-  // it stays Not Sold too, even if its own (smaller) quantity would
-  // otherwise fit in whatever's left -- otherwise a later, smaller kill
-  // could "jump the line" ahead of an earlier one still waiting on stock,
-  // which is exactly what real FIFO wouldn't do.
-  let exhausted = false;
   for (const s of sources) {
-    const availableAhead = exhausted ? 0 : batchQueue.reduce((sum, b) => sum + b.remaining, 0);
-    const isSold = !exhausted && availableAhead >= s.quantity;
-    if (!isSold) exhausted = true;
-    let diamondsValue = null;
-    let crowsValue = null;
-    if (isSold) {
-      let need = s.quantity;
-      let diamondsTotal = 0;
-      let crowsTotal = 0;
-      let anyDiamonds = false;
-      let anyCrows = false;
-      while (need > 0) {
-        const b = batchQueue[0];
-        const take = Math.min(need, b.remaining);
-        if (b.diamondsPerUnit !== null) {
-          diamondsTotal += take * b.diamondsPerUnit;
-          anyDiamonds = true;
-        }
-        if (b.crowsPerUnit !== null) {
-          crowsTotal += take * b.crowsPerUnit;
-          anyCrows = true;
-        }
-        b.remaining -= take;
-        need -= take;
-        if (b.remaining <= 0) batchQueue.shift();
+    let need = s.quantity;
+    let taken = 0;
+    let diamondsTotal = 0;
+    let crowsTotal = 0;
+    let anyDiamonds = false;
+    let anyCrows = false;
+    while (need > 0 && batchQueue.length) {
+      const b = batchQueue[0];
+      const take = Math.min(need, b.remaining);
+      if (b.diamondsPerUnit !== null) {
+        diamondsTotal += take * b.diamondsPerUnit;
+        anyDiamonds = true;
       }
-      diamondsValue = anyDiamonds ? diamondsTotal : null;
-      crowsValue = anyCrows ? crowsTotal : null;
+      if (b.crowsPerUnit !== null) {
+        crowsTotal += take * b.crowsPerUnit;
+        anyCrows = true;
+      }
+      b.remaining -= take;
+      need -= take;
+      taken += take;
+      if (b.remaining <= 0) batchQueue.shift();
     }
+    const diamondsValue = taken > 0 && anyDiamonds ? diamondsTotal : null;
+    const crowsValue = taken > 0 && anyCrows ? crowsTotal : null;
     if (!updatesByEvent.has(s.eventId)) updatesByEvent.set(s.eventId, []);
-    updatesByEvent.get(s.eventId).push({ itemId: s.itemId, sold: isSold, diamondsValue, crowsValue });
+    updatesByEvent.get(s.eventId).push({ itemId: s.itemId, soldQuantity: taken, sold: taken >= s.quantity, diamondsValue, crowsValue });
   }
 
   const results = await Promise.all(
@@ -3215,8 +3218,8 @@ async function applyFifoSalesToItem(itemKey) {
       if (!ev) return null;
       const updatedLootItems = ev.lootItems.map((l) => {
         const match = updates.find((u) => u.itemId === l.id);
-        if (!match) return { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
-        return { itemName: l.itemName, quantity: l.quantity, crowsValue: match.crowsValue, diamondsValue: match.diamondsValue, sold: match.sold };
+        if (!match) return { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold, soldQuantity: l.soldQuantity };
+        return { itemName: l.itemName, quantity: l.quantity, crowsValue: match.crowsValue, diamondsValue: match.diamondsValue, sold: match.sold, soldQuantity: match.soldQuantity };
       });
       return api(`/api/world-boss-attendance/${eventId}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) }).then((updated) => ({ eventId, updated }));
     })
@@ -3286,7 +3289,7 @@ async function splitLootFieldAcrossSources(targets, field, newTotal) {
       const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
       if (!ev) return null;
       const updatedLootItems = ev.lootItems.map((l) => {
-        const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
+        const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold, soldQuantity: l.soldQuantity };
         const match = updates.find((u) => u.itemId === l.id);
         if (match) base[field] = match.share;
         return base;
@@ -3370,7 +3373,7 @@ async function saveLootSourceField(input) {
   if (!ev) return;
 
   const updatedLootItems = ev.lootItems.map((l) => {
-    const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold };
+    const base = { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold, soldQuantity: l.soldQuantity };
     if (l.id !== itemId) return base;
     if (field === 'quantity') base.quantity = Math.max(1, Number(input.value) || 1);
     else base[field] = input.value === '' ? null : Math.max(0, Number(input.value));
