@@ -3169,9 +3169,16 @@ async function applyFifoSalesToItem(itemKey) {
     }));
 
   const updatesByEvent = new Map();
+  // Once one kill in date order can't be fully covered, every kill after
+  // it stays Not Sold too, even if its own (smaller) quantity would
+  // otherwise fit in whatever's left -- otherwise a later, smaller kill
+  // could "jump the line" ahead of an earlier one still waiting on stock,
+  // which is exactly what real FIFO wouldn't do.
+  let exhausted = false;
   for (const s of sources) {
-    const availableAhead = batchQueue.reduce((sum, b) => sum + b.remaining, 0);
-    const isSold = availableAhead >= s.quantity;
+    const availableAhead = exhausted ? 0 : batchQueue.reduce((sum, b) => sum + b.remaining, 0);
+    const isSold = !exhausted && availableAhead >= s.quantity;
+    if (!isSold) exhausted = true;
     let diamondsValue = null;
     let crowsValue = null;
     if (isSold) {
