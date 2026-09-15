@@ -2510,6 +2510,14 @@ function populateWorldBossNameSelect() {
 // never silently drops them from the checklist.
 function renderWorldBossMemberGrid(selectedNames) {
   const grid = document.getElementById('worldBossMemberGrid');
+  // No attendees to check off until a boss is actually picked -- avoids an
+  // admin checking off a roster before realizing the boss dropdown was
+  // still on its blank placeholder.
+  if (!document.getElementById('worldBossNameSelect').value) {
+    grid.innerHTML = `<p class="empty-state">${t('sovereign.worldBoss.selectBossFirst')}</p>`;
+    document.getElementById('worldBossExtraAttendeeAdder').classList.add('hidden');
+    return;
+  }
   const allMembers = deriveMembersFromGrowthSubmissions(sovereignState.growthSubmissions);
   const allByLowerName = new Map(allMembers.map((m) => [m.name.toLowerCase(), m]));
   const includeKeys = new Set(getWorldBossCandidates().map((m) => m.name.toLowerCase()));
@@ -3780,6 +3788,13 @@ function updateWorldBossBonusPointsVisibility() {
   document.getElementById('worldBossBonusPointsField').classList.toggle('hidden', !isDecided || worldBossActiveSchedule !== 'world_boss');
 }
 document.getElementById('worldBossResultSelect').addEventListener('change', updateWorldBossBonusPointsVisibility);
+
+// Reveals the attendee checklist (or hides it again if cleared back to the
+// blank placeholder) -- see the guard at the top of renderWorldBossMemberGrid.
+document.getElementById('worldBossNameSelect').addEventListener('change', () => {
+  const currentlyChecked = new Set(Array.from(document.querySelectorAll('.world-boss-attendee-check:checked')).map((cb) => cb.value));
+  renderWorldBossMemberGrid(currentlyChecked);
+});
 
 function startEditingWorldBossEvent(ev) {
   worldBossEditingId = ev.id;
