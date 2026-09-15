@@ -227,6 +227,8 @@ body {
 }
 .btn:hover { background: #262130; border-color: rgba(255,255,255,0.22); transform: translateY(-1px); }
 .btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn:disabled:hover { background: var(--surface-2); border-color: var(--border-strong); transform: none; }
 .btn.primary {
   background: linear-gradient(135deg, var(--series-1), var(--series-1-strong));
   border-color: var(--series-1-strong);

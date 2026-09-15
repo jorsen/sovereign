@@ -2510,10 +2510,15 @@ function populateWorldBossNameSelect() {
 // never silently drops them from the checklist.
 function renderWorldBossMemberGrid(selectedNames) {
   const grid = document.getElementById('worldBossMemberGrid');
+  const bossChosen = !!document.getElementById('worldBossNameSelect').value;
+  // + Add Item is gated the same way as the attendee checklist below --
+  // both need a boss picked first, and this function already re-runs
+  // every time the boss selection changes.
+  document.getElementById('worldBossAddLootRowBtn').disabled = !bossChosen;
   // No attendees to check off until a boss is actually picked -- avoids an
   // admin checking off a roster before realizing the boss dropdown was
   // still on its blank placeholder.
-  if (!document.getElementById('worldBossNameSelect').value) {
+  if (!bossChosen) {
     grid.innerHTML = `<p class="empty-state">${t('sovereign.worldBoss.selectBossFirst')}</p>`;
     document.getElementById('worldBossExtraAttendeeAdder').classList.add('hidden');
     return;
@@ -3764,7 +3769,13 @@ function addWorldBossLootRow(item) {
   document.getElementById('worldBossLootRows').appendChild(row);
 }
 
-document.getElementById('worldBossAddLootRowBtn').addEventListener('click', () => addWorldBossLootRow());
+document.getElementById('worldBossAddLootRowBtn').addEventListener('click', () => {
+  if (!document.getElementById('worldBossNameSelect').value) {
+    toast('Pick a boss before adding loot');
+    return;
+  }
+  addWorldBossLootRow();
+});
 
 function collectLootRowsFromForm() {
   return Array.from(document.querySelectorAll('#worldBossLootRows .crusade-loot-row'))
