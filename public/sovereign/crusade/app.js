@@ -2431,6 +2431,26 @@ async function loadWorldBossAttendance() {
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
+  await reconcileFifoSales();
+}
+
+// Opportunistic self-heal: FIFO-matching only ever ran right after a sale
+// was added/removed, so any data computed by an older, buggier version of
+// applyFifoSalesToItem (or left behind by new kills logged after the last
+// sale for that item) would just sit wrong until someone happened to
+// touch that item's sales again. Runs once per page load for every item
+// that has any sale batch at all; each is a no-op unless something's
+// actually out of sync (see the "changed" check inside
+// applyFifoSalesToItem), so a converged item costs nothing beyond the
+// initial FIFO-queue recomputation. Re-renders once at the end rather
+// than after every item, since several could change.
+async function reconcileFifoSales() {
+  const itemKeys = new Set((sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule).map((b) => b.itemKey));
+  if (!itemKeys.size) return;
+  for (const itemKey of itemKeys) {
+    await applyFifoSalesToItem(itemKey);
+  }
+  renderWorldBossLog();
 }
 
 // Re-resolves guild names for any attendee row saved before
@@ -3212,10 +3232,20 @@ async function applyFifoSalesToItem(itemKey) {
     updatesByEvent.get(s.eventId).push({ itemId: s.itemId, soldQuantity: taken, sold: taken >= s.quantity, diamondsValue, crowsValue });
   }
 
+  // Skip writing an event whose computed result exactly matches what's
+  // already stored -- this runs opportunistically on every page load (see
+  // reconcileFifoSales), not just right after a sale changes, so most runs
+  // should find nothing to do and shouldn't spam a no-op PUT (and its
+  // activity-log entry) for it.
   const results = await Promise.all(
     Array.from(updatesByEvent.entries()).map(([eventId, updates]) => {
       const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
       if (!ev) return null;
+      const changed = updates.some((u) => {
+        const l = ev.lootItems.find((x) => x.id === u.itemId);
+        return !l || l.sold !== u.sold || Number(l.soldQuantity) !== Number(u.soldQuantity) || l.diamondsValue !== u.diamondsValue || l.crowsValue !== u.crowsValue;
+      });
+      if (!changed) return null;
       const updatedLootItems = ev.lootItems.map((l) => {
         const match = updates.find((u) => u.itemId === l.id);
         if (!match) return { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold, soldQuantity: l.soldQuantity };
