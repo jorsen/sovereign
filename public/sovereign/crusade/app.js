@@ -2495,7 +2495,10 @@ let worldBossExtraAttendeeNames = new Set();
 function populateWorldBossNameSelect() {
   const select = document.getElementById('worldBossNameSelect');
   const names = WORLD_BOSS_SCHEDULES[worldBossActiveSchedule].bossNames;
-  select.innerHTML = names.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+  // A blank placeholder first -- otherwise the select always has some real
+  // boss selected by default, so "required" has nothing to actually catch
+  // and an admin could save without ever deliberately picking one.
+  select.innerHTML = `<option value="" disabled selected>${t('sovereign.worldBoss.selectBossPlaceholder')}</option>` + names.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
 }
 
 // Grouped by guild, same ordering convention as the Member List page, with a
@@ -3814,6 +3817,17 @@ document.getElementById('worldBossCancelEditBtn').addEventListener('click', rese
 document.getElementById('worldBossForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
+  // Explicit checks (not just the inputs' own `required`) so there's a
+  // clear reason given for not saving, in the same order the fields
+  // appear -- boss and date/time before ever getting to attendees.
+  if (!form.elements.bossName.value) {
+    toast('Pick a boss before saving');
+    return;
+  }
+  if (!form.elements.eventDate.value) {
+    toast('Set the date & time before saving');
+    return;
+  }
   const attendeeNames = Array.from(document.querySelectorAll('.world-boss-attendee-check:checked')).map((cb) => cb.value);
   if (!attendeeNames.length) {
     toast('Check off at least one attendee');

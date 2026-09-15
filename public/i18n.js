@@ -332,6 +332,7 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.salesAdd': '+ Add Sale',
     'sovereign.worldBoss.salesDate': 'Date',
     'sovereign.worldBoss.bossLabel': 'Boss',
+    'sovereign.worldBoss.selectBossPlaceholder': '— Select Boss —',
     'sovereign.worldBoss.dateTimeLabel': 'Date & Time',
     'sovereign.worldBoss.checkHint': 'Check off everyone who attended.',
     'sovereign.worldBoss.addException': '+ Add member without +13 lamp',
