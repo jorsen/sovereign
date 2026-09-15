@@ -2453,6 +2453,14 @@ async function reconcileFifoSales() {
   renderWorldBossLog();
 }
 
+// Collapsed by default -- it's a reference table admins check
+// occasionally, not something that needs to be visible on every visit.
+document.getElementById('worldBossSummaryToggle').addEventListener('click', () => {
+  const wrapper = document.getElementById('worldBossSummaryBody-wrapper');
+  const isHidden = wrapper.classList.toggle('hidden');
+  document.getElementById('worldBossSummaryChevron').textContent = isHidden ? '▸' : '▾';
+});
+
 // Re-resolves guild names for any attendee row saved before
 // resolveAttendeeGuilds (server-side) pointed at Growth Rate submissions
 // -- those rows are stuck with a null guild_name forever otherwise, since
