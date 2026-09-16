@@ -229,6 +229,18 @@ body {
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .btn:disabled:hover { background: var(--surface-2); border-color: var(--border-strong); transform: none; }
+
+/* Confirms a real boss (not the blank placeholder) is selected on the
+   World Boss / BF4 Boss log-attendance form. */
+#worldBossNameSelect.crusade-boss-select-active {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+  animation: crusade-boss-select-flash 0.5s ease-out;
+}
+@keyframes crusade-boss-select-flash {
+  0% { box-shadow: 0 0 0 6px var(--gold-soft); }
+  100% { box-shadow: 0 0 0 3px var(--gold-soft); }
+}
 .btn.primary {
   background: linear-gradient(135deg, var(--series-1), var(--series-1-strong));
   border-color: var(--series-1-strong);

@@ -2510,7 +2510,12 @@ function populateWorldBossNameSelect() {
 // never silently drops them from the checklist.
 function renderWorldBossMemberGrid(selectedNames) {
   const grid = document.getElementById('worldBossMemberGrid');
-  const bossChosen = !!document.getElementById('worldBossNameSelect').value;
+  const bossSelect = document.getElementById('worldBossNameSelect');
+  const bossChosen = !!bossSelect.value;
+  // Visual confirmation that a real boss (not the blank placeholder) is
+  // selected -- same lifecycle as the gates below, so it stays in sync
+  // with them for free.
+  bossSelect.classList.toggle('crusade-boss-select-active', bossChosen);
   // + Add Item is gated the same way as the attendee checklist below --
   // both need a boss picked first, and this function already re-runs
   // every time the boss selection changes.
