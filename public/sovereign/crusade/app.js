@@ -3062,6 +3062,71 @@ function renderWorldBossMonthlyLoot() {
 
 document.getElementById('worldBossMonthlyLootSearchInput').addEventListener('input', renderWorldBossMonthlyLoot);
 
+// Builds a plain, static table (no inputs/buttons) from whatever's
+// currently shown -- respects the search filter -- into a print-only
+// container, then hands off to the browser's own print preview. Cleaner
+// than printing the live editable table as-is.
+document.getElementById('worldBossMonthlyLootPrintBtn').addEventListener('click', () => {
+  const search = document.getElementById('worldBossMonthlyLootSearchInput').value.trim().toLowerCase();
+  const rows = worldBossMonthlyLootRows.filter((r) => !search || r.itemName.toLowerCase().includes(search));
+  if (!rows.length) {
+    toast('Nothing to print');
+    return;
+  }
+  const monthLabel = document.getElementById('worldBossMonthlyLootLabel').textContent;
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.quantity += r.quantity || 0;
+      acc.crows += r.crowsValue || 0;
+      acc.diamonds += r.diamondsValue || 0;
+      return acc;
+    },
+    { quantity: 0, crows: 0, diamonds: 0 }
+  );
+  document.getElementById('worldBossMonthlyLootPrintArea').innerHTML = `
+    <h2>${t('sovereign.worldBoss.monthlyLootHeading')} — ${escapeHtml(monthLabel)}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>${t('sovereign.worldBoss.thItem')}</th>
+          <th>${t('sovereign.worldBoss.thQuantity')}</th>
+          <th>${t('sovereign.worldBoss.thCrows')}</th>
+          <th>${t('sovereign.worldBoss.thDiamonds')}</th>
+          <th>${t('sovereign.worldBoss.thSold')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (r) => `
+        <tr>
+          <td>${escapeHtml(r.itemName)}</td>
+          <td>${r.quantity.toLocaleString()}</td>
+          <td>${r.crowsValue !== null ? formatLootValue(r.crowsValue) : '—'}</td>
+          <td>${r.diamondsValue !== null ? formatLootValue(r.diamondsValue) : '—'}</td>
+          <td>${r.soldQuantity.toLocaleString()} / ${r.totalQuantityEver.toLocaleString()}</td>
+        </tr>`
+          )
+          .join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td><strong>${t('sovereign.worldBoss.thTotal')}</strong></td>
+          <td><strong>${totals.quantity.toLocaleString()}</strong></td>
+          <td><strong>${formatLootValue(totals.crows)}</strong></td>
+          <td><strong>${formatLootValue(totals.diamonds)}</strong></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>`;
+  document.body.classList.add('is-printing-monthly-loot');
+  window.print();
+});
+
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('is-printing-monthly-loot');
+});
+
 // Marking one specific kill Sold here (as opposed to recording a sale in
 // the Sales section) creates a real, linked sale batch for exactly that
 // kill's own quantity/price -- otherwise this toggle was cosmetic and

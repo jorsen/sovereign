@@ -2372,3 +2372,31 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .boss-timer-card.boss-timer-spawned .boss-timer-countdown { color: var(--bad); }
 .boss-timer-card.boss-timer-unset { border-left-color: var(--text-muted); }
 .boss-timer-card.boss-timer-unset .boss-timer-countdown { color: var(--text-muted); font-size: 16px; }
+
+/* This Month's Loot print preview -- a plain static table built fresh
+   into #worldBossMonthlyLootPrintArea just before printing (see the
+   Print Preview button), kept out of normal layout/view otherwise. */
+.crusade-print-only { display: none; }
+@media print {
+  /* visibility (not display) on the blanket rule -- an ancestor's
+     display:none can't be overridden by a descendant, but visibility can,
+     and the print area sits deeply nested inside the app's normal layout. */
+  body.is-printing-monthly-loot * { visibility: hidden; }
+  body.is-printing-monthly-loot .crusade-print-only,
+  body.is-printing-monthly-loot .crusade-print-only * { visibility: visible; }
+  body.is-printing-monthly-loot .crusade-print-only {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    color: #000;
+    background: #fff;
+  }
+  body.is-printing-monthly-loot .crusade-print-only h2 { margin: 0 0 12px; }
+  body.is-printing-monthly-loot .crusade-print-only table { width: 100%; border-collapse: collapse; }
+  body.is-printing-monthly-loot .crusade-print-only th,
+  body.is-printing-monthly-loot .crusade-print-only td { border: 1px solid #999; padding: 6px 10px; text-align: left; }
+  body.is-printing-monthly-loot .crusade-print-only th:nth-child(n+2),
+  body.is-printing-monthly-loot .crusade-print-only td:nth-child(n+2) { text-align: right; }
+}
