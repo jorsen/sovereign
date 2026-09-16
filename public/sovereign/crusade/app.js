@@ -3570,7 +3570,7 @@ function renderWorldBossDayDetail(byDate) {
   const bossRows = dayEvents
     .map(
       (ev) => `
-    <div class="crusade-world-boss-day-row">
+    <div class="crusade-world-boss-day-row ${ev.id === worldBossEditingId ? 'crusade-world-boss-day-row-editing' : ''}">
       <div class="crusade-world-boss-day-row-header" data-toggle-world-boss-log="${ev.id}">
         <span style="font-weight:600;">${escapeHtml(ev.bossName)}</span>
         <span style="color:var(--text-muted); font-size:12px;">${parseWorldBossEventDate(ev.eventDate).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
@@ -3630,7 +3630,12 @@ function renderWorldBossDayDetail(byDate) {
       e.stopPropagation();
       const id = btn.getAttribute('data-edit-world-boss');
       const ev = (sovereignState.worldBossEvents || []).find((x) => x.id === id);
-      if (ev) startEditingWorldBossEvent(ev);
+      if (!ev) return;
+      // Only one row is "being edited" at a time -- clear any previous
+      // highlight before marking this one.
+      detail.querySelectorAll('.crusade-world-boss-day-row-editing').forEach((row) => row.classList.remove('crusade-world-boss-day-row-editing'));
+      btn.closest('.crusade-world-boss-day-row').classList.add('crusade-world-boss-day-row-editing');
+      startEditingWorldBossEvent(ev);
     });
   });
 
@@ -3841,6 +3846,7 @@ function resetWorldBossForm() {
   renderWorldBossMemberGrid(new Set());
   document.getElementById('worldBossFormHeading').textContent = t('sovereign.worldBoss.logHeading');
   document.getElementById('worldBossCancelEditBtn').classList.add('hidden');
+  document.querySelectorAll('.crusade-world-boss-day-row-editing').forEach((row) => row.classList.remove('crusade-world-boss-day-row-editing'));
 }
 
 document.getElementById('worldBossCancelEditBtn').addEventListener('click', resetWorldBossForm);

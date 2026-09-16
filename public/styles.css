@@ -1265,6 +1265,12 @@ select:focus, input:focus, textarea:focus {
 .crusade-world-boss-day-row + .crusade-world-boss-day-row {
   border-top: 1px solid var(--border);
 }
+.crusade-world-boss-day-row-editing {
+  background: var(--gold-soft);
+  margin: 0 -16px;
+  padding: 0 16px;
+  border-radius: 8px;
+}
 .crusade-world-boss-day-row-header {
   display: flex;
   align-items: center;
