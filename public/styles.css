@@ -2378,6 +2378,7 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
    Print Preview button), kept out of normal layout/view otherwise. */
 .crusade-print-only { display: none; }
 @media print {
+  @page { size: auto; margin: 10mm; }
   /* visibility (not display) on the blanket rule -- an ancestor's
      display:none can't be overridden by a descendant, but visibility can,
      and the print area sits deeply nested inside the app's normal layout. */
@@ -2392,11 +2393,13 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
     width: 100%;
     color: #000;
     background: #fff;
+    font-size: 10px;
   }
-  body.is-printing-monthly-loot .crusade-print-only h2 { margin: 0 0 12px; }
+  body.is-printing-monthly-loot .crusade-print-only h2 { margin: 0 0 8px; font-size: 14px; }
   body.is-printing-monthly-loot .crusade-print-only table { width: 100%; border-collapse: collapse; }
   body.is-printing-monthly-loot .crusade-print-only th,
-  body.is-printing-monthly-loot .crusade-print-only td { border: 1px solid #999; padding: 6px 10px; text-align: left; }
+  body.is-printing-monthly-loot .crusade-print-only td { border: 1px solid #999; padding: 2px 6px; text-align: left; line-height: 1.3; }
   body.is-printing-monthly-loot .crusade-print-only th:nth-child(n+2),
   body.is-printing-monthly-loot .crusade-print-only td:nth-child(n+2) { text-align: right; }
+  body.is-printing-monthly-loot .crusade-print-only tr { page-break-inside: avoid; }
 }
