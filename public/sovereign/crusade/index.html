@@ -780,17 +780,18 @@
         <label><span data-i18n="sovereign.common.ign">IGN</span>
           <input required name="ign" type="text" maxlength="40">
         </label>
+        <p id="growthAddExistingHint" class="hidden" style="color:var(--gold); font-size:13px; margin:-8px 0 0;"></p>
         <label><span data-i18n="sovereign.growth.thClass">Class</span>
-          <select required name="class" id="growthAddClassSelect"></select>
+          <select name="class" id="growthAddClassSelect"><option value="" data-i18n="sovereign.growth.keepExisting">— leave as-is —</option></select>
         </label>
         <label><span data-i18n="sovereign.common.guild">Guild</span>
-          <select required name="guildName" id="growthAddGuildSelect"></select>
+          <select name="guildName" id="growthAddGuildSelect"><option value="" data-i18n="sovereign.growth.keepExisting">— leave as-is —</option></select>
         </label>
         <label><span data-i18n="sovereign.growth.thLamp">Volcano Lamp +</span>
-          <input required name="lampLevel" type="number" min="1" max="25" step="1">
+          <input name="lampLevel" type="number" min="1" max="25" step="1" data-i18n-placeholder="sovereign.growth.keepExisting" placeholder="— leave as-is —">
         </label>
         <label><span data-i18n="sovereign.growth.thGrowthRate">Growth Rate</span>
-          <input required name="growthRate" type="number" min="0" step="1">
+          <input name="growthRate" type="number" min="0" step="1" data-i18n-placeholder="sovereign.growth.keepExisting" placeholder="— leave as-is —">
         </label>
         <label class="crusade-notes-field"><span data-i18n="sovereign.growth.thScreenshot">Screenshot</span>
           <input name="screenshot" type="file" accept="image/*">
@@ -933,6 +934,6 @@
 
   <script src="/common.js?v=35"></script>
   <script src="/i18n.js?v=10"></script>
-  <script src="/sovereign/crusade/app.js?v=133"></script>
+  <script src="/sovereign/crusade/app.js?v=134"></script>
 </body>
 </html>

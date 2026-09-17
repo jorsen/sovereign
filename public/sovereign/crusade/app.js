@@ -2308,17 +2308,44 @@ function openGrowthAddModal() {
   form.reset();
   growthAddPastedImage = null;
   setGrowthAddPreview(null);
+  document.getElementById('growthAddExistingHint').classList.add('hidden');
 
+  const leaveAsIs = `<option value="" data-i18n="sovereign.growth.keepExisting">${t('sovereign.growth.keepExisting')}</option>`;
   const classSelect = document.getElementById('growthAddClassSelect');
-  classSelect.innerHTML = GROWTH_CLASS_CHOICES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  classSelect.innerHTML = leaveAsIs + GROWTH_CLASS_CHOICES.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
   const guildSelect = document.getElementById('growthAddGuildSelect');
-  guildSelect.innerHTML = GROWTH_GUILD_CHOICES.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+  guildSelect.innerHTML = leaveAsIs + GROWTH_GUILD_CHOICES.map((g) => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
 
   document.getElementById('growthAddModal').classList.remove('hidden');
 }
 
 document.getElementById('growthAddBtn').addEventListener('click', openGrowthAddModal);
+
+// Only IGN is required -- typing one that already has a submission (posted
+// via /uniongr or a previous manual add) shows what's already on file and
+// switches every other field to optional ("leave as-is" keeps that value),
+// so nudging one field (e.g. a new lamp level) never risks duplicating the
+// person's record or accidentally blanking out data they already have.
+document.querySelector('#growthAddForm [name="ign"]').addEventListener('input', (e) => {
+  const needle = e.target.value.trim().toLowerCase();
+  const hint = document.getElementById('growthAddExistingHint');
+  if (!needle) {
+    hint.classList.add('hidden');
+    return;
+  }
+  const match = (sovereignState.growthSubmissions || []).find((s) => s.ign.trim().toLowerCase() === needle);
+  if (!match) {
+    hint.classList.add('hidden');
+    return;
+  }
+  hint.textContent = t('sovereign.growth.existingFound').replace('{ign}', match.ign);
+  hint.classList.remove('hidden');
+  document.getElementById('growthAddClassSelect').value = match.class;
+  document.getElementById('growthAddGuildSelect').value = match.guildName;
+  document.querySelector('#growthAddForm [name="lampLevel"]').placeholder = `${t('sovereign.growth.currentValue')}: ${match.lampLevel}`;
+  document.querySelector('#growthAddForm [name="growthRate"]').placeholder = `${t('sovereign.growth.currentValue')}: ${match.growthRate.toLocaleString()}`;
+});
 
 // Choosing a file clears any pasted image (whichever the admin does last
 // wins) and updates the preview.
@@ -2343,25 +2370,29 @@ document.getElementById('growthAddPasteZone').addEventListener('paste', (e) => {
 document.getElementById('growthAddForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
+  const ignValue = form.elements.ign.value.trim();
+  const isExisting = (sovereignState.growthSubmissions || []).some((s) => s.ign.trim().toLowerCase() === ignValue.toLowerCase());
   const file = form.elements.screenshot.files[0] || growthAddPastedImage;
-  if (!file) {
-    toast('A screenshot is required -- choose a file or paste one');
+  if (!file && !isExisting) {
+    toast('A screenshot is required for a new IGN -- choose a file or paste one');
     return;
   }
   try {
-    const uploadFile = await compressImageFileIfNeeded(file);
-    const imageBase64 = await readFileAsBase64(uploadFile);
+    const payload = {
+      ign: ignValue,
+      class: form.elements.class.value,
+      guildName: form.elements.guildName.value,
+      lampLevel: form.elements.lampLevel.value === '' ? '' : Number(form.elements.lampLevel.value),
+      growthRate: form.elements.growthRate.value === '' ? '' : Number(form.elements.growthRate.value),
+    };
+    if (file) {
+      const uploadFile = await compressImageFileIfNeeded(file);
+      payload.imageBase64 = await readFileAsBase64(uploadFile);
+      payload.imageContentType = uploadFile.type;
+    }
     const created = await api('/api/growth-submissions', {
       method: 'POST',
-      body: JSON.stringify({
-        ign: form.elements.ign.value,
-        class: form.elements.class.value,
-        guildName: form.elements.guildName.value,
-        lampLevel: Number(form.elements.lampLevel.value),
-        growthRate: Number(form.elements.growthRate.value),
-        imageBase64,
-        imageContentType: uploadFile.type,
-      }),
+      body: JSON.stringify(payload),
     });
     const idx = sovereignState.growthSubmissions.findIndex((s) => s.id === created.id);
     if (idx !== -1) sovereignState.growthSubmissions[idx] = created;
