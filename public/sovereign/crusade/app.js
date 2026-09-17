@@ -2113,7 +2113,11 @@ function renderGrowthSubmissions() {
       <td>${escapeHtml(s.class)}</td>
       <td>${crusadeGuildBadge(s.guildName)}</td>
       <td>+${s.lampLevel ?? '?'}</td>
-      <td><img class="crusade-growth-thumb" src="/api/growth-submissions/${s.id}/image?v=${encodeURIComponent(s.updatedAt || s.createdAt || '')}" alt="${escapeHtml(s.ign)}'s growth rate screenshot" loading="lazy" data-view-growth-image="${s.id}"></td>
+      <td>${
+        s.imageContentType
+          ? `<img class="crusade-growth-thumb" src="/api/growth-submissions/${s.id}/image?v=${encodeURIComponent(s.updatedAt || s.createdAt || '')}" alt="${escapeHtml(s.ign)}'s growth rate screenshot" loading="lazy" data-view-growth-image="${s.id}">`
+          : `<span style="color:var(--text-muted); font-size:12px;">${t('sovereign.growth.noScreenshot')}</span>`
+      }</td>
       <td>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : '–'}</td>
       <td class="admin-only crusade-roster-actions-cell">
         <button type="button" class="icon-btn" data-edit-growth="${s.id}" title="Edit">✎</button>
@@ -2202,6 +2206,7 @@ function openGrowthEditModal(submission) {
 
   const imageUrl = `/api/growth-submissions/${submission.id}/image?v=${encodeURIComponent(submission.updatedAt || submission.createdAt || '')}`;
   const screenshot = document.getElementById('growthEditScreenshot');
+  screenshot.classList.toggle('hidden', !submission.imageContentType);
   screenshot.src = imageUrl;
   screenshot.alt = `${submission.ign}'s growth rate screenshot`;
   screenshot.onclick = () => {
@@ -2371,12 +2376,7 @@ document.getElementById('growthAddForm').addEventListener('submit', async (e) =>
   e.preventDefault();
   const form = e.target;
   const ignValue = form.elements.ign.value.trim();
-  const isExisting = (sovereignState.growthSubmissions || []).some((s) => s.ign.trim().toLowerCase() === ignValue.toLowerCase());
   const file = form.elements.screenshot.files[0] || growthAddPastedImage;
-  if (!file && !isExisting) {
-    toast('A screenshot is required for a new IGN -- choose a file or paste one');
-    return;
-  }
   try {
     const payload = {
       ign: ignValue,

@@ -297,6 +297,7 @@ const TRANSLATIONS = {
     'sovereign.growth.keepExisting': '— leave as-is —',
     'sovereign.growth.existingFound': '"{ign}" already has a Growth Rate entry — this will update it. Leave any field as-is to keep its current value.',
     'sovereign.growth.currentValue': 'Current',
+    'sovereign.growth.noScreenshot': 'No screenshot',
     'sovereign.growth.pasteZone': '📋 Click here, then paste a screenshot (Ctrl+V)',
     'sovereign.growth.pasteZoneReplace': '📋 Screenshot pasted -- click here to paste a different one',
 
