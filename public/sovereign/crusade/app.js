@@ -2577,7 +2577,10 @@ function renderWorldBossMemberGrid(selectedNames) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(m);
   });
-  groups.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name)));
+  // Highest growth rate first within each guild -- falls back to name for
+  // anyone missing a growth rate (e.g. a manually-added exception attendee
+  // with no Growth Rate submission on file), so they don't scatter randomly.
+  groups.forEach((list) => list.sort((a, b) => (b.growthRate ?? -1) - (a.growthRate ?? -1) || a.name.localeCompare(b.name)));
 
   const knownOrder = sovereignState.guilds.map((g) => g.name);
   const guildKeys = Array.from(groups.keys()).filter((k) => k !== 'Unassigned');
