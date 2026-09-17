@@ -1669,9 +1669,6 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 }
 .crusade-attendee-check-row span {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 
 /* Names within a guild's attendee-picker card laid out 5 across instead of
