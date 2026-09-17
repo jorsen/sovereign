@@ -1660,11 +1660,18 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
   gap: 8px;
   padding: 4px 0;
   font-weight: 400;
+  min-width: 0; /* lets the name below actually shrink/ellipsize instead of forcing the grid column wider */
 }
 .crusade-attendee-check-row input[type="checkbox"] {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
+}
+.crusade-attendee-check-row span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* Names within a guild's attendee-picker card laid out 5 across instead of
