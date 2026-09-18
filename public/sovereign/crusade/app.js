@@ -3270,6 +3270,7 @@ async function deleteSaleBatch(row, batchId) {
 function computeAllSourcesForItemKey(itemKey) {
   const sources = [];
   (sovereignState.worldBossEvents || []).forEach((ev) => {
+    if ((ev.schedule || 'world_boss') !== worldBossActiveSchedule) return;
     (ev.lootItems || []).forEach((item) => {
       if (canonicalizeItemName(item.itemName).toLowerCase() !== itemKey) return;
       sources.push({ eventId: ev.id, itemId: item.id, quantity: item.quantity, eventDate: ev.eventDate, sold: item.sold, soldQuantity: item.soldQuantity ?? (item.sold ? item.quantity : 0) });
