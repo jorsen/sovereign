@@ -2462,7 +2462,11 @@ async function loadWorldBossAttendance() {
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
   renderWorldBossLog(); // also renders the (now month-scoped) attendance summary
+  // Reconcile can silently correct a kill's Sold status/price in state (see
+  // reconcileFifoSales) -- without a second render afterward, the page just
+  // shown above would keep displaying whatever was true before that fix ran.
   await reconcileFifoSales();
+  renderWorldBossLog();
 }
 
 // Opportunistic self-heal: FIFO-matching only ever ran right after a sale
