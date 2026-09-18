@@ -303,6 +303,7 @@ const TRANSLATIONS = {
 
     'sovereign.nav.worldBoss': 'World Boss',
     'sovereign.nav.bf4Boss': 'BF4 Boss',
+    'sovereign.nav.balthazard': 'Balthazard',
     'sovereign.nav.points': 'Points',
     'sovereign.nav.salary': 'Salary',
     'sovereign.nav.activityLog': 'Activity Log',

@@ -161,9 +161,9 @@ function route() {
     loadGrowthSubmissions().catch((err) => toast(err.message));
     return;
   }
-  if (hash === 'worldboss' || hash === 'bf4boss') {
+  if (hash === 'worldboss' || hash === 'bf4boss' || hash === 'balthazard') {
     sovereignState.mode = null;
-    const nextSchedule = hash === 'bf4boss' ? 'bf4' : 'world_boss';
+    const nextSchedule = hash === 'bf4boss' ? 'bf4' : hash === 'balthazard' ? 'balthazard' : 'world_boss';
     if (nextSchedule !== worldBossActiveSchedule) worldBossCalendarMonth = null; // re-anchor to this schedule's own most recent event
     worldBossActiveSchedule = nextSchedule;
     showPanel(hash);
@@ -223,17 +223,17 @@ function showPanel(name) {
   document.getElementById('sovereignTeamPanel').classList.toggle('hidden', name !== 'team');
   document.getElementById('sovereignRafflePanel').classList.toggle('hidden', name !== 'raffle');
   document.getElementById('sovereignGrowthPanel').classList.toggle('hidden', name !== 'growth');
-  // BF4 Boss reuses the same World Boss Attendance panel/markup (see
-  // worldBossActiveSchedule) -- it's a separate nav entry, not a separate
-  // set of DOM elements, so both hashes show this one panel.
-  document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss' && name !== 'bf4boss');
+  // BF4 Boss and Balthazard reuse the same World Boss Attendance panel/markup
+  // (see worldBossActiveSchedule) -- each is a separate nav entry, not a
+  // separate set of DOM elements, so all three hashes show this one panel.
+  document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss' && name !== 'bf4boss' && name !== 'balthazard');
   document.getElementById('sovereignPointsPanel').classList.toggle('hidden', name !== 'points');
   document.getElementById('sovereignSalaryPanel').classList.toggle('hidden', name !== 'salary');
   document.getElementById('sovereignActivityLogPanel').classList.toggle('hidden', name !== 'activitylog');
   document.getElementById('sovereignUsersPanel').classList.toggle('hidden', name !== 'users');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'points', 'salary', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
+  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'balthazard', 'points', 'salary', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -2418,7 +2418,6 @@ const WORLD_BOSS_NAMES = [
   'Damiross',
   'Tandallon',
   'Melville',
-  'Balthazard',
   'Ducas / Dergio',
 ];
 
@@ -2429,6 +2428,7 @@ const WORLD_BOSS_NAMES = [
 const WORLD_BOSS_SCHEDULES = {
   world_boss: { label: 'World Boss', bossNames: WORLD_BOSS_NAMES },
   bf4: { label: 'BF4 Boss', bossNames: ['BF4 Boss'] },
+  balthazard: { label: 'Balthazard', bossNames: ['Balthazard'] },
 };
 let worldBossActiveSchedule = 'world_boss';
 
@@ -2457,7 +2457,7 @@ async function loadWorldBossAttendance() {
   sovereignState.lootItemSources = new Map(lootItemSources.map((s) => [`${s.schedule || 'world_boss'}:${s.itemKey}`, s.bossName]));
   sovereignState.lootSaleBatches = saleBatches; // flat list; grouped by itemKey+schedule at render time
   // Points/Salary are a World Boss concept only.
-  document.getElementById('worldBossRelatedLinks').classList.toggle('hidden', worldBossActiveSchedule !== 'world_boss');
+  document.getElementById('worldBossRelatedLinks').classList.toggle('hidden', worldBossActiveSchedule === 'bf4');
   updateWorldBossBonusPointsVisibility();
   populateWorldBossNameSelect();
   renderWorldBossMemberGrid(new Set());
@@ -3905,7 +3905,7 @@ function updateWorldBossBonusPointsVisibility() {
   // concept only -- BF4 Boss is a separate, higher-gear roster that
   // shouldn't feed into either.
   const isDecided = document.getElementById('worldBossResultSelect').value !== 'pending';
-  document.getElementById('worldBossBonusPointsField').classList.toggle('hidden', !isDecided || worldBossActiveSchedule !== 'world_boss');
+  document.getElementById('worldBossBonusPointsField').classList.toggle('hidden', !isDecided || worldBossActiveSchedule === 'bf4');
 }
 document.getElementById('worldBossResultSelect').addEventListener('change', updateWorldBossBonusPointsVisibility);
 
@@ -4070,14 +4070,14 @@ async function loadSalaryComputation() {
 }
 
 // Sums what actually sold in salarySelectedMonth (Sales section on the
-// World Boss page) -- World Boss only, same scoping as the rest of this
-// page (see the schedule check on updateWorldBossBonusPointsVisibility for
-// why BF4 is excluded).
+// World Boss page) -- every schedule except BF4, same scoping as the rest
+// of this page (see the schedule check on updateWorldBossBonusPointsVisibility
+// for why BF4 is excluded).
 function computeSoldTotalsForSalaryMonth() {
   const [year, month] = salarySelectedMonth.split('-').map(Number);
   return (sovereignState.lootSaleBatches || []).reduce(
     (acc, b) => {
-      if ((b.schedule || 'world_boss') !== 'world_boss') return acc;
+      if ((b.schedule || 'world_boss') === 'bf4') return acc;
       const d = new Date(b.soldAt);
       if (d.getFullYear() !== year || d.getMonth() !== month - 1) return acc;
       acc.diamonds += b.diamondsValue || 0;
@@ -4192,7 +4192,7 @@ function renderSalaryComputation() {
 
   const attendanceByIgn = new Map();
   (sovereignState.worldBossEvents || []).forEach((ev) => {
-    if ((ev.schedule || 'world_boss') !== 'world_boss') return;
+    if ((ev.schedule || 'world_boss') === 'bf4') return;
     const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
     if (d.getFullYear() !== year || d.getMonth() !== month - 1) return;
     ev.attendees.forEach((a) => {
