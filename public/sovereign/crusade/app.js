@@ -3121,8 +3121,9 @@ document.getElementById('worldBossMonthlyLootPrintBtn').addEventListener('click'
     },
     { quantity: 0, crows: 0, diamonds: 0 }
   );
+  const scheduleLabel = WORLD_BOSS_SCHEDULES[worldBossActiveSchedule].label;
   document.getElementById('worldBossMonthlyLootPrintArea').innerHTML = `
-    <h2>${t('sovereign.worldBoss.monthlyLootHeading')} — ${escapeHtml(monthLabel)}</h2>
+    <h2>${escapeHtml(scheduleLabel)} — ${t('sovereign.worldBoss.monthlyLootHeading')} — ${escapeHtml(monthLabel)}</h2>
     <table>
       <thead>
         <tr>
