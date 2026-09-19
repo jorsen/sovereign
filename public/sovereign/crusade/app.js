@@ -3808,6 +3808,16 @@ function computeKnownLootItems() {
   return known;
 }
 
+// Shared by the "+ Add Item" button and pressing Enter in a row's item name
+// field, so both paths get the same "pick a boss first" guard.
+function addWorldBossLootRowIfBossChosen() {
+  if (!document.getElementById('worldBossNameSelect').value) {
+    toast('Pick a boss before adding loot');
+    return null;
+  }
+  return addWorldBossLootRow();
+}
+
 function addWorldBossLootRow(item) {
   const row = document.createElement('div');
   row.className = 'crusade-loot-row';
@@ -3880,16 +3890,21 @@ function addWorldBossLootRow(item) {
   });
   nameInput.addEventListener('focus', showSuggestions);
   nameInput.addEventListener('blur', () => setTimeout(() => suggestList.classList.add('hidden'), 150));
+  // Enter in the item name field adds the next row and jumps straight into
+  // it, so a fast admin can log several items without touching the mouse.
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const newRow = addWorldBossLootRowIfBossChosen();
+    newRow?.querySelector('[data-loot-field="itemName"]').focus();
+  });
 
   document.getElementById('worldBossLootRows').appendChild(row);
+  return row;
 }
 
 document.getElementById('worldBossAddLootRowBtn').addEventListener('click', () => {
-  if (!document.getElementById('worldBossNameSelect').value) {
-    toast('Pick a boss before adding loot');
-    return;
-  }
-  addWorldBossLootRow();
+  addWorldBossLootRowIfBossChosen();
 });
 
 function collectLootRowsFromForm() {
