@@ -352,6 +352,7 @@ const TRANSLATIONS = {
     'sovereign.worldBoss.backfillGuilds': 'Fix missing guilds',
     'sovereign.worldBoss.copyRoster': 'Copy Roster',
     'sovereign.worldBoss.pasteRoster': 'Paste Roster',
+    'sovereign.worldBoss.clearRoster': 'Clear Roster',
     'sovereign.points.hint': 'Bonus points awarded to attendees of a World Boss fight, win or lose.',
     'sovereign.points.thRank': '#',
     'sovereign.points.thIgn': 'IGN',

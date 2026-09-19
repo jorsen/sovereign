@@ -2555,6 +2555,9 @@ function renderWorldBossMemberGrid(selectedNames) {
   // both need a boss picked first, and this function already re-runs
   // every time the boss selection changes.
   document.getElementById('worldBossAddLootRowBtn').disabled = !bossChosen;
+  // Clear Roster only makes sense once a boss (and therefore a checklist)
+  // exists -- same gate as + Add Item above.
+  document.getElementById('worldBossClearRosterBtn').disabled = !bossChosen;
   // No attendees to check off until a boss is actually picked -- avoids an
   // admin checking off a roster before realizing the boss dropdown was
   // still on its blank placeholder.
@@ -2691,6 +2694,16 @@ document.getElementById('worldBossCopyRosterBtn').addEventListener('click', () =
     return;
   }
   toast(`Copied ${worldBossCopiedRosterNames.length} attendee${worldBossCopiedRosterNames.length === 1 ? '' : 's'}`);
+});
+
+document.getElementById('worldBossClearRosterBtn').addEventListener('click', () => {
+  const checkedCount = document.querySelectorAll('.world-boss-attendee-check:checked').length;
+  if (!checkedCount) {
+    toast('Nothing checked off yet');
+    return;
+  }
+  renderWorldBossMemberGrid(new Set());
+  toast('Roster cleared');
 });
 
 document.getElementById('worldBossPasteRosterBtn').addEventListener('click', () => {
