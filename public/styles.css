@@ -834,7 +834,8 @@ select:focus, input:focus, textarea:focus {
   cursor: pointer;
   font-size: 14px;
 }
-.crusade-loot-suggest-item:hover { background: rgba(255,255,255,0.08); }
+.crusade-loot-suggest-item:hover,
+.crusade-loot-suggest-item.is-highlighted { background: rgba(255,255,255,0.08); }
 
 /* This Month's Loot -- table dressing (currency icons/pills, item badges,
    a highlighted totals row, and quick summary chips in the panel header). */

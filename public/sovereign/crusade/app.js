@@ -3846,10 +3846,34 @@ function addWorldBossLootRow(item) {
     if (!diamondsInput.value && match.diamondsValue !== null) diamondsInput.value = match.diamondsValue;
   }
 
+  // Tracks which suggestion arrow-key navigation has landed on, so Enter can
+  // pick it instead of falling through to "add a new row" -- reset whenever
+  // the list's contents change since the item at a given index moves.
+  let highlightedIndex = -1;
+
+  function pickSuggestion(el) {
+    nameInput.value = el.getAttribute('data-suggest-name');
+    suggestList.classList.add('hidden');
+    highlightedIndex = -1;
+    applyMatch(computeKnownLootItems().get(nameInput.value.trim().toLowerCase()));
+  }
+
+  function highlightSuggestion(nextIndex) {
+    const items = Array.from(suggestList.querySelectorAll('[data-suggest-name]'));
+    if (!items.length) {
+      highlightedIndex = -1;
+      return;
+    }
+    highlightedIndex = ((nextIndex % items.length) + items.length) % items.length;
+    items.forEach((el, i) => el.classList.toggle('is-highlighted', i === highlightedIndex));
+    items[highlightedIndex].scrollIntoView({ block: 'nearest' });
+  }
+
   // Custom dropdown (not a native <datalist>) so it can be sized to exactly
   // match the input's width -- a native datalist's popup can't be
   // width-constrained consistently across browsers.
   function showSuggestions() {
+    highlightedIndex = -1;
     const query = nameInput.value.trim().toLowerCase();
     const known = computeKnownLootItems();
     // Also offer whatever's already typed into this form's other loot rows
@@ -3877,9 +3901,7 @@ function addWorldBossLootRow(item) {
       // dropdown's own blur-hide handler below doesn't swallow the pick.
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        nameInput.value = el.getAttribute('data-suggest-name');
-        suggestList.classList.add('hidden');
-        applyMatch(computeKnownLootItems().get(nameInput.value.trim().toLowerCase()));
+        pickSuggestion(el);
       });
     });
   }
@@ -3890,11 +3912,36 @@ function addWorldBossLootRow(item) {
   });
   nameInput.addEventListener('focus', showSuggestions);
   nameInput.addEventListener('blur', () => setTimeout(() => suggestList.classList.add('hidden'), 150));
-  // Enter in the item name field adds the next row and jumps straight into
-  // it, so a fast admin can log several items without touching the mouse.
+  // Arrow keys move the highlight through the open suggestion list; Enter
+  // picks whatever's highlighted. Only once nothing is highlighted (list
+  // closed, or no suggestions match) does Enter fall through to adding the
+  // next row, so a fast admin can log several items keyboard-only either way.
   nameInput.addEventListener('keydown', (e) => {
+    const isOpen = !suggestList.classList.contains('hidden') && suggestList.children.length;
+    if (e.key === 'ArrowDown') {
+      if (!isOpen) return;
+      e.preventDefault();
+      highlightSuggestion(highlightedIndex + 1);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      if (!isOpen) return;
+      e.preventDefault();
+      highlightSuggestion(highlightedIndex - 1);
+      return;
+    }
+    if (e.key === 'Escape') {
+      if (!isOpen) return;
+      suggestList.classList.add('hidden');
+      highlightedIndex = -1;
+      return;
+    }
     if (e.key !== 'Enter') return;
     e.preventDefault();
+    if (isOpen && highlightedIndex >= 0) {
+      pickSuggestion(suggestList.children[highlightedIndex]);
+      return;
+    }
     const newRow = addWorldBossLootRowIfBossChosen();
     newRow?.querySelector('[data-loot-field="itemName"]').focus();
   });
