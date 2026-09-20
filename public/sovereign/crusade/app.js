@@ -3847,8 +3847,21 @@ function addWorldBossLootRow(item) {
 
   const nameInput = row.querySelector('[data-loot-field="itemName"]');
   const suggestList = row.querySelector('.crusade-loot-suggest-list');
+  const quantityInput = row.querySelector('[data-loot-field="quantity"]');
   const crowsInput = row.querySelector('[data-loot-field="crowsValue"]');
   const diamondsInput = row.querySelector('[data-loot-field="diamondsValue"]');
+
+  // Enter in Quantity/Crows/Diamonds also adds the next row and jumps into
+  // its item name field, same as Enter in the item name field itself --
+  // there's no suggestion list on these to intercept it first.
+  [quantityInput, crowsInput, diamondsInput].forEach((input) => {
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const newRow = addWorldBossLootRowIfBossChosen();
+      newRow?.querySelector('[data-loot-field="itemName"]').focus();
+    });
+  });
 
   // Auto-fills the last known Crows/Diamonds values for a matched item --
   // only into fields still empty, so it never clobbers something the admin
