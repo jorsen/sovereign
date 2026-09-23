@@ -2916,7 +2916,14 @@ function renderWorldBossMonthlyLoot() {
       const key = canonicalizeItemName(item.itemName).toLowerCase();
       totalQuantityByKey.set(key, (totalQuantityByKey.get(key) || 0) + (item.quantity || 0));
       if (!allSourcesByKey.has(key)) allSourcesByKey.set(key, []);
-      allSourcesByKey.get(key).push({ eventId: ev.id, itemId: item.id, quantity: item.quantity, eventDate: ev.eventDate, sold: item.sold });
+      allSourcesByKey.get(key).push({
+        eventId: ev.id,
+        itemId: item.id,
+        quantity: item.quantity,
+        eventDate: ev.eventDate,
+        sold: item.sold,
+        soldQuantity: item.soldQuantity ?? (item.sold ? item.quantity : 0),
+      });
     });
   });
   rows.forEach((r) => {
@@ -2927,7 +2934,16 @@ function renderWorldBossMonthlyLoot() {
     r.saleBatches = (sovereignState.lootSaleBatches || [])
       .filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === r.itemKey)
       .sort((a, b) => String(b.soldAt).localeCompare(String(a.soldAt)));
-    r.soldQuantity = r.saleBatches.reduce((sum, b) => sum + b.quantity, 0);
+    // Summed from each kill's own soldQuantity (the same field driving its
+    // individual Sold/Not Sold badge below) rather than independently
+    // re-summing loot_sale_batches -- the two used to drift apart whenever a
+    // batch existed without being fully reflected on the kills it covers
+    // (a stray leftover batch, an un-sell that didn't fully clean up, etc),
+    // showing e.g. "129/129 sold" while several kills still displayed Not
+    // Sold. Deriving from the same source the badges use makes that
+    // contradiction structurally impossible instead of just patching one
+    // item's data.
+    r.soldQuantity = r.allSources.reduce((sum, s) => sum + (s.soldQuantity || 0), 0);
     r.remainingQuantity = Math.max(0, r.totalQuantityEver - r.soldQuantity);
   });
   worldBossMonthlyLootRows = rows; // read by the change handler below via data-loot-row-index -- indices below are into this full (unfiltered) array
