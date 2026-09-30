@@ -375,6 +375,7 @@
     <div id="sovereignGrowthPanel" class="hidden">
       <div class="view-header space-between">
         <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.growth.hint">Posted by the Discord bot from the growth-rate channel — post your IGN, Class, and an Artifacts-tab screenshot there and it shows up here automatically.</p>
+        <button id="growthFindDuplicatesBtn" type="button" class="btn small admin-only" data-i18n="sovereign.growth.findDuplicates">Find Duplicate Names</button>
         <button id="growthAddBtn" type="button" class="btn primary admin-only" data-i18n="sovereign.growth.addRecord">+ Add Record</button>
       </div>
       <section class="panel">
@@ -783,6 +784,16 @@
     </div>
   </div>
 
+  <div id="growthMergeModal" class="modal-overlay hidden">
+    <div class="modal">
+      <button class="modal-close" data-close="growthMergeModal" aria-label="Close">×</button>
+      <h2 data-i18n="sovereign.growth.duplicatesHeading">Possible Duplicate Names</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-top:-8px;" data-i18n="sovereign.growth.duplicatesHint">Names that look like the same person once spacing, punctuation, and case are ignored. Merging keeps the highest Growth Rate entry and renames that person's attendance history to match it.</p>
+      <div id="growthMergeGroups"></div>
+      <p id="growthMergeEmptyState" class="empty-state hidden" data-i18n="sovereign.growth.duplicatesEmpty">No likely duplicates found.</p>
+    </div>
+  </div>
+
   <div id="growthAddModal" class="modal-overlay hidden">
     <div class="modal">
       <button class="modal-close" data-close="growthAddModal" aria-label="Close">×</button>
@@ -945,7 +956,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="/common.js?v=35"></script>
-  <script src="/i18n.js?v=10"></script>
-  <script src="/sovereign/crusade/app.js?v=150"></script>
+  <script src="/i18n.js?v=11"></script>
+  <script src="/sovereign/crusade/app.js?v=151"></script>
 </body>
 </html>

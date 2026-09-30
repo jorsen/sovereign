@@ -2166,6 +2166,75 @@ function renderGrowthSubmissions() {
   });
 }
 
+// Ignores spacing, punctuation/symbols, and case -- catches "•elijah•" vs
+// "• ELIJAH •" or "unclekenツ" vs "uncleken" as the same person, without
+// needing an exact string match.
+function normalizeNameForDupeCheck(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Groups submissions that normalize to the same key but weren't typed
+// identically -- each returned group is 2+ submissions worth reviewing as
+// possible duplicates of one real person.
+function findGrowthDuplicateGroups() {
+  const byKey = new Map();
+  (sovereignState.growthSubmissions || []).forEach((s) => {
+    const key = normalizeNameForDupeCheck(s.ign);
+    if (!key) return;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(s);
+  });
+  return Array.from(byKey.values()).filter((group) => new Set(group.map((s) => s.ign)).size > 1);
+}
+
+function renderGrowthDuplicateGroups() {
+  const groups = findGrowthDuplicateGroups();
+  document.getElementById('growthMergeEmptyState').classList.toggle('hidden', groups.length !== 0);
+  const container = document.getElementById('growthMergeGroups');
+  container.innerHTML = groups
+    .map((group, gi) => {
+      const sorted = [...group].sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0));
+      const keep = sorted[0];
+      return `
+      <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+          ${sorted
+            .map(
+              (s) =>
+                `<span class="crusade-loot-chip">${escapeHtml(s.ign)} — ${s.growthRate?.toLocaleString() ?? '0'}${s.id === keep.id ? ' ★' : ''}</span>`
+            )
+            .join('')}
+        </div>
+        <button type="button" class="btn small" data-merge-group="${gi}">Merge into "${escapeHtml(keep.ign)}" (highest GR)</button>
+      </div>`;
+    })
+    .join('');
+  container.querySelectorAll('[data-merge-group]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const group = groups[Number(btn.getAttribute('data-merge-group'))];
+      const sorted = [...group].sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0));
+      const keep = sorted[0];
+      const mergeIds = sorted.slice(1).map((s) => s.id);
+      if (!confirm(`Merge ${mergeIds.length} entr${mergeIds.length === 1 ? 'y' : 'ies'} into "${keep.ign}"? This also renames their attendance history to match.`)) return;
+      try {
+        const result = await api('/api/growth-submissions/merge', { method: 'POST', body: JSON.stringify({ keepId: keep.id, mergeIds }) });
+        sovereignState.growthSubmissions = sovereignState.growthSubmissions.filter((s) => !mergeIds.includes(s.id));
+        populateGrowthFilterOptions(sovereignState.growthSubmissions);
+        renderGrowthSubmissions();
+        renderGrowthDuplicateGroups();
+        toast(`Merged into "${result.keepIgn}" (renamed ${result.renamedAttendees} attendance record${result.renamedAttendees === 1 ? '' : 's'})`);
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+}
+
+document.getElementById('growthFindDuplicatesBtn').addEventListener('click', () => {
+  renderGrowthDuplicateGroups();
+  document.getElementById('growthMergeModal').classList.remove('hidden');
+});
+
 document.getElementById('growthSearchInput').addEventListener('input', renderGrowthSubmissions);
 document.getElementById('growthGuildFilter').addEventListener('change', renderGrowthSubmissions);
 document.getElementById('growthClassFilter').addEventListener('change', renderGrowthSubmissions);
