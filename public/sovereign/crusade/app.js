@@ -2588,8 +2588,8 @@ document.getElementById('worldBossSummaryToggle').addEventListener('click', () =
 
 // Re-resolves guild names for any attendee row saved before
 // resolveAttendeeGuilds (server-side) pointed at Growth Rate submissions
-// -- those rows are stuck with a null guild_name forever otherwise, since
-// it's denormalized at record time rather than looked up live.
+// -- the attendance list already shows each IGN's live Growth Rate guild,
+// but this still fills the stored fallback for names that match one now.
 document.getElementById('worldBossBackfillGuildsBtn').addEventListener('click', async () => {
   try {
     const { updated } = await api('/api/world-boss-attendance/backfill-guilds', { method: 'POST' });
