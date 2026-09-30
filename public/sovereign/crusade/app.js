@@ -2769,6 +2769,53 @@ function renderWorldBossSummary() {
     .join('');
 }
 
+// Same static-table-then-print approach as the This Month's Loot print
+// button -- computeWorldBossSummary() already reads through
+// getScheduleEvents(), so this works correctly for World Boss, BF4, and
+// Balthazard alike without any schedule-specific code here.
+document.getElementById('worldBossSummaryPrintBtn').addEventListener('click', () => {
+  const { totalEvents, rows } = computeWorldBossSummary();
+  if (!rows.length) {
+    toast('Nothing to print');
+    return;
+  }
+  const scheduleLabel = WORLD_BOSS_SCHEDULES[worldBossActiveSchedule].label;
+  const monthLabel = worldBossCalendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  document.getElementById('worldBossSummaryPrintArea').innerHTML = `
+    <h2>${escapeHtml(scheduleLabel)} — ${t('sovereign.worldBoss.summaryHeading')} — ${escapeHtml(monthLabel)}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>${t('sovereign.growth.thRank')}</th>
+          <th>${t('sovereign.common.ign')}</th>
+          <th>${t('sovereign.common.guild')}</th>
+          <th>${t('sovereign.worldBoss.thAttended')}</th>
+          <th>${t('sovereign.worldBoss.thRate')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (r, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${escapeHtml(r.guildName || '—')}</td>
+          <td>${r.count} / ${totalEvents}</td>
+          <td>${totalEvents ? Math.round((r.count / totalEvents) * 100) : 0}%</td>
+        </tr>`
+          )
+          .join('')}
+      </tbody>
+    </table>`;
+  document.body.classList.add('is-printing-summary');
+  window.print();
+});
+
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('is-printing-summary');
+});
+
 // Persist across re-renders of this page (but not across navigating away and
 // back, which is fine -- same idiom as worldBossEditingId below).
 let worldBossCalendarMonth = null; // Date, always the 1st of whichever month is showing
