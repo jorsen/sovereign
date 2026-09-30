@@ -2059,9 +2059,14 @@ function renderCrusadeGuildSummary(rows, containerId, formatFn, extraByGuild) {
 // only remove a bad one here (e.g. wrong IGN typed in the Discord message).
 
 async function loadGrowthSubmissions() {
-  const [submissions, guilds] = await Promise.all([api('/api/growth-submissions'), api('/api/crusade-guilds')]);
+  const [submissions, guilds, unmatchedAttendeeNames] = await Promise.all([
+    api('/api/growth-submissions'),
+    api('/api/crusade-guilds'),
+    api('/api/growth-submissions/unmatched-attendee-names'),
+  ]);
   sovereignState.growthSubmissions = submissions;
   sovereignState.guilds = guilds;
+  sovereignState.unmatchedAttendeeNames = unmatchedAttendeeNames;
   populateGrowthFilterOptions(submissions);
   renderGrowthSubmissions();
 }
@@ -2175,16 +2180,29 @@ function normalizeNameForDupeCheck(name) {
 
 // Groups submissions that normalize to the same key but weren't typed
 // identically -- each returned group is 2+ submissions worth reviewing as
-// possible duplicates of one real person.
+// possible duplicates of one real person. Also folds in attendance-only
+// names (typed into World Boss attendance but never submitted as a Growth
+// Rate entry themselves, e.g. "uncleken" attended but only "unclekenツ" was
+// ever submitted) so those get caught and renamed too, even though there's
+// no second submission id to merge -- a group needs at least one real
+// submission to merge everything else into.
 function findGrowthDuplicateGroups() {
   const byKey = new Map();
   (sovereignState.growthSubmissions || []).forEach((s) => {
     const key = normalizeNameForDupeCheck(s.ign);
     if (!key) return;
     if (!byKey.has(key)) byKey.set(key, []);
-    byKey.get(key).push(s);
+    byKey.get(key).push({ id: s.id, ign: s.ign, growthRate: s.growthRate ?? null });
   });
-  return Array.from(byKey.values()).filter((group) => new Set(group.map((s) => s.ign)).size > 1);
+  (sovereignState.unmatchedAttendeeNames || []).forEach((name) => {
+    const key = normalizeNameForDupeCheck(name);
+    if (!key || !byKey.has(key)) return;
+    byKey.get(key).push({ id: null, ign: name, growthRate: null });
+  });
+  return Array.from(byKey.values()).filter((group) => {
+    if (new Set(group.map((s) => s.ign)).size < 2) return false;
+    return group.some((s) => s.id !== null);
+  });
 }
 
 function renderGrowthDuplicateGroups() {
@@ -2199,10 +2217,10 @@ function renderGrowthDuplicateGroups() {
       <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;">
         <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
           ${sorted
-            .map(
-              (s) =>
-                `<span class="crusade-loot-chip">${escapeHtml(s.ign)} — ${s.growthRate?.toLocaleString() ?? '0'}${s.id === keep.id ? ' ★' : ''}</span>`
-            )
+            .map((s) => {
+              const label = s.id === null ? 'attendance only, no GR submitted' : (s.growthRate?.toLocaleString() ?? '0');
+              return `<span class="crusade-loot-chip">${escapeHtml(s.ign)} — ${label}${s.id === keep.id ? ' ★' : ''}</span>`;
+            })
             .join('')}
         </div>
         <button type="button" class="btn small" data-merge-group="${gi}">Merge into "${escapeHtml(keep.ign)}" (highest GR)</button>
@@ -2214,11 +2232,14 @@ function renderGrowthDuplicateGroups() {
       const group = groups[Number(btn.getAttribute('data-merge-group'))];
       const sorted = [...group].sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0));
       const keep = sorted[0];
-      const mergeIds = sorted.slice(1).map((s) => s.id);
-      if (!confirm(`Merge ${mergeIds.length} entr${mergeIds.length === 1 ? 'y' : 'ies'} into "${keep.ign}"? This also renames their attendance history to match.`)) return;
+      const rest = sorted.slice(1);
+      const mergeIds = rest.filter((s) => s.id !== null).map((s) => s.id);
+      const extraNames = rest.filter((s) => s.id === null).map((s) => s.ign);
+      if (!confirm(`Merge ${rest.length} entr${rest.length === 1 ? 'y' : 'ies'} into "${keep.ign}"? This also renames their attendance history to match.`)) return;
       try {
-        const result = await api('/api/growth-submissions/merge', { method: 'POST', body: JSON.stringify({ keepId: keep.id, mergeIds }) });
+        const result = await api('/api/growth-submissions/merge', { method: 'POST', body: JSON.stringify({ keepId: keep.id, mergeIds, extraNames }) });
         sovereignState.growthSubmissions = sovereignState.growthSubmissions.filter((s) => !mergeIds.includes(s.id));
+        sovereignState.unmatchedAttendeeNames = (sovereignState.unmatchedAttendeeNames || []).filter((n) => !extraNames.includes(n));
         populateGrowthFilterOptions(sovereignState.growthSubmissions);
         renderGrowthSubmissions();
         renderGrowthDuplicateGroups();
