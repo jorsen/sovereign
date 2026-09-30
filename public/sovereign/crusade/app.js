@@ -4562,7 +4562,8 @@ function renderSalaryComputation() {
     .map(
       (r, i) => `
     <tr>
-      <td>${i + 1}. ${escapeHtml(r.ign)}</td>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(r.ign)}</td>
       <td>${r.growthRate.toLocaleString()}</td>
       <td>${r.attendance.toLocaleString()}</td>
       <td>${r.multiplier.toFixed(2)}x</td>
@@ -4588,7 +4589,7 @@ function renderSalaryComputation() {
   const totalsRow = document.getElementById('salaryComputationTotals');
   totalsRow.classList.toggle('hidden', rows.length === 0);
   totalsRow.innerHTML = rows.length
-    ? `<td colspan="7" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td><td><strong>${formatLootValue(totals.diamondFinal)}</strong></td><td></td><td><strong>${formatLootValue(totals.crowFinal)}</strong></td>`
+    ? `<td colspan="8" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td><td><strong>${formatLootValue(totals.diamondFinal)}</strong></td><td></td><td><strong>${formatLootValue(totals.crowFinal)}</strong></td>`
     : '';
 
   renderSalaryGuildTotals(rows);

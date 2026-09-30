@@ -373,6 +373,7 @@ const TRANSLATIONS = {
     'sovereign.salary.feesHint': "Each entry takes a flat % of the pool off the top, then that amount is added back on top of the recipient's own distributed share -- total payouts always add back up to the pool exactly.",
     'sovereign.salary.feeIgnPlaceholder': 'IGN',
     'sovereign.salary.feeAdd': '+ Add Fee',
+    'sovereign.salary.thId': 'ID',
     'sovereign.salary.thGrowthRate': 'Growth Rate',
     'sovereign.salary.thAttendance': 'Attendance',
     'sovereign.salary.thMultiplier': 'Multiplier',
