@@ -4575,7 +4575,7 @@ function renderSalaryComputation() {
     r.crowFinal = r.crowInitial + (feePercent / 100) * crowPool;
   });
 
-  rows.sort((a, b) => b.diamondFinal - a.diamondFinal || b.attendance - a.attendance);
+  rows.sort((a, b) => b.growthRate - a.growthRate || b.diamondFinal - a.diamondFinal || b.attendance - a.attendance);
 
   document.getElementById('salaryComputationEmptyState').classList.toggle('hidden', rows.length !== 0);
   document.getElementById('salaryComputationBody').innerHTML = rows
