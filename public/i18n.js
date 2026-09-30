@@ -364,7 +364,7 @@ const TRANSLATIONS = {
     'sovereign.salary.monthLabel': 'Month',
     'sovereign.salary.diamondPoolLabel': 'Diamonds Pool',
     'sovereign.salary.crowPoolLabel': 'Crows Pool',
-    'sovereign.salary.useSoldTotalsHint': "Filled automatically from this month's loot sales for the selected schedule (Sales section on that schedule's page) -- overwrite either field manually if needed.",
+    'sovereign.salary.useSoldTotalsHint': "Filled automatically from this month's loot totals for the selected schedule (same total shown on that schedule's This Month's Loot page) -- overwrite either field manually if needed.",
     'sovereign.salary.feesHeading': 'Accounting / Management Fees',
     'sovereign.salary.feesHint': "Each entry takes a flat % of the pool off the top, then that amount is added back on top of the recipient's own distributed share -- total payouts always add back up to the pool exactly.",
     'sovereign.salary.feeIgnPlaceholder': 'IGN',

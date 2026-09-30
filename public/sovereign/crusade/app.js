@@ -4231,23 +4231,25 @@ async function loadSalaryComputation() {
   fillSalaryPoolsFromSoldItems();
 }
 
-// Sums what actually sold in salarySelectedMonth for salaryActiveSchedule
-// specifically -- World Boss and Balthazard are computed one at a time,
-// never combined, so switching schedules never mixes their sales together
-// (BF4 was never salaried at all, so it's simply not one of the options).
+// Same total as the "This Month's Loot" header chip on that schedule's own
+// page -- every kill's own diamondsValue/crowsValue logged in
+// salarySelectedMonth, regardless of whether it's actually marked Sold yet.
+// World Boss and Balthazard are computed one at a time, never combined, so
+// switching schedules never mixes their totals together (BF4 was never
+// salaried at all, so it's simply not one of the options).
 function computeSoldTotalsForSalaryMonth() {
   const [year, month] = salarySelectedMonth.split('-').map(Number);
-  return (sovereignState.lootSaleBatches || []).reduce(
-    (acc, b) => {
-      if ((b.schedule || 'world_boss') !== salaryActiveSchedule) return acc;
-      const d = new Date(b.soldAt);
-      if (d.getFullYear() !== year || d.getMonth() !== month - 1) return acc;
-      acc.diamonds += b.diamondsValue || 0;
-      acc.crows += b.crowsValue || 0;
-      return acc;
-    },
-    { diamonds: 0, crows: 0 }
-  );
+  const acc = { diamonds: 0, crows: 0 };
+  (sovereignState.worldBossEvents || []).forEach((ev) => {
+    if ((ev.schedule || 'world_boss') !== salaryActiveSchedule) return;
+    const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1) return;
+    (ev.lootItems || []).forEach((item) => {
+      acc.diamonds += item.diamondsValue || 0;
+      acc.crows += item.crowsValue || 0;
+    });
+  });
+  return acc;
 }
 
 // Pools fill in automatically from sold items whenever the page loads or
