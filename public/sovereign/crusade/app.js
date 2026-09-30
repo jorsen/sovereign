@@ -4560,9 +4560,9 @@ function renderSalaryComputation() {
   document.getElementById('salaryComputationEmptyState').classList.toggle('hidden', rows.length !== 0);
   document.getElementById('salaryComputationBody').innerHTML = rows
     .map(
-      (r) => `
+      (r, i) => `
     <tr>
-      <td>${escapeHtml(r.ign)}</td>
+      <td>${i + 1}. ${escapeHtml(r.ign)}</td>
       <td>${r.growthRate.toLocaleString()}</td>
       <td>${r.attendance.toLocaleString()}</td>
       <td>${r.multiplier.toFixed(2)}x</td>
