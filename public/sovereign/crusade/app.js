@@ -4297,6 +4297,11 @@ function multiplierForGrowthRate(growthRate) {
   return bracket ? bracket.multiplier : SALARY_GR_MULTIPLIER_BRACKETS[SALARY_GR_MULTIPLIER_BRACKETS.length - 1].multiplier;
 }
 
+// Balthazard-only: on top of the normal GR-bracket multiplier, the top 10
+// attendees ranked by Growth Rate get an extra bump this month, tapering
+// from rank 1 down to rank 10. Index 0 = rank 1's bonus.
+const BALTHAZARD_TOP10_RANK_BONUS = [0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1, 0.05];
+
 let salarySelectedMonth = null; // 'YYYY-MM'
 // World Boss and Balthazard each get their own independent pool/attendance
 // computation -- switching this re-fills the pool fields from that
@@ -4510,6 +4515,16 @@ function renderSalaryComputation() {
     const ign = g ? g.name : attendanceByIgn.get(key)?.sampleName || key;
     return { key, ign, guildName: g ? g.guildName : null, growthRate, attendance, multiplier };
   });
+
+  if (salaryActiveSchedule === 'balthazard') {
+    [...rows]
+      .filter((r) => r.attendance > 0)
+      .sort((a, b) => b.growthRate - a.growthRate)
+      .slice(0, BALTHAZARD_TOP10_RANK_BONUS.length)
+      .forEach((r, i) => {
+        r.multiplier += BALTHAZARD_TOP10_RANK_BONUS[i];
+      });
+  }
 
   const totalAttendance = rows.reduce((sum, r) => sum + r.attendance, 0);
   rows.forEach((r) => {
