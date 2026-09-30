@@ -4252,14 +4252,25 @@ function computeSoldTotalsForSalaryMonth() {
   return acc;
 }
 
+// The pool inputs are plain text (not type="number") specifically so they
+// can show comma-grouped thousands -- a number input strips anything that
+// isn't a digit/decimal point, so commas have to be added/removed by hand
+// here instead of relying on the input's own formatting.
+function formatPoolInputValue(n) {
+  return n ? Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+}
+function parsePoolInputValue(value) {
+  return Number(String(value || '').replace(/,/g, '')) || 0;
+}
+
 // Pools fill in automatically from sold items whenever the page loads or
 // the month changes -- no button to click. Still just a starting point:
 // typing over either field (see the 'input' listeners below) is preserved
 // until the month changes again.
 function fillSalaryPoolsFromSoldItems() {
   const totals = computeSoldTotalsForSalaryMonth();
-  document.getElementById('salaryDiamondPoolInput').value = totals.diamonds ? totals.diamonds.toFixed(2) : '';
-  document.getElementById('salaryCrowPoolInput').value = totals.crows ? totals.crows.toFixed(2) : '';
+  document.getElementById('salaryDiamondPoolInput').value = formatPoolInputValue(totals.diamonds);
+  document.getElementById('salaryCrowPoolInput').value = formatPoolInputValue(totals.crows);
   renderSalaryComputation();
 }
 
@@ -4271,8 +4282,17 @@ document.getElementById('salaryScheduleSelect').addEventListener('change', (e) =
   salaryActiveSchedule = e.target.value;
   fillSalaryPoolsFromSoldItems();
 });
+// 'input' recomputes live while typing (no reformatting yet -- inserting
+// commas mid-type would jump the cursor); 'blur' reformats with commas once
+// the admin's done editing, same look as the auto-filled value.
 document.getElementById('salaryDiamondPoolInput').addEventListener('input', renderSalaryComputation);
 document.getElementById('salaryCrowPoolInput').addEventListener('input', renderSalaryComputation);
+document.getElementById('salaryDiamondPoolInput').addEventListener('blur', (e) => {
+  e.target.value = formatPoolInputValue(parsePoolInputValue(e.target.value));
+});
+document.getElementById('salaryCrowPoolInput').addEventListener('blur', (e) => {
+  e.target.value = formatPoolInputValue(parsePoolInputValue(e.target.value));
+});
 
 function renderSalaryManagementFees() {
   const fees = sovereignState.salaryManagementFees || [];
@@ -4395,8 +4415,8 @@ function renderSalaryComputation() {
     r.normShare = totalBaseMult ? r.baseMult / totalBaseMult : 0;
   });
 
-  const diamondPool = Number(document.getElementById('salaryDiamondPoolInput').value) || 0;
-  const crowPool = Number(document.getElementById('salaryCrowPoolInput').value) || 0;
+  const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
+  const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
   // Management fees come off the top of the pool first, then everyone
   // (fee recipients included) splits whatever's left by Norm. Share --
   // so total payouts always add back up to exactly the pool, instead of
