@@ -2410,18 +2410,23 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
     background: #fff;
     font-size: 10px;
   }
+  /* Every descendant forced to solid black -- the live page's own text
+     colors (var(--text-muted) and similar, meant for a dark background)
+     would otherwise leak through here as barely-visible light gray on
+     this white print background. */
+  body.is-printing-monthly-loot #worldBossMonthlyLootPrintArea *,
+  body.is-printing-summary #worldBossSummaryPrintArea * { color: #000 !important; }
   body.is-printing-monthly-loot .crusade-print-only h2,
   body.is-printing-summary .crusade-print-only h2 { margin: 0 0 8px; font-size: 14px; }
   body.is-printing-monthly-loot .crusade-print-only table,
   body.is-printing-summary .crusade-print-only table { width: 100%; border-collapse: collapse; }
+  /* Left-aligned throughout, including the columns that were previously
+     right-aligned (quantities/percentages) -- easier to scan as one
+     consistent left edge down the whole printed table. */
   body.is-printing-monthly-loot .crusade-print-only th,
   body.is-printing-monthly-loot .crusade-print-only td,
   body.is-printing-summary .crusade-print-only th,
   body.is-printing-summary .crusade-print-only td { border: 1px solid #999; padding: 2px 6px; text-align: left; line-height: 1.3; }
-  body.is-printing-monthly-loot .crusade-print-only th:nth-child(n+2),
-  body.is-printing-monthly-loot .crusade-print-only td:nth-child(n+2),
-  body.is-printing-summary .crusade-print-only th:nth-child(n+2),
-  body.is-printing-summary .crusade-print-only td:nth-child(n+2) { text-align: right; }
   body.is-printing-monthly-loot .crusade-print-only tr,
   body.is-printing-summary .crusade-print-only tr { page-break-inside: avoid; }
 }
