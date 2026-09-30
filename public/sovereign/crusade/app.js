@@ -4208,6 +4208,10 @@ function multiplierForGrowthRate(growthRate) {
 }
 
 let salarySelectedMonth = null; // 'YYYY-MM'
+// World Boss and Balthazard each get their own independent pool/attendance
+// computation -- switching this re-fills the pool fields from that
+// schedule's own sold totals instead of mixing the two together.
+let salaryActiveSchedule = 'world_boss';
 
 async function loadSalaryComputation() {
   const [growthSubmissions, events, fees, saleBatches] = await Promise.all([
@@ -4222,19 +4226,20 @@ async function loadSalaryComputation() {
   sovereignState.lootSaleBatches = saleBatches;
   if (!salarySelectedMonth) salarySelectedMonth = new Date().toISOString().slice(0, 7);
   document.getElementById('salaryMonthInput').value = salarySelectedMonth;
+  document.getElementById('salaryScheduleSelect').value = salaryActiveSchedule;
   renderSalaryManagementFees();
   fillSalaryPoolsFromSoldItems();
 }
 
-// Sums what actually sold in salarySelectedMonth (Sales section on the
-// World Boss page) -- every schedule except BF4, same scoping as the rest
-// of this page (see the schedule check on updateWorldBossBonusPointsVisibility
-// for why BF4 is excluded).
+// Sums what actually sold in salarySelectedMonth for salaryActiveSchedule
+// specifically -- World Boss and Balthazard are computed one at a time,
+// never combined, so switching schedules never mixes their sales together
+// (BF4 was never salaried at all, so it's simply not one of the options).
 function computeSoldTotalsForSalaryMonth() {
   const [year, month] = salarySelectedMonth.split('-').map(Number);
   return (sovereignState.lootSaleBatches || []).reduce(
     (acc, b) => {
-      if ((b.schedule || 'world_boss') === 'bf4') return acc;
+      if ((b.schedule || 'world_boss') !== salaryActiveSchedule) return acc;
       const d = new Date(b.soldAt);
       if (d.getFullYear() !== year || d.getMonth() !== month - 1) return acc;
       acc.diamonds += b.diamondsValue || 0;
@@ -4258,6 +4263,10 @@ function fillSalaryPoolsFromSoldItems() {
 
 document.getElementById('salaryMonthInput').addEventListener('change', (e) => {
   salarySelectedMonth = e.target.value || new Date().toISOString().slice(0, 7);
+  fillSalaryPoolsFromSoldItems();
+});
+document.getElementById('salaryScheduleSelect').addEventListener('change', (e) => {
+  salaryActiveSchedule = e.target.value;
   fillSalaryPoolsFromSoldItems();
 });
 document.getElementById('salaryDiamondPoolInput').addEventListener('input', renderSalaryComputation);
@@ -4349,7 +4358,7 @@ function renderSalaryComputation() {
 
   const attendanceByIgn = new Map();
   (sovereignState.worldBossEvents || []).forEach((ev) => {
-    if ((ev.schedule || 'world_boss') === 'bf4') return;
+    if ((ev.schedule || 'world_boss') !== salaryActiveSchedule) return;
     const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
     if (d.getFullYear() !== year || d.getMonth() !== month - 1) return;
     ev.attendees.forEach((a) => {
