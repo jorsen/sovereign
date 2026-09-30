@@ -2178,6 +2178,18 @@ function normalizeNameForDupeCheck(name) {
   return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+// Folds spelling variants of one person into one key for the attendance
+// summary and Salary tables. normalizeNameForDupeCheck keeps only a-z/0-9,
+// so a name written entirely in Chinese/Thai/etc. (冥冥之中) normalizes to
+// "" -- falling back to the whole name (case/spacing-insensitive) keeps
+// those people in instead of silently dropping them.
+function memberNameKey(name) {
+  const loose = normalizeNameForDupeCheck(name);
+  if (loose) return loose;
+  const raw = String(name || '').toLowerCase().replace(/s+/g, '');
+  return raw ? `raw:${raw}` : '';
+}
+
 // Groups submissions that normalize to the same key but weren't typed
 // identically -- each returned group is 2+ submissions worth reviewing as
 // possible duplicates of one real person. Also folds in attendance-only
@@ -2824,11 +2836,19 @@ function computeWorldBossSummary() {
     return d.getFullYear() === year && d.getMonth() === month;
   });
   const totalEvents = events.length;
+  // Keyed by memberNameKey so spelling variants ("uncleken" / "unclekenツ")
+  // count as one person, shown under their Growth Rate spelling if any.
+  const growthNameByKey = new Map();
+  (sovereignState.growthSubmissions || []).forEach((s) => {
+    const key = memberNameKey(s.ign);
+    if (key && !growthNameByKey.has(key)) growthNameByKey.set(key, s.ign);
+  });
   const byName = new Map();
   events.forEach((ev) => {
     ev.attendees.forEach((a) => {
-      const key = a.name.trim().toLowerCase();
-      if (!byName.has(key)) byName.set(key, { name: a.name, guildName: a.guildName, count: 0 });
+      const key = memberNameKey(a.name);
+      if (!key) return;
+      if (!byName.has(key)) byName.set(key, { name: growthNameByKey.get(key) || a.name.trim(), guildName: a.guildName, count: 0 });
       const entry = byName.get(key);
       entry.count += 1;
       entry.guildName = a.guildName || entry.guildName;
@@ -4461,24 +4481,13 @@ document.getElementById('salaryFeeAddBtn').addEventListener('click', async () =>
   }
 });
 
-// normalizeNameForDupeCheck keeps only a-z/0-9, so a name written entirely
-// in Chinese/Thai/etc. (冥冥之中) normalizes to "" -- falling back to the
-// whole name (case/spacing-insensitive) keeps those people in the salary
-// table instead of silently dropping them.
-function salaryNameKey(name) {
-  const loose = normalizeNameForDupeCheck(name);
-  if (loose) return loose;
-  const raw = String(name || '').toLowerCase().replace(/s+/g, '');
-  return raw ? `raw:${raw}` : '';
-}
-
 // Largest-remainder proportional split already exists (distributeProportionally,
 // see the World Boss loot code above) but this needs plain fractional shares,
 // not a rounded-to-cents split of one fixed total -- kept separate on purpose.
 function renderSalaryComputation() {
   const [year, month] = salarySelectedMonth.split('-').map(Number);
 
-  // Keyed by salaryNameKey (strips spacing/punctuation/case) instead
+  // Keyed by memberNameKey (strips spacing/punctuation/case) instead
   // of a plain lowercase trim, so spelling variants of the same person --
   // "uncleken" attendance vs "unclekenツ" submission, "•elijah•" vs "• ELIJAH •"
   // -- fold into one salary row instead of splitting attendance away from GR
@@ -4487,7 +4496,7 @@ function renderSalaryComputation() {
   // display-time fallback for whatever hasn't been merged yet.
   const growthByIgn = new Map();
   (sovereignState.growthSubmissions || []).forEach((s) => {
-    const key = salaryNameKey(s.ign);
+    const key = memberNameKey(s.ign);
     if (!key) return;
     const rate = Number(s.growthRate) || 0;
     const existing = growthByIgn.get(key);
@@ -4502,7 +4511,7 @@ function renderSalaryComputation() {
     const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
     if (d.getFullYear() !== year || d.getMonth() !== month - 1) return;
     ev.attendees.forEach((a) => {
-      const key = salaryNameKey(a.name);
+      const key = memberNameKey(a.name);
       if (!key) return;
       const existing = attendanceByIgn.get(key);
       if (existing) existing.count += 1;
@@ -4511,7 +4520,7 @@ function renderSalaryComputation() {
   });
 
   const feeByIgn = new Map(
-    (sovereignState.salaryManagementFees || []).map((f) => [salaryNameKey(f.ign), f.percent])
+    (sovereignState.salaryManagementFees || []).map((f) => [memberNameKey(f.ign), f.percent])
   );
 
   // A management fee still pays out even for someone with zero attendance
