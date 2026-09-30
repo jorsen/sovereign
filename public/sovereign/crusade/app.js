@@ -4462,10 +4462,22 @@ document.getElementById('salaryFeeAddBtn').addEventListener('click', async () =>
 function renderSalaryComputation() {
   const [year, month] = salarySelectedMonth.split('-').map(Number);
 
+  // Keyed by normalizeNameForDupeCheck (strips spacing/punctuation/case) instead
+  // of a plain lowercase trim, so spelling variants of the same person --
+  // "uncleken" attendance vs "unclekenツ" submission, "•elijah•" vs "• ELIJAH •"
+  // -- fold into one salary row instead of splitting attendance away from GR
+  // (showing 0 growth rate for the variant with no submission of its own).
+  // A real merge on the Growth Rate page fixes this permanently; this is a
+  // display-time fallback for whatever hasn't been merged yet.
   const growthByIgn = new Map();
   (sovereignState.growthSubmissions || []).forEach((s) => {
-    const key = s.ign.trim().toLowerCase();
-    if (!growthByIgn.has(key)) growthByIgn.set(key, { name: s.ign, growthRate: Number(s.growthRate) || 0, guildName: s.guildName });
+    const key = normalizeNameForDupeCheck(s.ign);
+    if (!key) return;
+    const rate = Number(s.growthRate) || 0;
+    const existing = growthByIgn.get(key);
+    if (!existing || rate > existing.growthRate) {
+      growthByIgn.set(key, { name: s.ign, growthRate: rate, guildName: s.guildName });
+    }
   });
 
   const attendanceByIgn = new Map();
@@ -4474,23 +4486,29 @@ function renderSalaryComputation() {
     const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
     if (d.getFullYear() !== year || d.getMonth() !== month - 1) return;
     ev.attendees.forEach((a) => {
-      const key = a.name.trim().toLowerCase();
-      attendanceByIgn.set(key, (attendanceByIgn.get(key) || 0) + 1);
+      const key = normalizeNameForDupeCheck(a.name);
+      if (!key) return;
+      const existing = attendanceByIgn.get(key);
+      if (existing) existing.count += 1;
+      else attendanceByIgn.set(key, { count: 1, sampleName: a.name.trim() });
     });
   });
 
-  const feeByIgn = new Map((sovereignState.salaryManagementFees || []).map((f) => [f.ign.toLowerCase(), f.percent]));
+  const feeByIgn = new Map(
+    (sovereignState.salaryManagementFees || []).map((f) => [normalizeNameForDupeCheck(f.ign), f.percent])
+  );
 
   // A management fee still pays out even for someone with zero attendance
   // this month (an officer who manages but didn't personally fight) -- so
   // the row set is attendees UNION fee recipients, not just attendees.
   const allKeys = new Set([...attendanceByIgn.keys(), ...feeByIgn.keys()]);
   const rows = Array.from(allKeys).map((key) => {
-    const attendance = attendanceByIgn.get(key) || 0;
+    const attendance = attendanceByIgn.get(key)?.count || 0;
     const g = growthByIgn.get(key);
     const growthRate = g ? g.growthRate : 0;
     const multiplier = attendance ? multiplierForGrowthRate(growthRate) : 0;
-    return { ign: g ? g.name : key, guildName: g ? g.guildName : null, growthRate, attendance, multiplier };
+    const ign = g ? g.name : attendanceByIgn.get(key)?.sampleName || key;
+    return { key, ign, guildName: g ? g.guildName : null, growthRate, attendance, multiplier };
   });
 
   const totalAttendance = rows.reduce((sum, r) => sum + r.attendance, 0);
@@ -4515,7 +4533,7 @@ function renderSalaryComputation() {
   const remainingDiamondPool = Math.max(0, diamondPool * (1 - totalFeePercent / 100));
   const remainingCrowPool = Math.max(0, crowPool * (1 - totalFeePercent / 100));
   rows.forEach((r) => {
-    const feePercent = feeByIgn.get(r.ign.toLowerCase()) || 0;
+    const feePercent = feeByIgn.get(r.key) || 0;
     r.diamondInitial = r.normShare * remainingDiamondPool;
     r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondPool;
     r.crowInitial = r.normShare * remainingCrowPool;
