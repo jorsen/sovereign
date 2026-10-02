@@ -3131,8 +3131,8 @@ function renderWorldBossMonthlyLoot() {
             <td class="crusade-loot-boss">⚔️ ${escapeHtml(s.bossName)}</td>
             <td class="crusade-loot-date">${formatWorldBossEventDateTime(s.eventDate)}</td>
             <td class="crusade-loot-num"><input type="number" min="1" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="quantity" value="${s.quantity}"></td>
-            <td class="crusade-loot-num">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="crowsValue" value="${s.crowsValue !== null ? s.crowsValue : ''}" placeholder="—"></td>
-            <td class="crusade-loot-num">💎 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="diamondsValue" value="${s.diamondsValue !== null ? s.diamondsValue : ''}" placeholder="—"></td>
+            <td class="crusade-loot-num">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="crowsValue" value="${s.crowsValue !== null ? roundLootValue(s.crowsValue) : ''}" placeholder="—"></td>
+            <td class="crusade-loot-num">💎 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="diamondsValue" value="${s.diamondsValue !== null ? roundLootValue(s.diamondsValue) : ''}" placeholder="—"></td>
             <td>
               <button type="button" class="crusade-loot-sold-toggle admin-disable ${s.sold ? 'is-sold' : s.soldQuantity > 0 ? 'is-partial' : 'is-unsold'}" data-toggle-sold="${s.itemId}" data-sold="${s.sold ? '1' : '0'}" title="${s.soldQuantity > 0 && !s.sold ? 'Click to mark the rest sold' : ''}">
                 ${s.sold ? '✅ Sold' : s.soldQuantity > 0 ? `◐ Partial (${s.soldQuantity}/${s.quantity})` : '⭕ Not Sold'}
@@ -3207,10 +3207,10 @@ function renderWorldBossMonthlyLoot() {
       </td>
       <td class="crusade-loot-num">${r.quantity.toLocaleString()}</td>
       <td class="crusade-loot-num">
-        <span class="crusade-loot-edit-cell crows">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="crowsValue" value="${r.crowsValue !== null ? r.crowsValue : ''}" placeholder="—"></span>
+        <span class="crusade-loot-edit-cell crows">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="crowsValue" value="${r.crowsValue !== null ? roundLootValue(r.crowsValue) : ''}" placeholder="—"></span>
       </td>
       <td class="crusade-loot-num">
-        <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? r.diamondsValue : ''}" placeholder="—"></span>
+        <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? roundLootValue(r.diamondsValue) : ''}" placeholder="—"></span>
       </td>
       <td class="crusade-loot-num"><span class="crusade-loot-sold-ratio ${r.totalQuantityEver > 0 && r.soldQuantity >= r.totalQuantityEver ? 'is-fully-sold' : 'is-partially-sold'}">${r.soldQuantity.toLocaleString()} / ${r.totalQuantityEver.toLocaleString()}</span></td>
     </tr>`;
@@ -3470,6 +3470,12 @@ function computeAllSourcesForItemKey(itemKey) {
   return sources;
 }
 
+// FIFO prices are per-unit splits (e.g. 599.0666...) -- show 2 decimals so
+// they fit their input instead of getting cut off mid-number.
+function roundLootValue(value) {
+  return Math.round(Number(value) * 100) / 100;
+}
+
 // Matches each kill to actual sale batches FIFO (oldest kill <-> oldest
 // sale) instead of proportionally splitting every batch's total evenly
 // across every kill by quantity -- two kills of quantity 1 sold for 4,167
@@ -3486,31 +3492,76 @@ function computeAllSourcesForItemKey(itemKey) {
 async function applyFifoSalesToItem(itemKey) {
   const itemBatches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === itemKey);
 
-  // A kill with its own linked sale (from toggleLootItemSold) is locked --
-  // left exactly as it is, since it was deliberately marked/priced by hand
-  // for that specific kill, not derived by this generic matching. Anything
-  // else gets fully recomputed from scratch every time (including a kill
-  // that was previously *generically* matched sold, so deleting the sale
-  // that put it there correctly un-sells it again instead of leaving it
-  // stuck).
-  const lockedEventIds = new Set(itemBatches.filter((b) => b.sourceAttendanceId).map((b) => b.sourceAttendanceId));
-  const sources = computeAllSourcesForItemKey(itemKey)
-    .filter((s) => !lockedEventIds.has(s.eventId))
-    .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
-  if (!sources.length) return;
-
-  // Linked sales already belong to one specific kill and are excluded from
-  // this generic pool -- only Sales-section entries (unlinked) get spread
-  // across whichever kills aren't individually locked.
-  const batchQueue = itemBatches
-    .filter((b) => !b.sourceAttendanceId)
+  // A kill with its own linked sale (from toggleLootItemSold) is locked to
+  // that sale -- it's always marked sold from its linked batches first,
+  // never from the generic pool. It used to be skipped entirely and left
+  // "exactly as it is", but re-saving that kill from the attendance edit
+  // form resets sold to false (the form doesn't send it), so it got stuck
+  // Not Sold forever while its linked sale was also kept out of the pool --
+  // e.g. 48 sold in Sales but only 44/48 on the kills. Any linked quantity
+  // beyond what the kill itself holds (or a link to a kill that no longer
+  // has this item) spills into the generic pool instead of vanishing.
+  const allSources = computeAllSourcesForItemKey(itemKey);
+  const sourceEventIds = new Set(allSources.map((s) => s.eventId));
+  const toQueueEntry = (b, quantity) => ({
+    soldAt: String(b.soldAt),
+    remaining: quantity,
+    diamondsPerUnit: b.diamondsValue !== null ? b.diamondsValue / b.quantity : null,
+    crowsPerUnit: b.crowsValue !== null ? b.crowsValue / b.quantity : null,
+  });
+  const linkedQueues = new Map();
+  const genericEntries = [];
+  itemBatches
     .slice()
     .sort((a, b) => String(a.soldAt).localeCompare(String(b.soldAt)))
-    .map((b) => ({
-      remaining: b.quantity,
-      diamondsPerUnit: b.diamondsValue !== null ? b.diamondsValue / b.quantity : null,
-      crowsPerUnit: b.crowsValue !== null ? b.crowsValue / b.quantity : null,
-    }));
+    .forEach((b) => {
+      if (b.sourceAttendanceId && sourceEventIds.has(b.sourceAttendanceId)) {
+        if (!linkedQueues.has(b.sourceAttendanceId)) linkedQueues.set(b.sourceAttendanceId, []);
+        linkedQueues.get(b.sourceAttendanceId).push(toQueueEntry(b, b.quantity));
+      } else {
+        genericEntries.push(toQueueEntry(b, b.quantity));
+      }
+    });
+  const sources = allSources.sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
+  if (!sources.length) return;
+
+  // Takes up to `need` units off the front of `queue` (mutating it),
+  // returning how many it got and their summed price.
+  function drawFromQueue(queue, need) {
+    let taken = 0;
+    let diamondsTotal = 0;
+    let crowsTotal = 0;
+    let anyDiamonds = false;
+    let anyCrows = false;
+    while (need > 0 && queue.length) {
+      const b = queue[0];
+      const take = Math.min(need, b.remaining);
+      if (b.diamondsPerUnit !== null) {
+        diamondsTotal += take * b.diamondsPerUnit;
+        anyDiamonds = true;
+      }
+      if (b.crowsPerUnit !== null) {
+        crowsTotal += take * b.crowsPerUnit;
+        anyCrows = true;
+      }
+      b.remaining -= take;
+      need -= take;
+      taken += take;
+      if (b.remaining <= 0) queue.shift();
+    }
+    return { taken, diamondsTotal, crowsTotal, anyDiamonds, anyCrows };
+  }
+
+  // Locked kills draw from their own linked sales first; whatever linked
+  // quantity is left over joins the generic pool in sale-date order.
+  const lockedResults = new Map();
+  sources.forEach((s) => {
+    const queue = linkedQueues.get(s.eventId);
+    if (!queue) return;
+    lockedResults.set(s.itemId, drawFromQueue(queue, s.quantity));
+  });
+  linkedQueues.forEach((queue) => queue.forEach((entry) => genericEntries.push(entry)));
+  const batchQueue = genericEntries.sort((a, b) => a.soldAt.localeCompare(b.soldAt));
 
   // Walking kills and batches both in date order, oldest-to-oldest, and
   // just taking whatever's actually left in the queue for each kill (not
@@ -3524,28 +3575,7 @@ async function applyFifoSalesToItem(itemKey) {
   // the line" to grab leftover stock instead.
   const updatesByEvent = new Map();
   for (const s of sources) {
-    let need = s.quantity;
-    let taken = 0;
-    let diamondsTotal = 0;
-    let crowsTotal = 0;
-    let anyDiamonds = false;
-    let anyCrows = false;
-    while (need > 0 && batchQueue.length) {
-      const b = batchQueue[0];
-      const take = Math.min(need, b.remaining);
-      if (b.diamondsPerUnit !== null) {
-        diamondsTotal += take * b.diamondsPerUnit;
-        anyDiamonds = true;
-      }
-      if (b.crowsPerUnit !== null) {
-        crowsTotal += take * b.crowsPerUnit;
-        anyCrows = true;
-      }
-      b.remaining -= take;
-      need -= take;
-      taken += take;
-      if (b.remaining <= 0) batchQueue.shift();
-    }
+    const { taken, diamondsTotal, crowsTotal, anyDiamonds, anyCrows } = lockedResults.get(s.itemId) || drawFromQueue(batchQueue, s.quantity);
     const diamondsValue = taken > 0 && anyDiamonds ? diamondsTotal : null;
     const crowsValue = taken > 0 && anyCrows ? crowsTotal : null;
     if (!updatesByEvent.has(s.eventId)) updatesByEvent.set(s.eventId, []);
