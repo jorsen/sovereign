@@ -4378,13 +4378,22 @@ function multiplierForGrowthRate(growthRate) {
 // from rank 1 down to rank 10. Index 0 = rank 1's bonus.
 const BALTHAZARD_TOP10_RANK_BONUS = [0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1, 0.05];
 
-// Sending diamonds in-game costs the sender 5% on top of what's received.
-// Payouts go out as one transfer per guild (each guild's total, which that
-// guild then hands out to its members), so the tax is charged on each
-// guild's total and covered out of the diamond pool -- only pool / 1.05 is
-// actually split, and each person's Final is what they receive in full.
-// Crows are sent without a fee.
+// Sending diamonds in-game costs the sender a tax on top of what's
+// received. Payouts go out as one transfer per guild (each guild's total,
+// which that guild then hands out to its members), so the tax is charged on
+// each guild's total at that guild's own rate (set on the Salary page,
+// stored in salary_guild_taxes; this is the default for a guild with none
+// set) and covered out of the diamond pool. Each person's Final is what
+// they receive in full. Crows are sent without a fee.
 const SALARY_DIAMOND_SEND_FEE_PERCENT = 5;
+
+function salaryGuildKey(guildName) {
+  return guildName || 'Unassigned';
+}
+function guildTaxPercent(guildName) {
+  const saved = sovereignState.salaryGuildTaxes?.get(salaryGuildKey(guildName));
+  return saved === undefined ? SALARY_DIAMOND_SEND_FEE_PERCENT : saved;
+}
 
 let salarySelectedMonth = null; // 'YYYY-MM'
 // World Boss and Balthazard each get their own independent pool/attendance
@@ -4396,14 +4405,16 @@ let salaryActiveSchedule = 'world_boss';
 let salaryComputedRows = [];
 
 async function loadSalaryComputation() {
-  const [growthSubmissions, events, fees, saleBatches, payouts] = await Promise.all([
+  const [growthSubmissions, events, fees, saleBatches, payouts, guildTaxes] = await Promise.all([
     api('/api/growth-submissions'),
     api('/api/world-boss-attendance'),
     api('/api/world-boss-management-fees'),
     api('/api/loot-sale-batches'),
     api('/api/salary-payouts'),
+    api('/api/salary-guild-taxes'),
   ]);
   sovereignState.salaryPayouts = payouts;
+  sovereignState.salaryGuildTaxes = new Map(guildTaxes.map((g) => [g.guildName, g.percent]));
   sovereignState.growthSubmissions = growthSubmissions;
   sovereignState.worldBossEvents = events;
   sovereignState.salaryManagementFees = fees;
@@ -4513,19 +4524,23 @@ function renderSalaryPayoutHistory() {
       // Per-guild transfers for this payout, taxed on each guild's total
       // -- only for payouts recorded after the tax was added (older ones
       // were sent untaxed, so their pool equals the members' total).
+      // Rate saved with the payout (r.taxPercent); payouts from before
+      // per-guild rates existed were all taxed at the flat default.
       const byGuild = new Map();
       p.rows.forEach((r) => {
-        const key = r.guildName || 'Unassigned';
-        byGuild.set(key, (byGuild.get(key) || 0) + (Number(r.diamonds) || 0));
+        const key = salaryGuildKey(r.guildName);
+        const entry = byGuild.get(key) || { diamonds: 0, taxPercent: r.taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT };
+        entry.diamonds += Number(r.diamonds) || 0;
+        byGuild.set(key, entry);
       });
       const guildLines = payoutTax(p) > 0.01
         ? `<table class="members-table salary-payout-guilds">
             <thead><tr><th>${t('sovereign.common.guild')}</th><th>💎</th><th>${t('sovereign.salary.thDiamondSendFee')}</th><th>${t('sovereign.salary.thTotalCost')}</th></tr></thead>
             <tbody>${Array.from(byGuild.entries())
-              .sort((a, b) => b[1] - a[1])
-              .map(([name, d]) => {
-                const tax = d * (SALARY_DIAMOND_SEND_FEE_PERCENT / 100);
-                return `<tr><td>${crusadeGuildBadge(name === 'Unassigned' ? null : name)}</td><td>${formatLootValue(d)}</td><td class="salary-tax-cell">${formatLootValue(tax)}</td><td>${formatLootValue(d + tax)}</td></tr>`;
+              .sort((a, b) => b[1].diamonds - a[1].diamonds)
+              .map(([name, { diamonds: d, taxPercent }]) => {
+                const tax = d * (taxPercent / 100);
+                return `<tr><td>${crusadeGuildBadge(name === 'Unassigned' ? null : name)}</td><td>${formatLootValue(d)}</td><td class="salary-tax-cell">${formatLootValue(tax)} (${taxPercent}%)</td><td>${formatLootValue(d + tax)}</td></tr>`;
               })
               .join('')}</tbody>
           </table>`
@@ -4575,7 +4590,7 @@ document.getElementById('salaryRecordPayoutBtn').addEventListener('click', async
         month: salarySelectedMonth,
         diamondPool,
         crowPool,
-        rows: rows.map((r) => ({ ign: r.ign, guildName: r.guildName, attendance: r.attendance, diamonds: r.diamondFinal, crows: r.crowFinal })),
+        rows: rows.map((r) => ({ ign: r.ign, guildName: r.guildName, attendance: r.attendance, diamonds: r.diamondFinal, crows: r.crowFinal, taxPercent: r.taxPercent })),
       }),
     });
     sovereignState.salaryPayouts = [...(sovereignState.salaryPayouts || []), created];
@@ -4620,7 +4635,12 @@ function buildSalaryWorkbook(XLSX) {
   const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
   const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
   const totalFeePercent = rows.reduce((sum, r) => sum + (r.feePercent || 0), 0);
-  const diamondsToSplit = diamondPool / (1 + SALARY_DIAMOND_SEND_FEE_PERCENT / 100);
+  // Each person's fraction of Diamonds to Split (Salary column R) and the
+  // fraction-weighted average guild tax -- same math as
+  // renderSalaryComputation, mirrored by formulas below.
+  const splitFraction = (r) => r.normShare * Math.max(0, 1 - totalFeePercent / 100) + (r.feePercent || 0) / 100;
+  const weightedTaxPercent = rows.reduce((sum, r) => sum + splitFraction(r) * (r.taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT), 0);
+  const diamondsToSplit = diamondPool / (1 + weightedTaxPercent / 100);
 
   const FMT_MONEY = '#,##0.00';
   const FMT_INT = '#,##0';
@@ -4671,7 +4691,8 @@ function buildSalaryWorkbook(XLSX) {
   // A ID  B IGN  C Guild  D Growth Rate  E Attendance  F GR Multiplier
   // G GR Rank  H Top 10 Bonus  I Fee %  J Multiplier  K Base Share
   // L Base + Mult.  M Norm. Share  N Diamonds Initial  O Diamonds Final
-  // P Crows Initial  Q Crows Final
+  // P Crows Initial  Q Crows Final  R Split Fraction (share of Diamonds to
+  // Split, used to weight each guild's tax rate)
   const first = 7;
   const last = first + rows.length - 1;
   const col = (letter) => `$${letter}$${first}:$${letter}$${last}`;
@@ -4693,8 +4714,9 @@ function buildSalaryWorkbook(XLSX) {
     [text('Schedule'), text(scheduleLabel)],
     [text('Diamonds Pool'), num(diamondPool, FMT_MONEY), text('Crows Pool'), num(crowPool, FMT_MONEY)],
     [text('Total Fee %'), formula(`SUM(${col('I')})`, totalFeePercent, '0.00')],
-    [text('Diamond Tax %'), num(SALARY_DIAMOND_SEND_FEE_PERCENT, '0.00'), text('Diamonds to Split'), formula('B3/(1+B5/100)', diamondsToSplit, FMT_MONEY)],
-    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'GR Multiplier', 'GR Rank', 'Top 10 Bonus', 'Fee %', 'Multiplier', 'Base Share', 'Base + Mult.', 'Norm. Share', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final'].map(text),
+    // B5 is filled in below, once the Guild Totals layout is known
+    [text('Avg. Diamond Tax %'), null, text('Diamonds to Split'), formula('B3/(1+B5/100)', diamondsToSplit, FMT_MONEY)],
+    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'GR Multiplier', 'GR Rank', 'Top 10 Bonus', 'Fee %', 'Multiplier', 'Base Share', 'Base + Mult.', 'Norm. Share', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final', 'Split Fraction'].map(text),
   ];
   rows.forEach((r, i) => {
     const n = first + i;
@@ -4717,6 +4739,7 @@ function buildSalaryWorkbook(XLSX) {
       formula(`N${n}+I${n}/100*$D$5`, r.diamondFinal, FMT_MONEY),
       formula(`M${n}*MAX(0,$D$3*(1-$B$4/100))`, r.crowInitial, FMT_MONEY),
       formula(`P${n}+I${n}/100*$D$3`, r.crowFinal, FMT_MONEY),
+      formula(`M${n}*MAX(0,1-$B$4/100)+I${n}/100`, splitFraction(r), '0.0000%'),
     ]);
   });
   const totalOf = (key) => rows.reduce((sum, r) => sum + r[key], 0);
@@ -4728,40 +4751,52 @@ function buildSalaryWorkbook(XLSX) {
   ['N', 'O', 'P', 'Q'].forEach((letter, k) => {
     totalRow[13 + k] = formula(`SUM(${col(letter)})`, totalOf(['diamondInitial', 'diamondFinal', 'crowInitial', 'crowFinal'][k]), FMT_MONEY);
   });
+  totalRow[17] = formula(`SUM(${col('R')})`, rows.reduce((sum, r) => sum + splitFraction(r), 0), '0.0000%');
   salaryGrid.push(totalRow);
-  const salarySheet = sheetFromCells(salaryGrid, [6, 22, 14, 12, 11, 13, 9, 12, 8, 11, 11, 12, 12, 15, 15, 13, 13]);
 
   // ---- Guild Totals: SUMIF/COUNTIF over the Salary sheet ----
   const guildNames = Array.from(new Set(rows.map((r) => r.guildName || 'Unassigned')));
   const guildTotal = (name, key) => rows.filter((r) => (r.guildName || 'Unassigned') === name).reduce((sum, r) => sum + r[key], 0);
   guildNames.sort((a, b) => guildTotal(b, 'diamondFinal') - guildTotal(a, 'diamondFinal'));
   const guildCol = `Salary!${col('C')}`;
-  // One diamond transfer per guild, so the tax is on each guild's total
-  // (rate from Salary!B5) and Total Cost is what sending it actually costs.
-  const taxRate = SALARY_DIAMOND_SEND_FEE_PERCENT / 100;
-  const guildGrid = [['Guild', 'Members', 'Diamonds Final', `Diamond Tax (${SALARY_DIAMOND_SEND_FEE_PERCENT}%)`, 'Diamonds Total Cost', 'Crows Final'].map(text)];
+  // One diamond transfer per guild, taxed at that guild's own rate (column
+  // D, an editable input) -- Total Cost is what sending it actually costs.
+  // Column H is the guild's share of Diamonds to Split, which weights its
+  // rate in Salary!B5 (the average that sets Diamonds to Split).
+  const guildTaxOf = (name) => rows.find((r) => salaryGuildKey(r.guildName) === name)?.taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT;
+  const guildGrid = [['Guild', 'Members', 'Diamonds Final', 'Tax %', 'Diamond Tax', 'Diamonds Total Cost', 'Crows Final', 'Split Fraction'].map(text)];
   guildNames.forEach((name, i) => {
     const n = i + 2;
     const d = guildTotal(name, 'diamondFinal');
+    const pct = guildTaxOf(name);
     guildGrid.push([
       text(name),
-      formula(`COUNTIF(${guildCol},A${n})`, rows.filter((r) => (r.guildName || 'Unassigned') === name).length),
+      formula(`COUNTIF(${guildCol},A${n})`, rows.filter((r) => salaryGuildKey(r.guildName) === name).length),
       formula(`SUMIF(${guildCol},A${n},Salary!${col('O')})`, d, FMT_MONEY),
-      formula(`C${n}*Salary!$B$5/100`, d * taxRate, FMT_MONEY),
-      formula(`C${n}+D${n}`, d * (1 + taxRate), FMT_MONEY),
+      num(pct, '0.00'),
+      formula(`C${n}*D${n}/100`, (d * pct) / 100, FMT_MONEY),
+      formula(`C${n}+E${n}`, d * (1 + pct / 100), FMT_MONEY),
       formula(`SUMIF(${guildCol},A${n},Salary!${col('Q')})`, guildTotal(name, 'crowFinal'), FMT_MONEY),
+      formula(`SUMIF(${guildCol},A${n},Salary!${col('R')})`, rows.filter((r) => salaryGuildKey(r.guildName) === name).reduce((sum, r) => sum + splitFraction(r), 0), '0.0000%'),
     ]);
   });
   const guildLast = guildNames.length + 1;
+  const guildTaxTotal = guildNames.reduce((sum, name) => sum + (guildTotal(name, 'diamondFinal') * guildTaxOf(name)) / 100, 0);
   guildGrid.push([
     text('Total'),
     formula(`SUM(B2:B${guildLast})`, rows.length),
     formula(`SUM(C2:C${guildLast})`, totalOf('diamondFinal'), FMT_MONEY),
-    formula(`SUM(D2:D${guildLast})`, totalOf('diamondFinal') * taxRate, FMT_MONEY),
-    formula(`SUM(E2:E${guildLast})`, totalOf('diamondFinal') * (1 + taxRate), FMT_MONEY),
-    formula(`SUM(F2:F${guildLast})`, totalOf('crowFinal'), FMT_MONEY),
+    null,
+    formula(`SUM(E2:E${guildLast})`, guildTaxTotal, FMT_MONEY),
+    formula(`SUM(F2:F${guildLast})`, totalOf('diamondFinal') + guildTaxTotal, FMT_MONEY),
+    formula(`SUM(G2:G${guildLast})`, totalOf('crowFinal'), FMT_MONEY),
+    formula(`SUM(H2:H${guildLast})`, rows.reduce((sum, r) => sum + splitFraction(r), 0), '0.0000%'),
   ]);
-  const guildSheet = sheetFromCells(guildGrid, [18, 10, 15, 17, 19, 13]);
+  const guildSheet = sheetFromCells(guildGrid, [18, 10, 15, 8, 13, 19, 13, 14]);
+
+  // Salary!B5: the guilds' rates weighted by their share of the split.
+  salaryGrid[4][1] = formula(`SUMPRODUCT('Guild Totals'!$D$2:$D$${guildLast},'Guild Totals'!$H$2:$H$${guildLast})`, weightedTaxPercent, '0.00');
+  const salarySheet = sheetFromCells(salaryGrid, [6, 22, 14, 12, 11, 13, 9, 12, 8, 11, 11, 12, 12, 15, 15, 13, 13, 14]);
 
   // ---- Payouts: a record of what was actually sent, so these stay as the
   // amounts at the time (not formulas), with a summed total row ----
@@ -5049,17 +5084,26 @@ function renderSalaryComputation() {
   // so total payouts always add back up to exactly the pool, instead of
   // fees inflating the total beyond what was actually earned.
   //
-  // The diamond side first sets aside the 5% sending fee (see
+  // The diamond side first sets aside each guild's tax (see
   // SALARY_DIAMOND_SEND_FEE_PERCENT), so everything below splits
-  // diamondsToSplit rather than the full pool -- Finals + their sending
-  // fees then add back up to exactly the pool.
-  const diamondsToSplit = diamondPool / (1 + SALARY_DIAMOND_SEND_FEE_PERCENT / 100);
+  // diamondsToSplit rather than the full pool. Each person ends up with a
+  // fixed fraction of diamondsToSplit (their norm. share of what's left
+  // after management fees, plus their own fee), and their guild pays its
+  // rate on that -- so the pool covers diamondsToSplit * (1 + the
+  // fraction-weighted average tax), which solves to the line below. Finals
+  // + every guild's tax then add back up to exactly the pool.
   const totalFeePercent = Array.from(feeByIgn.values()).reduce((sum, p) => sum + p, 0);
+  const weightedTaxPercent = rows.reduce(
+    (sum, r) => sum + (r.normShare * Math.max(0, 1 - totalFeePercent / 100) + (feeByIgn.get(r.key) || 0) / 100) * guildTaxPercent(r.guildName),
+    0
+  );
+  const diamondsToSplit = diamondPool / (1 + weightedTaxPercent / 100);
   const remainingDiamondPool = Math.max(0, diamondsToSplit * (1 - totalFeePercent / 100));
   const remainingCrowPool = Math.max(0, crowPool * (1 - totalFeePercent / 100));
   rows.forEach((r) => {
     const feePercent = feeByIgn.get(r.key) || 0;
     r.feePercent = feePercent;
+    r.taxPercent = guildTaxPercent(r.guildName);
     r.diamondInitial = r.normShare * remainingDiamondPool;
     r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondsToSplit;
     r.crowInitial = r.normShare * remainingCrowPool;
@@ -5069,10 +5113,10 @@ function renderSalaryComputation() {
   sendFeeNote.innerHTML = `
     <span class="crusade-loot-chip diamonds">💎 Pool ${formatLootValue(diamondPool) || 0}</span>
     <span class="salary-tax-op">−</span>
-    <span class="crusade-loot-chip salary-tax">${SALARY_DIAMOND_SEND_FEE_PERCENT}% Tax 💎 ${formatLootValue(diamondPool - diamondsToSplit) || 0}</span>
+    <span class="crusade-loot-chip salary-tax">Tax 💎 ${formatLootValue(diamondPool - diamondsToSplit) || 0}</span>
     <span class="salary-tax-op">=</span>
     <span class="crusade-loot-chip diamonds">Split among members 💎 ${formatLootValue(diamondsToSplit) || 0}</span>
-    <span class="salary-tax-note">The ${SALARY_DIAMOND_SEND_FEE_PERCENT}% tax is paid on each guild's total when it's sent (see Total Guild Receives) — each Diamonds Final is what that person receives in full.</span>`;
+    <span class="salary-tax-note">Each guild's tax is paid on its total when it's sent, at that guild's own rate (set it in Total Guild Receives, default ${SALARY_DIAMOND_SEND_FEE_PERCENT}%) — each Diamonds Final is what that person receives in full.</span>`;
 
   rows.sort(compareSalaryRank);
   salaryComputedRows = rows;
@@ -5119,11 +5163,12 @@ function renderSalaryComputation() {
 // guild receive in total" -- with that guild's members listed right under
 // it (highest payout first), so whoever hands out a guild's transfer can
 // see exactly who gets what from it. Each member also shows their share
-// of the guild's tax (5% of their Final), which adds up to the guild's.
+// of the guild's tax (their Final x the guild's rate), which adds up to
+// the guild's. The rate is editable right on the guild's row.
 function renderSalaryGuildTotals(rows) {
   const byGuild = new Map();
   rows.forEach((r) => {
-    const key = r.guildName || 'Unassigned';
+    const key = salaryGuildKey(r.guildName);
     if (!byGuild.has(key)) byGuild.set(key, { guildName: key, diamondFinal: 0, crowFinal: 0, members: 0, people: [] });
     const g = byGuild.get(key);
     g.diamondFinal += r.diamondFinal;
@@ -5134,7 +5179,8 @@ function renderSalaryGuildTotals(rows) {
   const guildRows = Array.from(byGuild.values()).sort((a, b) => b.diamondFinal - a.diamondFinal);
   // One transfer per guild, so the tax is on the guild's total.
   guildRows.forEach((g) => {
-    g.tax = g.diamondFinal * (SALARY_DIAMOND_SEND_FEE_PERCENT / 100);
+    g.taxPercent = guildTaxPercent(g.guildName);
+    g.tax = g.diamondFinal * (g.taxPercent / 100);
   });
   const sumOf = (key) => guildRows.reduce((sum, g) => sum + g[key], 0);
 
@@ -5152,8 +5198,8 @@ function renderSalaryGuildTotals(rows) {
       <td>${escapeHtml(r.ign)}</td>
       <td>${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
       <td>${formatLootValue(r.diamondFinal)}</td>
-      <td class="salary-tax-cell">${formatLootValue(r.diamondFinal * (SALARY_DIAMOND_SEND_FEE_PERCENT / 100))}</td>
-      <td>${formatLootValue(r.diamondFinal * (1 + SALARY_DIAMOND_SEND_FEE_PERCENT / 100))}</td>
+      <td class="salary-tax-cell">${formatLootValue(r.diamondFinal * (g.taxPercent / 100))}</td>
+      <td>${formatLootValue(r.diamondFinal * (1 + g.taxPercent / 100))}</td>
       <td>${formatLootValue(r.crowFinal)}</td>
     </tr>`
         )
@@ -5163,7 +5209,10 @@ function renderSalaryGuildTotals(rows) {
       <td style="${color ? `color:${color}; font-weight:600;` : 'font-weight:600;'}">${label}</td>
       <td>${g.members.toLocaleString()}</td>
       <td><strong>${formatLootValue(g.diamondFinal)}</strong></td>
-      <td class="salary-tax-cell">${formatLootValue(g.tax)}</td>
+      <td class="salary-tax-cell">
+        <span class="salary-guild-tax-rate"><input type="number" min="0" max="100" step="0.01" class="salary-guild-tax-input admin-disable" data-guild-tax="${escapeHtml(g.guildName)}" value="${g.taxPercent}" aria-label="Tax % for ${escapeHtml(g.guildName)}">%</span>
+        ${formatLootValue(g.tax)}
+      </td>
       <td>${formatLootValue(g.diamondFinal + g.tax)}</td>
       <td><strong>${formatLootValue(g.crowFinal)}</strong></td>
     </tr>${memberRows}`;
@@ -5181,6 +5230,29 @@ function renderSalaryGuildTotals(rows) {
     </tr>`
       : '');
 }
+
+// Saving a guild's tax rate recomputes the whole salary -- a different
+// rate changes how much of the pool is left to split for everyone.
+document.getElementById('salaryGuildTotalsBody').addEventListener('change', async (e) => {
+  const input = e.target.closest('[data-guild-tax]');
+  if (!input) return;
+  const guildName = input.getAttribute('data-guild-tax');
+  const percent = Number(input.value);
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+    toast('Tax must be between 0 and 100%');
+    input.value = guildTaxPercent(guildName === 'Unassigned' ? null : guildName);
+    return;
+  }
+  try {
+    await api('/api/salary-guild-taxes', { method: 'PUT', body: JSON.stringify({ guildName, percent }) });
+    if (!sovereignState.salaryGuildTaxes) sovereignState.salaryGuildTaxes = new Map();
+    sovereignState.salaryGuildTaxes.set(guildName, percent);
+    renderSalaryComputation();
+    toast(`Tax for ${guildName} set to ${percent}%`);
+  } catch (err) {
+    toast(err.message);
+  }
+});
 
 // ---------- Raffle (standalone, independent of any crusade) ----------
 // Draws from the same master Member List as above. Anyone already in the

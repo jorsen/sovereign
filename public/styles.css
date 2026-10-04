@@ -2452,3 +2452,6 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .salary-guild-row td { border-top: 2px solid var(--border); background: var(--surface-1); }
 .salary-guild-member-row td { color: var(--text-muted); font-size: 13px; }
 .salary-guild-member-row td:first-child { padding-left: 28px; }
+/* Per-guild tax rate input in Total Guild Receives */
+.salary-guild-tax-rate { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; color: var(--text-muted); }
+.salary-guild-tax-input { width: 56px; padding: 2px 4px; text-align: right; font: inherit; }
