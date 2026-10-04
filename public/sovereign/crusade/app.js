@@ -4542,6 +4542,109 @@ document.getElementById('salaryRecordPayoutBtn').addEventListener('click', async
   }
 });
 
+// SheetJS is only needed when someone actually exports, so it's loaded on
+// first click instead of on every page load.
+let sheetJsPromise = null;
+function loadSheetJs() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (!sheetJsPromise) {
+    sheetJsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.onload = () => resolve(window.XLSX);
+      script.onerror = () => {
+        sheetJsPromise = null;
+        reject(new Error('Could not load the Excel exporter -- check your connection and try again'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return sheetJsPromise;
+}
+
+// Values rounded to 2 decimals but kept as real numbers (not formatted
+// strings) so they can be summed/sorted in Excel.
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+// One workbook per schedule+month: the computation exactly as shown, the
+// per-guild totals, and every payout already recorded (one row per person
+// per payout) so a month paid in rounds has its full history in one file.
+document.getElementById('salaryExportExcelBtn').addEventListener('click', async () => {
+  const rows = salaryComputedRows;
+  if (!rows.length) {
+    toast('Nothing to export for this month');
+    return;
+  }
+  let XLSX;
+  try {
+    XLSX = await loadSheetJs();
+  } catch (err) {
+    toast(err.message);
+    return;
+  }
+  const scheduleLabel = salaryActiveSchedule === 'balthazard' ? 'Balthazard' : 'World Boss';
+  const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
+  const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
+
+  const salarySheet = XLSX.utils.aoa_to_sheet([
+    [`${scheduleLabel} Salary — ${salarySelectedMonth}`],
+    ['Diamonds Pool', round2(diamondPool), 'Crows Pool', round2(crowPool)],
+    [],
+    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'Multiplier', 'Base Share %', 'Base + Mult.', 'Norm. Share %', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final'],
+    ...rows.map((r, i) => [
+      i + 1,
+      r.ign,
+      r.guildName || '',
+      r.growthRate,
+      r.attendance,
+      round2(r.multiplier),
+      round2(r.baseShare * 100),
+      Math.round(r.baseMult * 10000) / 10000,
+      round2(r.normShare * 100),
+      round2(r.diamondInitial),
+      round2(r.diamondFinal),
+      round2(r.crowInitial),
+      round2(r.crowFinal),
+    ]),
+    ['', 'Total', '', '', '', '', '', '', '', '', round2(rows.reduce((s, r) => s + r.diamondFinal, 0)), '', round2(rows.reduce((s, r) => s + r.crowFinal, 0))],
+  ]);
+  salarySheet['!cols'] = [6, 22, 14, 12, 11, 10, 12, 12, 13, 15, 15, 13, 13].map((wch) => ({ wch }));
+
+  const byGuild = new Map();
+  rows.forEach((r) => {
+    const key = r.guildName || 'Unassigned';
+    if (!byGuild.has(key)) byGuild.set(key, { members: 0, diamonds: 0, crows: 0 });
+    const g = byGuild.get(key);
+    g.members += 1;
+    g.diamonds += r.diamondFinal;
+    g.crows += r.crowFinal;
+  });
+  const guildSheet = XLSX.utils.aoa_to_sheet([
+    ['Guild', 'Members', 'Diamonds Final', 'Crows Final'],
+    ...Array.from(byGuild.entries())
+      .sort((a, b) => b[1].diamonds - a[1].diamonds)
+      .map(([name, g]) => [name, g.members, round2(g.diamonds), round2(g.crows)]),
+  ]);
+  guildSheet['!cols'] = [18, 10, 15, 13].map((wch) => ({ wch }));
+
+  const payouts = salaryPayoutsForCurrentMonth();
+  const payoutSheet = XLSX.utils.aoa_to_sheet([
+    ['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows'],
+    ...payouts.flatMap((p, i) =>
+      p.rows.map((r) => [i + 1, formatWorldBossEventDateTime(p.createdAt), p.createdBy || '', r.ign, r.guildName || '', r.attendance || 0, round2(r.diamonds), round2(r.crows)])
+    ),
+  ]);
+  payoutSheet['!cols'] = [9, 26, 14, 22, 14, 11, 12, 12].map((wch) => ({ wch }));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, salarySheet, 'Salary');
+  XLSX.utils.book_append_sheet(workbook, guildSheet, 'Guild Totals');
+  XLSX.utils.book_append_sheet(workbook, payoutSheet, 'Payouts');
+  XLSX.writeFile(workbook, `Salary - ${scheduleLabel} - ${salarySelectedMonth}.xlsx`);
+});
+
 document.getElementById('salaryPayoutHistory').addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-delete-salary-payout]');
   if (!btn) return;
