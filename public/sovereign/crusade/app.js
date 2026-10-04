@@ -4637,7 +4637,8 @@ function renderSalaryPayoutHistory() {
           ${payoutTax(p) > 0.01 ? `<span class="salary-tax-cell">Tax 💎 ${formatLootValue(payoutTax(p))}</span>` : ''}
           <span>🪙 ${formatLootValue(p.crowPool)}</span>
           <span style="color:var(--text-muted);">${p.rows.length} people${p.createdBy ? ` · by ${escapeHtml(p.createdBy)}` : ''}</span>
-          <button type="button" class="btn small salary-payout-export" data-export-salary-payout="${p.id}">${t('sovereign.salary.exportExcel')}</button>
+          <button type="button" class="btn small salary-payout-export" data-export-salary-payout="${p.id}" data-export-lang="en">📊 Excel (English)</button>
+          <button type="button" class="btn small" data-export-salary-payout="${p.id}" data-export-lang="zh">📊 Excel (中文)</button>
           <button type="button" class="icon-btn admin-only" data-delete-salary-payout="${p.id}" title="Delete this payout">✕</button>
         </summary>
         <h3 class="salary-payout-subheading">${t('sovereign.salary.computationHeading')}</h3>
@@ -5247,7 +5248,9 @@ function buildPayoutAmountsWorkbook(XLSX, p, title, lang) {
   return workbook;
 }
 
-async function exportSalaryPayout(payoutId) {
+// lang is the button clicked (English / 中文); falls back to the picker
+// next to the main Export button.
+async function exportSalaryPayout(payoutId, langOverride) {
   const payouts = salaryPayoutsForCurrentMonth();
   const index = payouts.findIndex((x) => x.id === payoutId);
   const p = payouts[index];
@@ -5259,7 +5262,7 @@ async function exportSalaryPayout(payoutId) {
     toast(err.message);
     return;
   }
-  const lang = salaryExportLang();
+  const lang = langOverride || salaryExportLang();
   const L = salaryExcelText(lang);
   const scheduleLabel = p.schedule === 'balthazard' ? L.balthazard : L.worldBoss;
   const sentOn = String(p.createdAt).slice(0, 10);
@@ -5290,7 +5293,7 @@ document.getElementById('salaryPayoutHistory').addEventListener('click', async (
   const exportBtn = e.target.closest('[data-export-salary-payout]');
   if (exportBtn) {
     e.preventDefault(); // inside <summary> -- don't also toggle the details open/closed
-    await exportSalaryPayout(exportBtn.getAttribute('data-export-salary-payout'));
+    await exportSalaryPayout(exportBtn.getAttribute('data-export-salary-payout'), exportBtn.getAttribute('data-export-lang'));
     return;
   }
   const btn = e.target.closest('[data-delete-salary-payout]');
