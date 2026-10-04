@@ -2437,7 +2437,7 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .salary-payout-history { display: flex; flex-direction: column; gap: 8px; }
 .salary-payout-entry { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
 .salary-payout-entry summary { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; cursor: pointer; }
-.salary-payout-entry summary .icon-btn { margin-left: auto; }
+.salary-payout-entry summary .salary-payout-export { margin-left: auto; }
 .salary-payout-entry[open] summary { margin-bottom: 8px; }
 
 /* 5% diamond tax on salary payouts -- see SALARY_DIAMOND_SEND_FEE_PERCENT */

@@ -4615,6 +4615,7 @@ function renderSalaryPayoutHistory() {
           ${payoutTax(p) > 0.01 ? `<span class="salary-tax-cell">Tax 💎 ${formatLootValue(payoutTax(p))}</span>` : ''}
           <span>🪙 ${formatLootValue(p.crowPool)}</span>
           <span style="color:var(--text-muted);">${p.rows.length} people${p.createdBy ? ` · by ${escapeHtml(p.createdBy)}` : ''}</span>
+          <button type="button" class="btn small salary-payout-export" data-export-salary-payout="${p.id}">${t('sovereign.salary.exportExcel')}</button>
           <button type="button" class="icon-btn admin-only" data-delete-salary-payout="${p.id}" title="Delete this payout">✕</button>
         </summary>
         <h3 class="salary-payout-subheading">${t('sovereign.salary.computationHeading')}</h3>
@@ -4723,11 +4724,16 @@ function loadSheetJs() {
 // the formulas look up, so those are editable too. Each formula cell also
 // carries the value this page computed, so it reads correctly even before
 // Excel recalculates.
-function buildSalaryWorkbook(XLSX) {
-  const rows = salaryComputedRows;
-  const scheduleLabel = salaryActiveSchedule === 'balthazard' ? 'Balthazard' : 'World Boss';
-  const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
-  const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
+//
+// Defaults to the live computation; a recorded payout passes its own rows,
+// pools, title and file name (see exportSalaryPayout).
+function buildSalaryWorkbook(XLSX, opts = {}) {
+  const rows = opts.rows || salaryComputedRows;
+  const schedule = opts.schedule || salaryActiveSchedule;
+  const month = opts.month || salarySelectedMonth;
+  const scheduleLabel = schedule === 'balthazard' ? 'Balthazard' : 'World Boss';
+  const diamondPool = opts.diamondPool ?? parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
+  const crowPool = opts.crowPool ?? parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
   const totalFeePercent = rows.reduce((sum, r) => sum + (r.feePercent || 0), 0);
   // Each person's fraction of Diamonds to Split (Salary column R) and the
   // fraction-weighted average guild tax -- same math as
@@ -4804,7 +4810,7 @@ function buildSalaryWorkbook(XLSX) {
   });
 
   const salaryGrid = [
-    [text(`${scheduleLabel} Salary — ${salarySelectedMonth}`)],
+    [text(opts.title || `${scheduleLabel} Salary — ${month}`)],
     [text('Schedule'), text(scheduleLabel)],
     [text('Diamonds Pool'), num(diamondPool, FMT_MONEY), text('Crows Pool'), num(crowPool, FMT_MONEY)],
     [text('Total Fee %'), formula(`SUM(${col('I')})`, totalFeePercent, '0.00')],
@@ -4894,12 +4900,13 @@ function buildSalaryWorkbook(XLSX) {
 
   // ---- Payouts: a record of what was actually sent, so these stay as the
   // amounts at the time (not formulas), with a summed total row ----
-  const payouts = salaryPayoutsForCurrentMonth();
+  const payouts = opts.payouts || salaryPayoutsForCurrentMonth();
+  const firstPayoutNumber = opts.firstPayoutNumber || 1;
   const payoutGrid = [['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows'].map(text)];
   payouts.forEach((p, i) => {
     groupPayoutRowsByGuild(p.rows).flatMap((g) => g.rows).forEach((r) => {
       payoutGrid.push([
-        num(i + 1),
+        num(firstPayoutNumber + i),
         text(formatWorldBossEventDateTime(p.createdAt)),
         text(p.createdBy || ''),
         text(r.ign),
@@ -4967,7 +4974,7 @@ function buildSalaryWorkbook(XLSX) {
   XLSX.utils.book_append_sheet(workbook, guildSheet, 'Guild Totals');
   XLSX.utils.book_append_sheet(workbook, payoutSheet, 'Payouts');
   XLSX.utils.book_append_sheet(workbook, rulesSheet, 'Rules');
-  return { workbook, fileName: `Salary - ${scheduleLabel} - ${salarySelectedMonth}.xlsx` };
+  return { workbook, fileName: opts.fileName || `Salary - ${scheduleLabel} - ${month}.xlsx` };
 }
 
 document.getElementById('salaryExportExcelBtn').addEventListener('click', async () => {
@@ -4986,7 +4993,126 @@ document.getElementById('salaryExportExcelBtn').addEventListener('click', async 
   XLSX.writeFile(workbook, fileName);
 });
 
+// A recorded payout's full computation rows, ready for buildSalaryWorkbook.
+// Payouts saved since the full row was kept map straight across. Older ones
+// only kept name/guild/attendance/amounts, so the rest is re-derived from
+// today's Growth Rate and management fees with the payout's own pools and
+// tax -- and only trusted if that reproduces every amount that was actually
+// paid (to the cent). Returns null when it doesn't, e.g. someone's Growth
+// Rate changed since.
+function payoutComputationRows(p) {
+  const taxed = payoutTax(p) > 0.01;
+  const taxOf = (r) => (taxed ? r.taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT : 0);
+  if (p.rows.every((r) => r.growthRate !== undefined && r.normShare !== undefined)) {
+    return p.rows.map((r) => ({
+      ...r,
+      taxPercent: taxOf(r),
+      feePercent: r.feePercent || 0,
+      diamondFinal: Number(r.diamonds) || 0,
+      crowFinal: Number(r.crows) || 0,
+    }));
+  }
+  const growthByKey = new Map();
+  (sovereignState.growthSubmissions || []).forEach((sub) => {
+    const key = memberNameKey(sub.ign);
+    const rate = Number(sub.growthRate) || 0;
+    if (key && (!growthByKey.has(key) || rate > growthByKey.get(key))) growthByKey.set(key, rate);
+  });
+  const feeByKey = new Map((sovereignState.salaryManagementFees || []).map((f) => [memberNameKey(f.ign), f.percent]));
+  const rows = p.rows.map((r) => {
+    const key = memberNameKey(r.ign);
+    return {
+      key,
+      ign: r.ign,
+      guildName: r.guildName,
+      attendance: Number(r.attendance) || 0,
+      growthRate: growthByKey.get(key) || 0,
+      feePercent: feeByKey.get(key) || 0,
+      taxPercent: taxOf(r),
+      paidDiamonds: Number(r.diamonds) || 0,
+      paidCrows: Number(r.crows) || 0,
+    };
+  });
+  computeSalaryShares(rows, { schedule: p.schedule, diamondPool: p.diamondPool, crowPool: p.crowPool });
+  const matches = rows.every((r) => Math.abs(r.diamondFinal - r.paidDiamonds) < 0.01 && Math.abs(r.crowFinal - r.paidCrows) < 0.01);
+  return matches ? rows.sort(compareSalaryRank) : null;
+}
+
+// Plain amounts-as-paid workbook, for an older payout whose full
+// computation can't be re-derived exactly anymore -- better a correct
+// record of what was sent than formulas that come out to different numbers.
+function buildPayoutAmountsWorkbook(XLSX, p, title) {
+  const FMT_MONEY = '#,##0.00';
+  const taxed = payoutTax(p) > 0.01;
+  const grid = [[title], ['Diamonds Pool', p.diamondPool, 'Crows Pool', p.crowPool], [], ['Guild', 'IGN', 'Attendance', 'Diamonds', 'Crows']];
+  const guildGrid = [['Guild', 'Members', 'Diamonds', 'Tax %', 'Diamond Tax', 'Diamonds Total Cost', 'Crows']];
+  groupPayoutRowsByGuild(p.rows).forEach((g) => {
+    g.rows.forEach((r) => grid.push([g.guildName, r.ign, Number(r.attendance) || 0, Number(r.diamonds) || 0, Number(r.crows) || 0]));
+    const pct = taxed ? g.rows[0].taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT : 0;
+    guildGrid.push([g.guildName, g.rows.length, g.diamonds, pct, (g.diamonds * pct) / 100, g.diamonds * (1 + pct / 100), g.crows]);
+  });
+  const peopleLast = grid.length;
+  grid.push(['Total', '', '', { t: 'n', f: `SUM(D5:D${peopleLast})` }, { t: 'n', f: `SUM(E5:E${peopleLast})` }]);
+  const guildLast = guildGrid.length;
+  guildGrid.push(['Total', { t: 'n', f: `SUM(B2:B${guildLast})` }, { t: 'n', f: `SUM(C2:C${guildLast})` }, '', { t: 'n', f: `SUM(E2:E${guildLast})` }, { t: 'n', f: `SUM(F2:F${guildLast})` }, { t: 'n', f: `SUM(G2:G${guildLast})` }]);
+  const sheet = XLSX.utils.aoa_to_sheet(grid);
+  const guildSheet = XLSX.utils.aoa_to_sheet(guildGrid);
+  [sheet, guildSheet].forEach((ws) => {
+    Object.keys(ws).forEach((addr) => {
+      if (addr[0] !== '!' && ws[addr].t === 'n') ws[addr].z = FMT_MONEY;
+    });
+  });
+  sheet['!cols'] = [16, 22, 11, 14, 12].map((wch) => ({ wch }));
+  guildSheet['!cols'] = [16, 10, 14, 8, 13, 19, 12].map((wch) => ({ wch }));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Payout');
+  XLSX.utils.book_append_sheet(workbook, guildSheet, 'Guild Totals');
+  return workbook;
+}
+
+async function exportSalaryPayout(payoutId) {
+  const payouts = salaryPayoutsForCurrentMonth();
+  const index = payouts.findIndex((x) => x.id === payoutId);
+  const p = payouts[index];
+  if (!p) return;
+  let XLSX;
+  try {
+    XLSX = await loadSheetJs();
+  } catch (err) {
+    toast(err.message);
+    return;
+  }
+  const scheduleLabel = p.schedule === 'balthazard' ? 'Balthazard' : 'World Boss';
+  const sentOn = String(p.createdAt).slice(0, 10);
+  const title = `${scheduleLabel} Salary — ${p.month} — Payout #${index + 1} (sent ${sentOn})`;
+  const fileName = `Salary - ${scheduleLabel} - ${p.month} - Payout ${index + 1}.xlsx`;
+  const rows = payoutComputationRows(p);
+  if (rows) {
+    const { workbook } = buildSalaryWorkbook(XLSX, {
+      rows,
+      schedule: p.schedule,
+      month: p.month,
+      diamondPool: p.diamondPool,
+      crowPool: p.crowPool,
+      payouts: [p],
+      firstPayoutNumber: index + 1,
+      title,
+      fileName,
+    });
+    XLSX.writeFile(workbook, fileName);
+  } else {
+    XLSX.writeFile(buildPayoutAmountsWorkbook(XLSX, p, title), fileName);
+    toast("This older payout's Growth Rates/fees have changed since, so it's exported as the amounts paid, without formulas");
+  }
+}
+
 document.getElementById('salaryPayoutHistory').addEventListener('click', async (e) => {
+  const exportBtn = e.target.closest('[data-export-salary-payout]');
+  if (exportBtn) {
+    e.preventDefault(); // inside <summary> -- don't also toggle the details open/closed
+    await exportSalaryPayout(exportBtn.getAttribute('data-export-salary-payout'));
+    return;
+  }
   const btn = e.target.closest('[data-delete-salary-payout]');
   if (!btn) return;
   e.preventDefault(); // inside <summary> -- don't also toggle the details open/closed
@@ -5103,6 +5229,67 @@ document.getElementById('salaryFeeAddBtn').addEventListener('click', async () =>
 // Largest-remainder proportional split already exists (distributeProportionally,
 // see the World Boss loot code above) but this needs plain fractional shares,
 // not a rounded-to-cents split of one fixed total -- kept separate on purpose.
+// The salary math itself, on rows that already carry ign, guildName,
+// growthRate, attendance, feePercent (management fee %) and taxPercent
+// (their guild's diamond tax %). Fills in multiplier, baseShare, baseMult,
+// normShare and the Initial/Final diamonds and crows on each row. Shared by
+// the live table and by re-deriving an older payout's full computation.
+//
+// Management fees come off the top of the pool first, then everyone (fee
+// recipients included) splits whatever's left by Norm. Share -- so total
+// payouts always add back up to exactly the pool, instead of fees inflating
+// the total beyond what was actually earned.
+//
+// The diamond side first sets aside each guild's tax (see
+// SALARY_DIAMOND_SEND_FEE_PERCENT), so everything splits diamondsToSplit
+// rather than the full pool. Each person ends up with a fixed fraction of
+// diamondsToSplit (their norm. share of what's left after management fees,
+// plus their own fee), and their guild pays its rate on that -- so the pool
+// covers diamondsToSplit * (1 + the fraction-weighted average tax), which
+// solves to diamondsToSplit below. Finals + every guild's tax then add back
+// up to exactly the pool.
+function computeSalaryShares(rows, { schedule, diamondPool, crowPool }) {
+  rows.forEach((r) => {
+    r.multiplier = r.attendance ? multiplierForGrowthRate(r.growthRate) : 0;
+  });
+  if (schedule === 'balthazard') {
+    [...rows]
+      .filter((r) => r.attendance > 0)
+      .sort(compareSalaryRank)
+      .slice(0, BALTHAZARD_TOP10_RANK_BONUS.length)
+      .forEach((r, i) => {
+        r.multiplier += BALTHAZARD_TOP10_RANK_BONUS[i];
+      });
+  }
+
+  const totalAttendance = rows.reduce((sum, r) => sum + r.attendance, 0);
+  rows.forEach((r) => {
+    r.baseShare = totalAttendance ? r.attendance / totalAttendance : 0;
+    r.baseMult = r.baseShare * r.multiplier;
+  });
+  const totalBaseMult = rows.reduce((sum, r) => sum + r.baseMult, 0);
+  rows.forEach((r) => {
+    r.normShare = totalBaseMult ? r.baseMult / totalBaseMult : 0;
+  });
+
+  const totalFeePercent = rows.reduce((sum, r) => sum + (r.feePercent || 0), 0);
+  const weightedTaxPercent = rows.reduce(
+    (sum, r) => sum + (r.normShare * Math.max(0, 1 - totalFeePercent / 100) + (r.feePercent || 0) / 100) * r.taxPercent,
+    0
+  );
+  const diamondsToSplit = diamondPool / (1 + weightedTaxPercent / 100);
+  const remainingDiamondPool = Math.max(0, diamondsToSplit * (1 - totalFeePercent / 100));
+  const remainingCrowPool = Math.max(0, crowPool * (1 - totalFeePercent / 100));
+  rows.forEach((r) => {
+    const feePercent = r.feePercent || 0;
+    r.diamondInitial = r.normShare * remainingDiamondPool;
+    r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondsToSplit;
+    r.crowInitial = r.normShare * remainingCrowPool;
+    r.crowFinal = r.crowInitial + (feePercent / 100) * crowPool;
+  });
+  return { diamondsToSplit };
+}
+
 function renderSalaryComputation() {
   const [year, month] = salarySelectedMonth.split('-').map(Number);
 
@@ -5147,68 +5334,23 @@ function renderSalaryComputation() {
   // the row set is attendees UNION fee recipients, not just attendees.
   const allKeys = new Set([...attendanceByIgn.keys(), ...feeByIgn.keys()]);
   const rows = Array.from(allKeys).map((key) => {
-    const attendance = attendanceByIgn.get(key)?.count || 0;
     const g = growthByIgn.get(key);
-    const growthRate = g ? g.growthRate : 0;
-    const multiplier = attendance ? multiplierForGrowthRate(growthRate) : 0;
-    const ign = g ? g.name : attendanceByIgn.get(key)?.sampleName || key;
-    return { key, ign, guildName: g ? g.guildName : null, growthRate, attendance, multiplier };
-  });
-
-  if (salaryActiveSchedule === 'balthazard') {
-    [...rows]
-      .filter((r) => r.attendance > 0)
-      .sort(compareSalaryRank)
-      .slice(0, BALTHAZARD_TOP10_RANK_BONUS.length)
-      .forEach((r, i) => {
-        r.multiplier += BALTHAZARD_TOP10_RANK_BONUS[i];
-      });
-  }
-
-  const totalAttendance = rows.reduce((sum, r) => sum + r.attendance, 0);
-  rows.forEach((r) => {
-    r.baseShare = totalAttendance ? r.attendance / totalAttendance : 0;
+    return {
+      key,
+      ign: g ? g.name : attendanceByIgn.get(key)?.sampleName || key,
+      guildName: g ? g.guildName : null,
+      growthRate: g ? g.growthRate : 0,
+      attendance: attendanceByIgn.get(key)?.count || 0,
+      feePercent: feeByIgn.get(key) || 0,
+    };
   });
   rows.forEach((r) => {
-    r.baseMult = r.baseShare * r.multiplier;
-  });
-  const totalBaseMult = rows.reduce((sum, r) => sum + r.baseMult, 0);
-  rows.forEach((r) => {
-    r.normShare = totalBaseMult ? r.baseMult / totalBaseMult : 0;
+    r.taxPercent = guildTaxPercent(r.guildName);
   });
 
   const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
   const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
-  // Management fees come off the top of the pool first, then everyone
-  // (fee recipients included) splits whatever's left by Norm. Share --
-  // so total payouts always add back up to exactly the pool, instead of
-  // fees inflating the total beyond what was actually earned.
-  //
-  // The diamond side first sets aside each guild's tax (see
-  // SALARY_DIAMOND_SEND_FEE_PERCENT), so everything below splits
-  // diamondsToSplit rather than the full pool. Each person ends up with a
-  // fixed fraction of diamondsToSplit (their norm. share of what's left
-  // after management fees, plus their own fee), and their guild pays its
-  // rate on that -- so the pool covers diamondsToSplit * (1 + the
-  // fraction-weighted average tax), which solves to the line below. Finals
-  // + every guild's tax then add back up to exactly the pool.
-  const totalFeePercent = Array.from(feeByIgn.values()).reduce((sum, p) => sum + p, 0);
-  const weightedTaxPercent = rows.reduce(
-    (sum, r) => sum + (r.normShare * Math.max(0, 1 - totalFeePercent / 100) + (feeByIgn.get(r.key) || 0) / 100) * guildTaxPercent(r.guildName),
-    0
-  );
-  const diamondsToSplit = diamondPool / (1 + weightedTaxPercent / 100);
-  const remainingDiamondPool = Math.max(0, diamondsToSplit * (1 - totalFeePercent / 100));
-  const remainingCrowPool = Math.max(0, crowPool * (1 - totalFeePercent / 100));
-  rows.forEach((r) => {
-    const feePercent = feeByIgn.get(r.key) || 0;
-    r.feePercent = feePercent;
-    r.taxPercent = guildTaxPercent(r.guildName);
-    r.diamondInitial = r.normShare * remainingDiamondPool;
-    r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondsToSplit;
-    r.crowInitial = r.normShare * remainingCrowPool;
-    r.crowFinal = r.crowInitial + (feePercent / 100) * crowPool;
-  });
+  const { diamondsToSplit } = computeSalaryShares(rows, { schedule: salaryActiveSchedule, diamondPool, crowPool });
   const sendFeeNote = document.getElementById('salarySendFeeNote');
   sendFeeNote.innerHTML = `
     <span class="crusade-loot-chip diamonds">💎 Pool ${formatLootValue(diamondPool) || 0}</span>
