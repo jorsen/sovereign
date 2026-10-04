@@ -4752,8 +4752,44 @@ function buildSalaryWorkbook(XLSX) {
   }
   const payoutSheet = sheetFromCells(payoutGrid, [9, 26, 14, 22, 14, 11, 12, 12]);
 
+  // ---- Management Fees: who gets a cut and how much of each pool that is.
+  // Fee % and Final amounts are looked up from the Salary sheet by IGN, so
+  // changing a fee there flows through here too.
+  const feeRows = rows.filter((r) => (r.feePercent || 0) > 0);
+  const salaryLookup = (letter, n) => `INDEX(Salary!${col(letter)},MATCH(A${n},Salary!${col('B')},0))`;
+  const feeGrid = [['IGN', 'Guild', 'Fee %', 'Diamonds from Fee', 'Crows from Fee', 'Diamonds Final', 'Crows Final'].map(text)];
+  feeRows.forEach((r, i) => {
+    const n = i + 2;
+    feeGrid.push([
+      text(r.ign),
+      text(r.guildName || 'Unassigned'),
+      formula(salaryLookup('I', n), r.feePercent, '0.00'),
+      formula(`C${n}/100*Salary!$B$3`, (r.feePercent / 100) * diamondPool, FMT_MONEY),
+      formula(`C${n}/100*Salary!$D$3`, (r.feePercent / 100) * crowPool, FMT_MONEY),
+      formula(salaryLookup('O', n), r.diamondFinal, FMT_MONEY),
+      formula(salaryLookup('Q', n), r.crowFinal, FMT_MONEY),
+    ]);
+  });
+  if (feeRows.length) {
+    const feeLast = feeRows.length + 1;
+    const feeSum = (key) => feeRows.reduce((sum, r) => sum + r[key], 0);
+    feeGrid.push([
+      text('Total'),
+      null,
+      formula(`SUM(C2:C${feeLast})`, totalFeePercent, '0.00'),
+      formula(`SUM(D2:D${feeLast})`, (totalFeePercent / 100) * diamondPool, FMT_MONEY),
+      formula(`SUM(E2:E${feeLast})`, (totalFeePercent / 100) * crowPool, FMT_MONEY),
+      formula(`SUM(F2:F${feeLast})`, feeSum('diamondFinal'), FMT_MONEY),
+      formula(`SUM(G2:G${feeLast})`, feeSum('crowFinal'), FMT_MONEY),
+    ]);
+  } else {
+    feeGrid.push([text('No management fees this month')]);
+  }
+  const feeSheet = sheetFromCells(feeGrid, [22, 14, 8, 17, 15, 15, 13]);
+
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, salarySheet, 'Salary');
+  XLSX.utils.book_append_sheet(workbook, feeSheet, 'Management Fees');
   XLSX.utils.book_append_sheet(workbook, guildSheet, 'Guild Totals');
   XLSX.utils.book_append_sheet(workbook, payoutSheet, 'Payouts');
   XLSX.utils.book_append_sheet(workbook, rulesSheet, 'Rules');
