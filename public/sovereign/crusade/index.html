@@ -607,7 +607,8 @@
             <input type="text" inputmode="decimal" id="salaryCrowPoolInput" placeholder="0">
           </label>
         </div>
-        <p style="color:var(--text-muted); font-size:12px; margin:6px 0 0;" data-i18n="sovereign.salary.useSoldTotalsHint">Filled automatically from this month's loot totals for the selected schedule (same total shown on that schedule's This Month's Loot page) -- overwrite either field manually if needed.</p>
+        <p style="color:var(--text-muted); font-size:12px; margin:6px 0 0;" data-i18n="sovereign.salary.useSoldTotalsHint">Filled automatically from this month's loot totals for the selected schedule (same total shown on that schedule's This Month's Loot page), minus any payouts already recorded below -- overwrite either field manually if needed.</p>
+        <p id="salaryPaidSummary" class="hidden" style="font-size:13px; margin:8px 0 0;"></p>
       </section>
 
       <section class="panel admin-only">
@@ -650,6 +651,16 @@
           </table>
         </div>
         <p id="salaryComputationEmptyState" class="empty-state hidden" data-i18n="sovereign.salary.empty">No World Boss attendance logged for this month yet.</p>
+        <div class="admin-only" style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <button type="button" id="salaryRecordPayoutBtn" class="btn small" data-i18n="sovereign.salary.recordPayout">💸 Record payout</button>
+          <span style="color:var(--text-muted); font-size:12px;" data-i18n="sovereign.salary.recordPayoutHint">Saves what's being sent now. Loot sold later gets its own new computation.</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 data-i18n="sovereign.salary.payoutHistoryHeading">Payouts Sent This Month</h2>
+        <div id="salaryPayoutHistory" class="salary-payout-history"></div>
+        <p id="salaryPayoutHistoryEmptyState" class="empty-state hidden" data-i18n="sovereign.salary.payoutHistoryEmpty">No payouts recorded for this month yet.</p>
       </section>
 
       <section class="panel">

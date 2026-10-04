@@ -4375,14 +4375,19 @@ let salarySelectedMonth = null; // 'YYYY-MM'
 // computation -- switching this re-fills the pool fields from that
 // schedule's own sold totals instead of mixing the two together.
 let salaryActiveSchedule = 'world_boss';
+// The rows last rendered in the Salary Computation table -- what "Record
+// payout" snapshots, so the saved amounts match exactly what was on screen.
+let salaryComputedRows = [];
 
 async function loadSalaryComputation() {
-  const [growthSubmissions, events, fees, saleBatches] = await Promise.all([
+  const [growthSubmissions, events, fees, saleBatches, payouts] = await Promise.all([
     api('/api/growth-submissions'),
     api('/api/world-boss-attendance'),
     api('/api/world-boss-management-fees'),
     api('/api/loot-sale-batches'),
+    api('/api/salary-payouts'),
   ]);
+  sovereignState.salaryPayouts = payouts;
   sovereignState.growthSubmissions = growthSubmissions;
   sovereignState.worldBossEvents = events;
   sovereignState.salaryManagementFees = fees;
@@ -4430,12 +4435,128 @@ function parsePoolInputValue(value) {
 // the month changes -- no button to click. Still just a starting point:
 // typing over either field (see the 'input' listeners below) is preserved
 // until the month changes again.
+//
+// A month can be paid out in rounds: whatever was already sent (recorded
+// payouts for this schedule+month) is subtracted, so the pools only hold
+// loot sold since the last payout. Once the leftover items sell, their
+// value shows up here as a new pool to split.
 function fillSalaryPoolsFromSoldItems() {
   const totals = computeSoldTotalsForSalaryMonth();
-  document.getElementById('salaryDiamondPoolInput').value = formatPoolInputValue(totals.diamonds);
-  document.getElementById('salaryCrowPoolInput').value = formatPoolInputValue(totals.crows);
+  const paid = computePaidTotalsForSalaryMonth();
+  const roundCents = (n) => Math.max(0, Math.round(n * 100) / 100);
+  document.getElementById('salaryDiamondPoolInput').value = formatPoolInputValue(roundCents(totals.diamonds - paid.diamonds));
+  document.getElementById('salaryCrowPoolInput').value = formatPoolInputValue(roundCents(totals.crows - paid.crows));
+  const summary = document.getElementById('salaryPaidSummary');
+  summary.classList.toggle('hidden', paid.count === 0);
+  summary.innerHTML = paid.count
+    ? `Sold so far: <strong>💎 ${formatLootValue(totals.diamonds)}</strong> · <strong>🪙 ${formatLootValue(totals.crows)}</strong> — already paid in ${paid.count} payout${paid.count === 1 ? '' : 's'}: <strong>💎 ${formatLootValue(paid.diamonds)}</strong> · <strong>🪙 ${formatLootValue(paid.crows)}</strong>. The pools above are only what's left to pay.`
+    : '';
   renderSalaryComputation();
+  renderSalaryPayoutHistory();
 }
+
+function salaryPayoutsForCurrentMonth() {
+  return (sovereignState.salaryPayouts || []).filter((p) => p.schedule === salaryActiveSchedule && p.month === salarySelectedMonth);
+}
+
+function computePaidTotalsForSalaryMonth() {
+  const payouts = salaryPayoutsForCurrentMonth();
+  return {
+    count: payouts.length,
+    diamonds: payouts.reduce((sum, p) => sum + p.diamondPool, 0),
+    crows: payouts.reduce((sum, p) => sum + p.crowPool, 0),
+  };
+}
+
+// Oldest first, numbered, each expandable to who got what in that round.
+function renderSalaryPayoutHistory() {
+  const payouts = salaryPayoutsForCurrentMonth();
+  document.getElementById('salaryPayoutHistoryEmptyState').classList.toggle('hidden', payouts.length !== 0);
+  document.getElementById('salaryPayoutHistory').innerHTML = payouts
+    .map((p, i) => {
+      const people = p.rows
+        .slice()
+        .sort((a, b) => b.diamonds - a.diamonds)
+        .map(
+          (r) => `
+          <tr>
+            <td>${escapeHtml(r.ign)}</td>
+            <td>${crusadeGuildBadge(r.guildName)}</td>
+            <td>${(r.attendance || 0).toLocaleString()}</td>
+            <td>${formatLootValue(r.diamonds)}</td>
+            <td>${formatLootValue(r.crows)}</td>
+          </tr>`
+        )
+        .join('');
+      return `
+      <details class="salary-payout-entry">
+        <summary>
+          <strong>Payout #${i + 1}</strong>
+          <span>${formatWorldBossEventDateTime(p.createdAt)}</span>
+          <span>💎 ${formatLootValue(p.diamondPool)}</span>
+          <span>🪙 ${formatLootValue(p.crowPool)}</span>
+          <span style="color:var(--text-muted);">${p.rows.length} people${p.createdBy ? ` · by ${escapeHtml(p.createdBy)}` : ''}</span>
+          <button type="button" class="icon-btn admin-only" data-delete-salary-payout="${p.id}" title="Delete this payout">✕</button>
+        </summary>
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead><tr><th>${t('sovereign.common.ign')}</th><th>${t('sovereign.common.guild')}</th><th>${t('sovereign.salary.thAttendance')}</th><th>💎</th><th>🪙</th></tr></thead>
+            <tbody>${people}</tbody>
+          </table>
+        </div>
+      </details>`;
+    })
+    .join('');
+}
+
+document.getElementById('salaryRecordPayoutBtn').addEventListener('click', async () => {
+  const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
+  const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
+  if (!diamondPool && !crowPool) {
+    toast('Nothing to pay out -- both pools are 0');
+    return;
+  }
+  const rows = salaryComputedRows.filter((r) => r.diamondFinal > 0 || r.crowFinal > 0);
+  if (!rows.length) {
+    toast('Nobody to pay this month');
+    return;
+  }
+  const scheduleLabel = salaryActiveSchedule === 'balthazard' ? 'Balthazard' : 'World Boss';
+  if (!confirm(`Record this ${scheduleLabel} payout for ${salarySelectedMonth}?\n\n💎 ${formatLootValue(diamondPool)} · 🪙 ${formatLootValue(crowPool)} to ${rows.length} people.\n\nThis amount will be subtracted from the month's pool, so the next computation only splits loot sold after this.`)) return;
+  try {
+    const created = await api('/api/salary-payouts', {
+      method: 'POST',
+      body: JSON.stringify({
+        schedule: salaryActiveSchedule,
+        month: salarySelectedMonth,
+        diamondPool,
+        crowPool,
+        rows: rows.map((r) => ({ ign: r.ign, guildName: r.guildName, attendance: r.attendance, diamonds: r.diamondFinal, crows: r.crowFinal })),
+      }),
+    });
+    sovereignState.salaryPayouts = [...(sovereignState.salaryPayouts || []), created];
+    fillSalaryPoolsFromSoldItems();
+    toast('Payout recorded');
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+document.getElementById('salaryPayoutHistory').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-delete-salary-payout]');
+  if (!btn) return;
+  e.preventDefault(); // inside <summary> -- don't also toggle the details open/closed
+  if (!confirm('Delete this payout record? Its amount goes back into the pool to be paid again.')) return;
+  const id = btn.getAttribute('data-delete-salary-payout');
+  try {
+    await api(`/api/salary-payouts/${id}`, { method: 'DELETE' });
+    sovereignState.salaryPayouts = (sovereignState.salaryPayouts || []).filter((p) => p.id !== id);
+    fillSalaryPoolsFromSoldItems();
+    toast('Payout deleted');
+  } catch (err) {
+    toast(err.message);
+  }
+});
 
 document.getElementById('salaryMonthInput').addEventListener('change', (e) => {
   salarySelectedMonth = e.target.value || new Date().toISOString().slice(0, 7);
@@ -4624,6 +4745,7 @@ function renderSalaryComputation() {
   });
 
   rows.sort((a, b) => b.growthRate - a.growthRate || b.diamondFinal - a.diamondFinal || b.attendance - a.attendance);
+  salaryComputedRows = rows;
 
   document.getElementById('salaryComputationEmptyState').classList.toggle('hidden', rows.length !== 0);
   document.getElementById('salaryComputationBody').innerHTML = rows

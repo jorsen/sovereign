@@ -2432,3 +2432,10 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
   body.is-printing-monthly-loot .crusade-print-only tr,
   body.is-printing-summary .crusade-print-only tr { page-break-inside: avoid; }
 }
+
+/* Salary payout history -- one collapsible entry per recorded payout */
+.salary-payout-history { display: flex; flex-direction: column; gap: 8px; }
+.salary-payout-entry { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.salary-payout-entry summary { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; cursor: pointer; }
+.salary-payout-entry summary .icon-btn { margin-left: auto; }
+.salary-payout-entry[open] summary { margin-bottom: 8px; }
