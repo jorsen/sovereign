@@ -498,6 +498,11 @@
         </div>
         <div class="crusade-growth-filters">
           <input type="text" id="worldBossMonthlyLootSearchInput" placeholder="Search by item…" data-i18n-placeholder="sovereign.worldBoss.lootSearchPlaceholder">
+          <select id="worldBossMonthlyLootSortSelect" aria-label="Sort loot">
+            <option value="default" data-i18n="sovereign.worldBoss.lootSortDefault">Sort: Most dropped</option>
+            <option value="unsold" data-i18n="sovereign.worldBoss.lootSortUnsold">Sort: Not sold first</option>
+            <option value="sold" data-i18n="sovereign.worldBoss.lootSortSold">Sort: Sold first</option>
+          </select>
           <button type="button" id="worldBossMonthlyLootPrintBtn" class="btn small" data-i18n="sovereign.worldBoss.printPreview">🖨 Print Preview</button>
         </div>
         <div id="worldBossMonthlyLootPrintArea" class="crusade-print-only"></div>

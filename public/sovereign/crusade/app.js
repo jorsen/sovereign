@@ -3110,7 +3110,7 @@ function renderWorldBossMonthlyLoot() {
   // `rows` array (not its position in the filtered list) so the save
   // handlers below -- which look items up via rows[i] -- keep working
   // correctly against whatever's actually displayed.
-  const displayRows = rows.map((r, i) => ({ r, i })).filter(({ r }) => !search || r.itemName.toLowerCase().includes(search));
+  const displayRows = sortMonthlyLootRows(rows.map((r, i) => ({ r, i })).filter(({ r }) => !search || r.itemName.toLowerCase().includes(search)), ({ r }) => r);
 
   document.getElementById('worldBossMonthlyLootEmptyState').classList.toggle('hidden', rows.length !== 0);
   document.getElementById('worldBossMonthlyLootNoMatchState').classList.toggle('hidden', rows.length === 0 || displayRows.length !== 0);
@@ -3285,6 +3285,24 @@ function renderWorldBossMonthlyLoot() {
 }
 
 document.getElementById('worldBossMonthlyLootSearchInput').addEventListener('input', renderWorldBossMonthlyLoot);
+document.getElementById('worldBossMonthlyLootSortSelect').addEventListener('change', renderWorldBossMonthlyLoot);
+
+// 0 = nothing sold yet, 1 = partially sold, 2 = fully sold -- against every
+// kill ever logged (totalQuantityEver), same as the Sold column.
+function monthlyLootSoldRank(r) {
+  if (r.soldQuantity <= 0) return 0;
+  return r.soldQuantity >= r.totalQuantityEver ? 2 : 1;
+}
+
+// Stable sort, so rows in the same sold group keep the default
+// most-dropped-first order. getRow pulls the loot row out of whatever
+// wrapper the caller is sorting ({ r, i } for the live table).
+function sortMonthlyLootRows(items, getRow = (x) => x) {
+  const mode = document.getElementById('worldBossMonthlyLootSortSelect').value;
+  if (mode === 'unsold') return items.slice().sort((a, b) => monthlyLootSoldRank(getRow(a)) - monthlyLootSoldRank(getRow(b)));
+  if (mode === 'sold') return items.slice().sort((a, b) => monthlyLootSoldRank(getRow(b)) - monthlyLootSoldRank(getRow(a)));
+  return items;
+}
 
 // Builds a plain, static table (no inputs/buttons) from whatever's
 // currently shown -- respects the search filter -- into a print-only
@@ -3292,7 +3310,7 @@ document.getElementById('worldBossMonthlyLootSearchInput').addEventListener('inp
 // than printing the live editable table as-is.
 document.getElementById('worldBossMonthlyLootPrintBtn').addEventListener('click', () => {
   const search = document.getElementById('worldBossMonthlyLootSearchInput').value.trim().toLowerCase();
-  const rows = worldBossMonthlyLootRows.filter((r) => !search || r.itemName.toLowerCase().includes(search));
+  const rows = sortMonthlyLootRows(worldBossMonthlyLootRows.filter((r) => !search || r.itemName.toLowerCase().includes(search)));
   if (!rows.length) {
     toast('Nothing to print');
     return;
