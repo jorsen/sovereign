@@ -2446,3 +2446,5 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .salary-tax-op { color: var(--text-muted); font-weight: 600; }
 .salary-tax-note { flex-basis: 100%; color: var(--text-muted); font-size: 12px; }
 .salary-tax-cell { color: var(--bad); }
+.salary-guild-total-row td { border-top: 2px solid var(--border); }
+.salary-payout-guilds { margin-bottom: 10px; }

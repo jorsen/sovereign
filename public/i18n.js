@@ -375,6 +375,7 @@ const TRANSLATIONS = {
     'sovereign.salary.recordPayout': '💸 Record payout',
     'sovereign.salary.exportExcel': '📊 Export to Excel',
     'sovereign.salary.thDiamondSendFee': '💎 Tax (5%)',
+    'sovereign.salary.thTotalCost': '💎 Total Cost',
     'sovereign.salary.recordPayoutHint': "Saves what's being sent now. Loot sold later gets its own new computation.",
     'sovereign.salary.payoutHistoryHeading': 'Payouts Sent This Month',
     'sovereign.salary.payoutHistoryEmpty': 'No payouts recorded for this month yet.',
