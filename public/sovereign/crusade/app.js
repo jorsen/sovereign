@@ -4505,8 +4505,28 @@ function salaryPayoutsForCurrentMonth() {
 }
 
 // A payout's people grouped by guild -- biggest guild total first, members
-// by diamonds within each -- matching how Total Guild Receives is laid out,
-// since each guild's share goes out as one transfer.
+// by Growth Rate within each -- matching how Total Guild Receives is laid
+// out, since each guild's share goes out as one transfer.
+//
+// Payouts saved before the full computation row was kept have no
+// growthRate of their own, so theirs is looked up from current Growth Rate
+// submissions (same name matching as the salary table).
+function payoutRowGrowthRate(r) {
+  if (r.growthRate !== undefined && r.growthRate !== null) return Number(r.growthRate) || 0;
+  const key = memberNameKey(r.ign);
+  let best = 0;
+  (sovereignState.growthSubmissions || []).forEach((sub) => {
+    if (memberNameKey(sub.ign) === key) best = Math.max(best, Number(sub.growthRate) || 0);
+  });
+  return best;
+}
+function comparePayoutRowsByGr(a, b) {
+  return (
+    payoutRowGrowthRate(b) - payoutRowGrowthRate(a) ||
+    (Number(b.attendance) || 0) - (Number(a.attendance) || 0) ||
+    String(a.ign).localeCompare(String(b.ign))
+  );
+}
 function groupPayoutRowsByGuild(rows) {
   const byGuild = new Map();
   rows.forEach((r) => {
@@ -4518,7 +4538,7 @@ function groupPayoutRowsByGuild(rows) {
     g.crows += Number(r.crows) || 0;
   });
   const groups = Array.from(byGuild.values()).sort((a, b) => b.diamonds - a.diamonds || a.guildName.localeCompare(b.guildName));
-  groups.forEach((g) => g.rows.sort((a, b) => (Number(b.diamonds) || 0) - (Number(a.diamonds) || 0)));
+  groups.forEach((g) => g.rows.sort(comparePayoutRowsByGr));
   return groups;
 }
 
@@ -4553,7 +4573,7 @@ function renderSalaryPayoutHistory() {
       const hasRank = p.rows.every((r) => r.growthRate !== undefined);
       const computationRows = p.rows
         .slice()
-        .sort(hasRank ? compareSalaryRank : (a, b) => (Number(b.diamonds) || 0) - (Number(a.diamonds) || 0))
+        .sort(hasRank ? compareSalaryRank : comparePayoutRowsByGr)
         .map(
           (r, n) => `
           <tr>
@@ -5484,7 +5504,7 @@ function renderSalaryComputation() {
 
 // Every player's Final Salary summed per guild -- "how much does each
 // guild receive in total" -- with that guild's members listed right under
-// it (highest payout first), so whoever hands out a guild's transfer can
+// it (highest Growth Rate first), so whoever hands out a guild's transfer can
 // see exactly who gets what from it. Each member also shows their share
 // of the guild's tax (their Final x the guild's rate), which adds up to
 // the guild's. The rate is editable right on the guild's row.
@@ -5514,7 +5534,7 @@ function renderSalaryGuildTotals(rows) {
       const label = g.guildName === 'Unassigned' ? t('sovereign.common.unassigned') : escapeHtml(g.guildName);
       const memberRows = g.people
         .slice()
-        .sort((a, b) => b.diamondFinal - a.diamondFinal || b.crowFinal - a.crowFinal)
+        .sort(compareSalaryRank)
         .map(
           (r) => `
     <tr class="salary-guild-member-row">
