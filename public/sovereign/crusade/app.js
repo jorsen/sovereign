@@ -4498,6 +4498,7 @@ function renderSalaryPayoutHistory() {
             <td>${crusadeGuildBadge(r.guildName)}</td>
             <td>${(r.attendance || 0).toLocaleString()}</td>
             <td>${formatLootValue(r.diamonds)}</td>
+            <td class="salary-tax-cell">${formatLootValue(r.diamondSendFee || 0)}</td>
             <td>${formatLootValue(r.crows)}</td>
           </tr>`
         )
@@ -4508,13 +4509,14 @@ function renderSalaryPayoutHistory() {
           <strong>Payout #${i + 1}</strong>
           <span>${formatWorldBossEventDateTime(p.createdAt)}</span>
           <span>💎 ${formatLootValue(p.diamondPool)}</span>
+          ${p.rows.some((r) => r.diamondSendFee) ? `<span class="salary-tax-cell">Tax 💎 ${formatLootValue(p.rows.reduce((sum, r) => sum + (Number(r.diamondSendFee) || 0), 0))}</span>` : ''}
           <span>🪙 ${formatLootValue(p.crowPool)}</span>
           <span style="color:var(--text-muted);">${p.rows.length} people${p.createdBy ? ` · by ${escapeHtml(p.createdBy)}` : ''}</span>
           <button type="button" class="icon-btn admin-only" data-delete-salary-payout="${p.id}" title="Delete this payout">✕</button>
         </summary>
         <div class="table-scroll">
           <table class="members-table">
-            <thead><tr><th>${t('sovereign.common.ign')}</th><th>${t('sovereign.common.guild')}</th><th>${t('sovereign.salary.thAttendance')}</th><th>💎</th><th>🪙</th></tr></thead>
+            <thead><tr><th>${t('sovereign.common.ign')}</th><th>${t('sovereign.common.guild')}</th><th>${t('sovereign.salary.thAttendance')}</th><th>💎</th><th>${t('sovereign.salary.thDiamondSendFee')}</th><th>🪙</th></tr></thead>
             <tbody>${people}</tbody>
           </table>
         </div>
@@ -4663,8 +4665,8 @@ function buildSalaryWorkbook(XLSX) {
     [text('Schedule'), text(scheduleLabel)],
     [text('Diamonds Pool'), num(diamondPool, FMT_MONEY), text('Crows Pool'), num(crowPool, FMT_MONEY)],
     [text('Total Fee %'), formula(`SUM(${col('I')})`, totalFeePercent, '0.00')],
-    [text('Diamond Sending Fee %'), num(SALARY_DIAMOND_SEND_FEE_PERCENT, '0.00'), text('Diamonds to Split'), formula('B3/(1+B5/100)', diamondsToSplit, FMT_MONEY)],
-    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'GR Multiplier', 'GR Rank', 'Top 10 Bonus', 'Fee %', 'Multiplier', 'Base Share', 'Base + Mult.', 'Norm. Share', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final', 'Diamond Sending Fee'].map(text),
+    [text('Diamond Tax %'), num(SALARY_DIAMOND_SEND_FEE_PERCENT, '0.00'), text('Diamonds to Split'), formula('B3/(1+B5/100)', diamondsToSplit, FMT_MONEY)],
+    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'GR Multiplier', 'GR Rank', 'Top 10 Bonus', 'Fee %', 'Multiplier', 'Base Share', 'Base + Mult.', 'Norm. Share', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final', 'Diamond Tax (5%)'].map(text),
   ];
   rows.forEach((r, i) => {
     const n = first + i;
@@ -4729,7 +4731,7 @@ function buildSalaryWorkbook(XLSX) {
   // ---- Payouts: a record of what was actually sent, so these stay as the
   // amounts at the time (not formulas), with a summed total row ----
   const payouts = salaryPayoutsForCurrentMonth();
-  const payoutGrid = [['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows', 'Diamond Sending Fee'].map(text)];
+  const payoutGrid = [['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows', 'Diamond Tax (5%)'].map(text)];
   payouts.forEach((p, i) => {
     p.rows.forEach((r) => {
       payoutGrid.push([
@@ -5032,10 +5034,13 @@ function renderSalaryComputation() {
     r.crowFinal = r.crowInitial + (feePercent / 100) * crowPool;
   });
   const sendFeeNote = document.getElementById('salarySendFeeNote');
-  sendFeeNote.classList.toggle('hidden', !diamondPool);
-  sendFeeNote.innerHTML = diamondPool
-    ? `${SALARY_DIAMOND_SEND_FEE_PERCENT}% sending fee (paid by the guild): <strong>💎 ${formatLootValue(diamondPool - diamondsToSplit)}</strong> — split among members: <strong>💎 ${formatLootValue(diamondsToSplit)}</strong>. Each Diamonds Final is what that person receives in full.`
-    : '';
+  sendFeeNote.innerHTML = `
+    <span class="crusade-loot-chip diamonds">💎 Pool ${formatLootValue(diamondPool) || 0}</span>
+    <span class="salary-tax-op">−</span>
+    <span class="crusade-loot-chip salary-tax">${SALARY_DIAMOND_SEND_FEE_PERCENT}% Tax 💎 ${formatLootValue(diamondPool - diamondsToSplit) || 0}</span>
+    <span class="salary-tax-op">=</span>
+    <span class="crusade-loot-chip diamonds">Split among members 💎 ${formatLootValue(diamondsToSplit) || 0}</span>
+    <span class="salary-tax-note">The guild pays the ${SALARY_DIAMOND_SEND_FEE_PERCENT}% tax when sending diamonds — each Diamonds Final is what that person receives in full.</span>`;
 
   rows.sort(compareSalaryRank);
   salaryComputedRows = rows;
@@ -5055,7 +5060,7 @@ function renderSalaryComputation() {
       <td>${(r.normShare * 100).toFixed(2)}%</td>
       <td>${formatLootValue(r.diamondInitial)}</td>
       <td><strong>${formatLootValue(r.diamondFinal)}</strong></td>
-      <td>${formatLootValue(r.diamondSendFee)}</td>
+      <td class="salary-tax-cell">${formatLootValue(r.diamondSendFee)}</td>
       <td>${formatLootValue(r.crowInitial)}</td>
       <td><strong>${formatLootValue(r.crowFinal)}</strong></td>
     </tr>`
@@ -5086,9 +5091,10 @@ function renderSalaryGuildTotals(rows) {
   const byGuild = new Map();
   rows.forEach((r) => {
     const key = r.guildName || 'Unassigned';
-    if (!byGuild.has(key)) byGuild.set(key, { guildName: key, diamondFinal: 0, crowFinal: 0, members: 0 });
+    if (!byGuild.has(key)) byGuild.set(key, { guildName: key, diamondFinal: 0, diamondSendFee: 0, crowFinal: 0, members: 0 });
     const g = byGuild.get(key);
     g.diamondFinal += r.diamondFinal;
+    g.diamondSendFee += r.diamondSendFee || 0;
     g.crowFinal += r.crowFinal;
     g.members += 1;
   });
@@ -5104,6 +5110,7 @@ function renderSalaryGuildTotals(rows) {
       <td style="${color ? `color:${color}; font-weight:600;` : ''}">${label}</td>
       <td>${g.members.toLocaleString()}</td>
       <td><strong>${formatLootValue(g.diamondFinal)}</strong></td>
+      <td class="salary-tax-cell">${formatLootValue(g.diamondSendFee)}</td>
       <td><strong>${formatLootValue(g.crowFinal)}</strong></td>
     </tr>`;
     })

@@ -2439,3 +2439,10 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .salary-payout-entry summary { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; cursor: pointer; }
 .salary-payout-entry summary .icon-btn { margin-left: auto; }
 .salary-payout-entry[open] summary { margin-bottom: 8px; }
+
+/* 5% diamond tax on salary payouts -- see SALARY_DIAMOND_SEND_FEE_PERCENT */
+.salary-tax-breakdown { align-items: center; margin-top: 10px; }
+.crusade-loot-chip.salary-tax { color: var(--bad); border-color: currentColor; }
+.salary-tax-op { color: var(--text-muted); font-weight: 600; }
+.salary-tax-note { flex-basis: 100%; color: var(--text-muted); font-size: 12px; }
+.salary-tax-cell { color: var(--bad); }
