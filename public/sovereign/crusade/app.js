@@ -4359,6 +4359,14 @@ const SALARY_GR_MULTIPLIER_BRACKETS = [
   { min: 700000, max: 800000, multiplier: 1.3 },
   { min: 800000, max: Infinity, multiplier: 1.4 },
 ];
+// One fixed order for "who ranks higher" -- Growth Rate, then more
+// attendance, then name -- used both for the Balthazard top-10 bonus and
+// the table's row order, so a GR tie always resolves the same way (and the
+// Excel export's rank formula, which follows row order, agrees with it).
+function compareSalaryRank(a, b) {
+  return b.growthRate - a.growthRate || b.attendance - a.attendance || String(a.ign).localeCompare(String(b.ign));
+}
+
 function multiplierForGrowthRate(growthRate) {
   const rate = Number(growthRate) || 0;
   const bracket = SALARY_GR_MULTIPLIER_BRACKETS.find((b) => rate >= b.min && rate < b.max);
@@ -4562,18 +4570,198 @@ function loadSheetJs() {
   return sheetJsPromise;
 }
 
-// Values rounded to 2 decimals but kept as real numbers (not formatted
-// strings) so they can be summed/sorted in Excel.
-function round2(n) {
-  return Math.round((Number(n) || 0) * 100) / 100;
+// Builds the workbook with live Excel formulas, not pasted numbers: the
+// people's inputs (Growth Rate, Attendance, Fee %, the two pools) are plain
+// values, and every computed column is a formula over them -- so editing
+// any input in Excel recomputes everyone's share exactly like this page
+// does. The GR brackets and Balthazard top-10 bonuses live on a Rules sheet
+// the formulas look up, so those are editable too. Each formula cell also
+// carries the value this page computed, so it reads correctly even before
+// Excel recalculates.
+function buildSalaryWorkbook(XLSX) {
+  const rows = salaryComputedRows;
+  const scheduleLabel = salaryActiveSchedule === 'balthazard' ? 'Balthazard' : 'World Boss';
+  const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
+  const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
+  const totalFeePercent = rows.reduce((sum, r) => sum + (r.feePercent || 0), 0);
+
+  const FMT_MONEY = '#,##0.00';
+  const FMT_INT = '#,##0';
+  const FMT_PCT = '0.00%';
+  const FMT_MULT = '0.00"x"';
+  const text = (v) => ({ t: 's', v: String(v) });
+  const num = (v, z) => ({ t: 'n', v: Number(v) || 0, ...(z ? { z } : {}) });
+  const formula = (f, v, z) => ({ t: typeof v === 'string' ? 's' : 'n', f, v: typeof v === 'string' ? v : Number(v) || 0, ...(z ? { z } : {}) });
+  function sheetFromCells(grid, colWidths) {
+    const sheet = {};
+    let maxCol = 0;
+    grid.forEach((row, r) => {
+      (row || []).forEach((cell, c) => {
+        if (cell === null || cell === undefined) return;
+        sheet[XLSX.utils.encode_cell({ r, c })] = cell;
+        maxCol = Math.max(maxCol, c);
+      });
+    });
+    sheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, grid.length - 1), c: maxCol } });
+    if (colWidths) sheet['!cols'] = colWidths.map((wch) => ({ wch }));
+    return sheet;
+  }
+
+  // ---- Rules sheet: GR brackets (A3:B7) and top-10 bonuses (E3:E12) ----
+  const rulesGrid = [
+    [text('Growth Rate Multiplier Brackets'), null, null, text('Balthazard Top 10 Bonus')],
+    [text('Min Growth Rate'), text('Multiplier'), null, text('GR Rank'), text('Extra')],
+  ];
+  const bracketCount = SALARY_GR_MULTIPLIER_BRACKETS.length;
+  const bonusCount = BALTHAZARD_TOP10_RANK_BONUS.length;
+  for (let i = 0; i < Math.max(bracketCount, bonusCount); i++) {
+    const b = SALARY_GR_MULTIPLIER_BRACKETS[i];
+    rulesGrid.push([
+      b ? num(b.min, FMT_INT) : null,
+      b ? num(b.multiplier, FMT_MULT) : null,
+      null,
+      i < bonusCount ? num(i + 1) : null,
+      i < bonusCount ? num(BALTHAZARD_TOP10_RANK_BONUS[i], '0.00') : null,
+    ]);
+  }
+  const bracketRange = `Rules!$A$3:$B$${2 + bracketCount}`;
+  const bonusRange = `Rules!$E$3:$E$${2 + bonusCount}`;
+  const rulesSheet = sheetFromCells(rulesGrid, [18, 12, 4, 10, 10]);
+
+  // ---- Salary sheet ----
+  // Rows 1-4 hold the title/schedule/pools/fee total; header on row 6,
+  // people from row 7 down. Columns:
+  // A ID  B IGN  C Guild  D Growth Rate  E Attendance  F GR Multiplier
+  // G GR Rank  H Top 10 Bonus  I Fee %  J Multiplier  K Base Share
+  // L Base + Mult.  M Norm. Share  N Diamonds Initial  O Diamonds Final
+  // P Crows Initial  Q Crows Final
+  const first = 7;
+  const last = first + rows.length - 1;
+  const col = (letter) => `$${letter}$${first}:$${letter}$${last}`;
+
+  // Cached GR rank, matching the formula below and compareSalaryRank:
+  // among people with any attendance, count who has a higher GR, then
+  // equal GR with more attendance, then exact ties above in sheet order
+  // (rows are already sorted by name within an exact tie).
+  const ranks = rows.map((r, i) => {
+    if (r.attendance <= 0) return '';
+    const higher = rows.filter((o) => o.attendance > 0 && o.growthRate > r.growthRate).length;
+    const moreAttendance = rows.filter((o) => o.growthRate === r.growthRate && o.attendance > r.attendance).length;
+    const tiedAbove = rows.slice(0, i + 1).filter((o) => o.growthRate === r.growthRate && o.attendance === r.attendance).length;
+    return higher + moreAttendance + tiedAbove;
+  });
+
+  const salaryGrid = [
+    [text(`${scheduleLabel} Salary — ${salarySelectedMonth}`)],
+    [text('Schedule'), text(scheduleLabel)],
+    [text('Diamonds Pool'), num(diamondPool, FMT_MONEY), text('Crows Pool'), num(crowPool, FMT_MONEY)],
+    [text('Total Fee %'), formula(`SUM(${col('I')})`, totalFeePercent, '0.00')],
+    [],
+    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'GR Multiplier', 'GR Rank', 'Top 10 Bonus', 'Fee %', 'Multiplier', 'Base Share', 'Base + Mult.', 'Norm. Share', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final'].map(text),
+  ];
+  rows.forEach((r, i) => {
+    const n = first + i;
+    const grMult = multiplierForGrowthRate(r.growthRate);
+    salaryGrid.push([
+      num(i + 1),
+      text(r.ign),
+      text(r.guildName || 'Unassigned'),
+      num(r.growthRate, FMT_INT),
+      num(r.attendance),
+      formula(`VLOOKUP(D${n},${bracketRange},2,1)`, grMult, FMT_MULT),
+      formula(`IF(E${n}>0,COUNTIFS(${col('E')},">0",${col('D')},">"&D${n})+COUNTIFS(${col('D')},D${n},${col('E')},">"&E${n})+COUNTIFS($D$${first}:D${n},D${n},$E$${first}:E${n},E${n}),"")`, ranks[i]),
+      formula(`IF(AND($B$2="Balthazard",E${n}>0),IF(G${n}<=${bonusCount},INDEX(${bonusRange},G${n}),0),0)`, r.attendance > 0 ? r.multiplier - grMult : 0, '0.00'),
+      num(r.feePercent || 0, '0.00'),
+      formula(`IF(E${n}>0,F${n}+H${n},0)`, r.multiplier, FMT_MULT),
+      formula(`IF(SUM(${col('E')})=0,0,E${n}/SUM(${col('E')}))`, r.baseShare, FMT_PCT),
+      formula(`K${n}*J${n}`, r.baseMult, '0.0000'),
+      formula(`IF(SUM(${col('L')})=0,0,L${n}/SUM(${col('L')}))`, r.normShare, FMT_PCT),
+      formula(`M${n}*MAX(0,$B$3*(1-$B$4/100))`, r.diamondInitial, FMT_MONEY),
+      formula(`N${n}+I${n}/100*$B$3`, r.diamondFinal, FMT_MONEY),
+      formula(`M${n}*MAX(0,$D$3*(1-$B$4/100))`, r.crowInitial, FMT_MONEY),
+      formula(`P${n}+I${n}/100*$D$3`, r.crowFinal, FMT_MONEY),
+    ]);
+  });
+  const totalOf = (key) => rows.reduce((sum, r) => sum + r[key], 0);
+  const totalRow = [];
+  totalRow[1] = text('Total');
+  totalRow[4] = formula(`SUM(${col('E')})`, totalOf('attendance'));
+  totalRow[11] = formula(`SUM(${col('L')})`, totalOf('baseMult'), '0.0000');
+  totalRow[12] = formula(`SUM(${col('M')})`, totalOf('normShare'), FMT_PCT);
+  ['N', 'O', 'P', 'Q'].forEach((letter, k) => {
+    totalRow[13 + k] = formula(`SUM(${col(letter)})`, totalOf(['diamondInitial', 'diamondFinal', 'crowInitial', 'crowFinal'][k]), FMT_MONEY);
+  });
+  salaryGrid.push(totalRow);
+  const salarySheet = sheetFromCells(salaryGrid, [6, 22, 14, 12, 11, 13, 9, 12, 8, 11, 11, 12, 12, 15, 15, 13, 13]);
+
+  // ---- Guild Totals: SUMIF/COUNTIF over the Salary sheet ----
+  const guildNames = Array.from(new Set(rows.map((r) => r.guildName || 'Unassigned')));
+  const guildTotal = (name, key) => rows.filter((r) => (r.guildName || 'Unassigned') === name).reduce((sum, r) => sum + r[key], 0);
+  guildNames.sort((a, b) => guildTotal(b, 'diamondFinal') - guildTotal(a, 'diamondFinal'));
+  const guildCol = `Salary!${col('C')}`;
+  const guildGrid = [['Guild', 'Members', 'Diamonds Final', 'Crows Final'].map(text)];
+  guildNames.forEach((name, i) => {
+    const n = i + 2;
+    guildGrid.push([
+      text(name),
+      formula(`COUNTIF(${guildCol},A${n})`, rows.filter((r) => (r.guildName || 'Unassigned') === name).length),
+      formula(`SUMIF(${guildCol},A${n},Salary!${col('O')})`, guildTotal(name, 'diamondFinal'), FMT_MONEY),
+      formula(`SUMIF(${guildCol},A${n},Salary!${col('Q')})`, guildTotal(name, 'crowFinal'), FMT_MONEY),
+    ]);
+  });
+  const guildLast = guildNames.length + 1;
+  guildGrid.push([
+    text('Total'),
+    formula(`SUM(B2:B${guildLast})`, rows.length),
+    formula(`SUM(C2:C${guildLast})`, totalOf('diamondFinal'), FMT_MONEY),
+    formula(`SUM(D2:D${guildLast})`, totalOf('crowFinal'), FMT_MONEY),
+  ]);
+  const guildSheet = sheetFromCells(guildGrid, [18, 10, 15, 13]);
+
+  // ---- Payouts: a record of what was actually sent, so these stay as the
+  // amounts at the time (not formulas), with a summed total row ----
+  const payouts = salaryPayoutsForCurrentMonth();
+  const payoutGrid = [['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows'].map(text)];
+  payouts.forEach((p, i) => {
+    p.rows.forEach((r) => {
+      payoutGrid.push([
+        num(i + 1),
+        text(formatWorldBossEventDateTime(p.createdAt)),
+        text(p.createdBy || ''),
+        text(r.ign),
+        text(r.guildName || 'Unassigned'),
+        num(r.attendance || 0),
+        num(r.diamonds, FMT_MONEY),
+        num(r.crows, FMT_MONEY),
+      ]);
+    });
+  });
+  const payoutLast = payoutGrid.length;
+  if (payoutLast > 1) {
+    const totalPaid = (key) => payouts.reduce((sum, p) => sum + p.rows.reduce((s, r) => s + (Number(r[key]) || 0), 0), 0);
+    payoutGrid.push([
+      null,
+      null,
+      null,
+      text('Total'),
+      null,
+      null,
+      formula(`SUM(G2:G${payoutLast})`, totalPaid('diamonds'), FMT_MONEY),
+      formula(`SUM(H2:H${payoutLast})`, totalPaid('crows'), FMT_MONEY),
+    ]);
+  }
+  const payoutSheet = sheetFromCells(payoutGrid, [9, 26, 14, 22, 14, 11, 12, 12]);
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, salarySheet, 'Salary');
+  XLSX.utils.book_append_sheet(workbook, guildSheet, 'Guild Totals');
+  XLSX.utils.book_append_sheet(workbook, payoutSheet, 'Payouts');
+  XLSX.utils.book_append_sheet(workbook, rulesSheet, 'Rules');
+  return { workbook, fileName: `Salary - ${scheduleLabel} - ${salarySelectedMonth}.xlsx` };
 }
 
-// One workbook per schedule+month: the computation exactly as shown, the
-// per-guild totals, and every payout already recorded (one row per person
-// per payout) so a month paid in rounds has its full history in one file.
 document.getElementById('salaryExportExcelBtn').addEventListener('click', async () => {
-  const rows = salaryComputedRows;
-  if (!rows.length) {
+  if (!salaryComputedRows.length) {
     toast('Nothing to export for this month');
     return;
   }
@@ -4584,65 +4772,8 @@ document.getElementById('salaryExportExcelBtn').addEventListener('click', async 
     toast(err.message);
     return;
   }
-  const scheduleLabel = salaryActiveSchedule === 'balthazard' ? 'Balthazard' : 'World Boss';
-  const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
-  const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
-
-  const salarySheet = XLSX.utils.aoa_to_sheet([
-    [`${scheduleLabel} Salary — ${salarySelectedMonth}`],
-    ['Diamonds Pool', round2(diamondPool), 'Crows Pool', round2(crowPool)],
-    [],
-    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'Multiplier', 'Base Share %', 'Base + Mult.', 'Norm. Share %', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final'],
-    ...rows.map((r, i) => [
-      i + 1,
-      r.ign,
-      r.guildName || '',
-      r.growthRate,
-      r.attendance,
-      round2(r.multiplier),
-      round2(r.baseShare * 100),
-      Math.round(r.baseMult * 10000) / 10000,
-      round2(r.normShare * 100),
-      round2(r.diamondInitial),
-      round2(r.diamondFinal),
-      round2(r.crowInitial),
-      round2(r.crowFinal),
-    ]),
-    ['', 'Total', '', '', '', '', '', '', '', '', round2(rows.reduce((s, r) => s + r.diamondFinal, 0)), '', round2(rows.reduce((s, r) => s + r.crowFinal, 0))],
-  ]);
-  salarySheet['!cols'] = [6, 22, 14, 12, 11, 10, 12, 12, 13, 15, 15, 13, 13].map((wch) => ({ wch }));
-
-  const byGuild = new Map();
-  rows.forEach((r) => {
-    const key = r.guildName || 'Unassigned';
-    if (!byGuild.has(key)) byGuild.set(key, { members: 0, diamonds: 0, crows: 0 });
-    const g = byGuild.get(key);
-    g.members += 1;
-    g.diamonds += r.diamondFinal;
-    g.crows += r.crowFinal;
-  });
-  const guildSheet = XLSX.utils.aoa_to_sheet([
-    ['Guild', 'Members', 'Diamonds Final', 'Crows Final'],
-    ...Array.from(byGuild.entries())
-      .sort((a, b) => b[1].diamonds - a[1].diamonds)
-      .map(([name, g]) => [name, g.members, round2(g.diamonds), round2(g.crows)]),
-  ]);
-  guildSheet['!cols'] = [18, 10, 15, 13].map((wch) => ({ wch }));
-
-  const payouts = salaryPayoutsForCurrentMonth();
-  const payoutSheet = XLSX.utils.aoa_to_sheet([
-    ['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows'],
-    ...payouts.flatMap((p, i) =>
-      p.rows.map((r) => [i + 1, formatWorldBossEventDateTime(p.createdAt), p.createdBy || '', r.ign, r.guildName || '', r.attendance || 0, round2(r.diamonds), round2(r.crows)])
-    ),
-  ]);
-  payoutSheet['!cols'] = [9, 26, 14, 22, 14, 11, 12, 12].map((wch) => ({ wch }));
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, salarySheet, 'Salary');
-  XLSX.utils.book_append_sheet(workbook, guildSheet, 'Guild Totals');
-  XLSX.utils.book_append_sheet(workbook, payoutSheet, 'Payouts');
-  XLSX.writeFile(workbook, `Salary - ${scheduleLabel} - ${salarySelectedMonth}.xlsx`);
+  const { workbook, fileName } = buildSalaryWorkbook(XLSX);
+  XLSX.writeFile(workbook, fileName);
 });
 
 document.getElementById('salaryPayoutHistory').addEventListener('click', async (e) => {
@@ -4811,7 +4942,7 @@ function renderSalaryComputation() {
   if (salaryActiveSchedule === 'balthazard') {
     [...rows]
       .filter((r) => r.attendance > 0)
-      .sort((a, b) => b.growthRate - a.growthRate)
+      .sort(compareSalaryRank)
       .slice(0, BALTHAZARD_TOP10_RANK_BONUS.length)
       .forEach((r, i) => {
         r.multiplier += BALTHAZARD_TOP10_RANK_BONUS[i];
@@ -4841,13 +4972,14 @@ function renderSalaryComputation() {
   const remainingCrowPool = Math.max(0, crowPool * (1 - totalFeePercent / 100));
   rows.forEach((r) => {
     const feePercent = feeByIgn.get(r.key) || 0;
+    r.feePercent = feePercent;
     r.diamondInitial = r.normShare * remainingDiamondPool;
     r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondPool;
     r.crowInitial = r.normShare * remainingCrowPool;
     r.crowFinal = r.crowInitial + (feePercent / 100) * crowPool;
   });
 
-  rows.sort((a, b) => b.growthRate - a.growthRate || b.diamondFinal - a.diamondFinal || b.attendance - a.attendance);
+  rows.sort(compareSalaryRank);
   salaryComputedRows = rows;
 
   document.getElementById('salaryComputationEmptyState').classList.toggle('hidden', rows.length !== 0);
