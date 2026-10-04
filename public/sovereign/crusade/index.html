@@ -634,7 +634,13 @@
       <section class="panel">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
           <h2 id="salaryComputationHeading" style="margin:0;">Salary Computation</h2>
-          <button type="button" id="salaryExportExcelBtn" class="btn small" data-i18n="sovereign.salary.exportExcel">📊 Export to Excel</button>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <select id="salaryExportLangSelect" aria-label="Excel language" title="Excel language (also used by each payout's Export button)">
+              <option value="en">Excel: English</option>
+              <option value="zh">Excel: 中文</option>
+            </select>
+            <button type="button" id="salaryExportExcelBtn" class="btn small" data-i18n="sovereign.salary.exportExcel">📊 Export to Excel</button>
+          </div>
         </div>
         <p id="salaryNoNewSalesState" class="empty-state hidden" data-i18n="sovereign.salary.noNewSales">Nothing new sold since the last payout. Once more loot sells, its computation shows up here as a new set.</p>
         <div id="salaryComputationContent">
@@ -983,6 +989,6 @@
 
   <script src="/common.js?v=35"></script>
   <script src="/i18n.js?v=18"></script>
-  <script src="/sovereign/crusade/app.js?v=171"></script>
+  <script src="/sovereign/crusade/app.js?v=172"></script>
 </body>
 </html>
