@@ -5116,16 +5116,19 @@ function renderSalaryComputation() {
 }
 
 // Every player's Final Salary summed per guild -- "how much does each
-// guild receive in total", not just per-person.
+// guild receive in total" -- with that guild's members listed right under
+// it (highest payout first), so whoever hands out a guild's transfer can
+// see exactly who gets what from it.
 function renderSalaryGuildTotals(rows) {
   const byGuild = new Map();
   rows.forEach((r) => {
     const key = r.guildName || 'Unassigned';
-    if (!byGuild.has(key)) byGuild.set(key, { guildName: key, diamondFinal: 0, crowFinal: 0, members: 0 });
+    if (!byGuild.has(key)) byGuild.set(key, { guildName: key, diamondFinal: 0, crowFinal: 0, members: 0, people: [] });
     const g = byGuild.get(key);
     g.diamondFinal += r.diamondFinal;
     g.crowFinal += r.crowFinal;
     g.members += 1;
+    g.people.push(r);
   });
   const guildRows = Array.from(byGuild.values()).sort((a, b) => b.diamondFinal - a.diamondFinal);
   // One transfer per guild, so the tax is on the guild's total.
@@ -5139,15 +5142,30 @@ function renderSalaryGuildTotals(rows) {
     .map((g) => {
       const color = g.guildName === 'Unassigned' ? null : crusadeGuildColor(g.guildName);
       const label = g.guildName === 'Unassigned' ? t('sovereign.common.unassigned') : escapeHtml(g.guildName);
+      const memberRows = g.people
+        .slice()
+        .sort((a, b) => b.diamondFinal - a.diamondFinal || b.crowFinal - a.crowFinal)
+        .map(
+          (r) => `
+    <tr class="salary-guild-member-row">
+      <td>${escapeHtml(r.ign)}</td>
+      <td>${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
+      <td>${formatLootValue(r.diamondFinal)}</td>
+      <td></td>
+      <td></td>
+      <td>${formatLootValue(r.crowFinal)}</td>
+    </tr>`
+        )
+        .join('');
       return `
-    <tr>
-      <td style="${color ? `color:${color}; font-weight:600;` : ''}">${label}</td>
+    <tr class="salary-guild-row">
+      <td style="${color ? `color:${color}; font-weight:600;` : 'font-weight:600;'}">${label}</td>
       <td>${g.members.toLocaleString()}</td>
       <td><strong>${formatLootValue(g.diamondFinal)}</strong></td>
       <td class="salary-tax-cell">${formatLootValue(g.tax)}</td>
       <td>${formatLootValue(g.diamondFinal + g.tax)}</td>
       <td><strong>${formatLootValue(g.crowFinal)}</strong></td>
-    </tr>`;
+    </tr>${memberRows}`;
     })
     .join('') +
     (guildRows.length

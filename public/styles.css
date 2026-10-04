@@ -2448,3 +2448,7 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .salary-tax-cell { color: var(--bad); }
 .salary-guild-total-row td { border-top: 2px solid var(--border); }
 .salary-payout-guilds { margin-bottom: 10px; }
+/* Members listed under their guild in Total Guild Receives */
+.salary-guild-row td { border-top: 2px solid var(--border); background: var(--surface-1); }
+.salary-guild-member-row td { color: var(--text-muted); font-size: 13px; }
+.salary-guild-member-row td:first-child { padding-left: 28px; }
