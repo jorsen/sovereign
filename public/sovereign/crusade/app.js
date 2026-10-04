@@ -4486,6 +4486,24 @@ function salaryPayoutsForCurrentMonth() {
   return (sovereignState.salaryPayouts || []).filter((p) => p.schedule === salaryActiveSchedule && p.month === salarySelectedMonth);
 }
 
+// A payout's people grouped by guild -- biggest guild total first, members
+// by diamonds within each -- matching how Total Guild Receives is laid out,
+// since each guild's share goes out as one transfer.
+function groupPayoutRowsByGuild(rows) {
+  const byGuild = new Map();
+  rows.forEach((r) => {
+    const key = salaryGuildKey(r.guildName);
+    if (!byGuild.has(key)) byGuild.set(key, { guildName: key, rows: [], diamonds: 0, crows: 0 });
+    const g = byGuild.get(key);
+    g.rows.push(r);
+    g.diamonds += Number(r.diamonds) || 0;
+    g.crows += Number(r.crows) || 0;
+  });
+  const groups = Array.from(byGuild.values()).sort((a, b) => b.diamonds - a.diamonds || a.guildName.localeCompare(b.guildName));
+  groups.forEach((g) => g.rows.sort((a, b) => (Number(b.diamonds) || 0) - (Number(a.diamonds) || 0)));
+  return groups;
+}
+
 // What a payout spent on the 5% tax: its diamond pool minus what members
 // actually received (~0 for payouts recorded before the tax existed).
 function payoutTax(p) {
@@ -4507,18 +4525,27 @@ function renderSalaryPayoutHistory() {
   document.getElementById('salaryPayoutHistoryEmptyState').classList.toggle('hidden', payouts.length !== 0);
   document.getElementById('salaryPayoutHistory').innerHTML = payouts
     .map((p, i) => {
-      const people = p.rows
-        .slice()
-        .sort((a, b) => b.diamonds - a.diamonds)
+      const people = groupPayoutRowsByGuild(p.rows)
         .map(
-          (r) => `
-          <tr>
+          (g) => `
+          <tr class="salary-guild-row">
+            <td>${crusadeGuildBadge(g.guildName === 'Unassigned' ? null : g.guildName)}</td>
+            <td>${g.rows.length} ${g.rows.length === 1 ? 'member' : 'members'}</td>
+            <td></td>
+            <td><strong>${formatLootValue(g.diamonds)}</strong></td>
+            <td><strong>${formatLootValue(g.crows)}</strong></td>
+          </tr>${g.rows
+            .map(
+              (r) => `
+          <tr class="salary-guild-member-row">
             <td>${escapeHtml(r.ign)}</td>
-            <td>${crusadeGuildBadge(r.guildName)}</td>
+            <td></td>
             <td>${(r.attendance || 0).toLocaleString()}</td>
             <td>${formatLootValue(r.diamonds)}</td>
             <td>${formatLootValue(r.crows)}</td>
           </tr>`
+            )
+            .join('')}`
         )
         .join('');
       // Per-guild transfers for this payout, taxed on each guild's total
@@ -4559,7 +4586,7 @@ function renderSalaryPayoutHistory() {
         <div class="table-scroll">
           ${guildLines}
           <table class="members-table">
-            <thead><tr><th>${t('sovereign.common.ign')}</th><th>${t('sovereign.common.guild')}</th><th>${t('sovereign.salary.thAttendance')}</th><th>💎</th><th>🪙</th></tr></thead>
+            <thead><tr><th>${t('sovereign.common.guild')} / ${t('sovereign.common.ign')}</th><th>${t('sovereign.salary.thMembers')}</th><th>${t('sovereign.salary.thAttendance')}</th><th>💎</th><th>🪙</th></tr></thead>
             <tbody>${people}</tbody>
           </table>
         </div>
@@ -4803,7 +4830,7 @@ function buildSalaryWorkbook(XLSX) {
   const payouts = salaryPayoutsForCurrentMonth();
   const payoutGrid = [['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows'].map(text)];
   payouts.forEach((p, i) => {
-    p.rows.forEach((r) => {
+    groupPayoutRowsByGuild(p.rows).flatMap((g) => g.rows).forEach((r) => {
       payoutGrid.push([
         num(i + 1),
         text(formatWorldBossEventDateTime(p.createdAt)),
