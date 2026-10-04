@@ -4480,6 +4480,24 @@ function fillSalaryPoolsFromSoldItems() {
     : '';
   renderSalaryComputation();
   renderSalaryPayoutHistory();
+  updateNewComputationState();
+}
+
+// Once a payout has gone out this month, the live table is only for loot
+// sold since then. With nothing new sold yet, show that plainly instead of
+// a table of zeros (the payout just sent stays visible above, in full).
+function updateNewComputationState() {
+  const paidCount = salaryPayoutsForCurrentMonth().length;
+  const nothingNew =
+    paidCount > 0 &&
+    !parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value) &&
+    !parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
+  document.getElementById('salaryComputationHeading').textContent = paidCount
+    ? `New computation — loot sold since Payout #${paidCount}`
+    : t('sovereign.salary.computationHeading');
+  document.getElementById('salaryNoNewSalesState').classList.toggle('hidden', !nothingNew);
+  document.getElementById('salaryComputationContent').classList.toggle('hidden', nothingNew);
+  document.getElementById('salaryGuildTotalsPanel').classList.toggle('hidden', nothingNew);
 }
 
 function salaryPayoutsForCurrentMonth() {
@@ -4519,61 +4537,77 @@ function computePaidTotalsForSalaryMonth() {
   };
 }
 
-// Oldest first, numbered, each expandable to who got what in that round.
+// Every payout already sent this month, oldest first, each kept on screen
+// (open by default) with the full Salary Computation it was sent from and
+// its per-guild transfers -- so recording a payout never makes the numbers
+// that were just paid disappear; only loot sold afterward shows up in the
+// live "New computation" table below.
 function renderSalaryPayoutHistory() {
   const payouts = salaryPayoutsForCurrentMonth();
-  document.getElementById('salaryPayoutHistoryEmptyState').classList.toggle('hidden', payouts.length !== 0);
+  document.getElementById('salaryPayoutHistoryPanel').classList.toggle('hidden', payouts.length === 0);
   document.getElementById('salaryPayoutHistory').innerHTML = payouts
     .map((p, i) => {
-      const people = groupPayoutRowsByGuild(p.rows)
+      // Older payouts only saved name/attendance/amounts, so any other
+      // column they're missing shows as a dash.
+      const val = (v, fmt) => (v === undefined || v === null ? '—' : fmt(Number(v)));
+      const hasRank = p.rows.every((r) => r.growthRate !== undefined);
+      const computationRows = p.rows
+        .slice()
+        .sort(hasRank ? compareSalaryRank : (a, b) => (Number(b.diamonds) || 0) - (Number(a.diamonds) || 0))
         .map(
-          (g) => `
+          (r, n) => `
+          <tr>
+            <td>${n + 1}</td>
+            <td>${escapeHtml(r.ign)}</td>
+            <td>${val(r.growthRate, (v) => v.toLocaleString())}</td>
+            <td>${(r.attendance || 0).toLocaleString()}</td>
+            <td>${val(r.multiplier, (v) => `${v.toFixed(2)}x`)}</td>
+            <td>${val(r.baseShare, (v) => `${(v * 100).toFixed(2)}%`)}</td>
+            <td>${val(r.baseMult, (v) => v.toFixed(4))}</td>
+            <td>${val(r.normShare, (v) => `${(v * 100).toFixed(2)}%`)}</td>
+            <td>${val(r.diamondInitial, formatLootValue)}</td>
+            <td><strong>${formatLootValue(r.diamonds)}</strong></td>
+            <td>${val(r.crowInitial, formatLootValue)}</td>
+            <td><strong>${formatLootValue(r.crows)}</strong></td>
+          </tr>`
+        )
+        .join('');
+      const sumRows = (key) => p.rows.reduce((sum, r) => sum + (Number(r[key]) || 0), 0);
+
+      // Per-guild transfers, taxed on each guild's total at the rate saved
+      // with the payout (r.taxPercent). Payouts from before per-guild rates
+      // used the flat default; ones from before the tax existed at all
+      // (pool == members' total) show no tax.
+      const taxed = payoutTax(p) > 0.01;
+      const guildRows = groupPayoutRowsByGuild(p.rows)
+        .map((g) => {
+          const taxPercent = taxed ? g.rows[0].taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT : 0;
+          const tax = g.diamonds * (taxPercent / 100);
+          return `
           <tr class="salary-guild-row">
             <td>${crusadeGuildBadge(g.guildName === 'Unassigned' ? null : g.guildName)}</td>
             <td>${g.rows.length} ${g.rows.length === 1 ? 'member' : 'members'}</td>
-            <td></td>
             <td><strong>${formatLootValue(g.diamonds)}</strong></td>
+            <td class="salary-tax-cell">${taxed ? `${formatLootValue(tax)} (${taxPercent}%)` : '—'}</td>
+            <td>${formatLootValue(g.diamonds + tax)}</td>
             <td><strong>${formatLootValue(g.crows)}</strong></td>
           </tr>${g.rows
             .map(
               (r) => `
           <tr class="salary-guild-member-row">
             <td>${escapeHtml(r.ign)}</td>
-            <td></td>
-            <td>${(r.attendance || 0).toLocaleString()}</td>
+            <td>${(r.attendance || 0).toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
             <td>${formatLootValue(r.diamonds)}</td>
+            <td class="salary-tax-cell">${taxed ? formatLootValue((Number(r.diamonds) || 0) * (taxPercent / 100)) : ''}</td>
+            <td>${formatLootValue((Number(r.diamonds) || 0) * (1 + taxPercent / 100))}</td>
             <td>${formatLootValue(r.crows)}</td>
           </tr>`
             )
-            .join('')}`
-        )
+            .join('')}`;
+        })
         .join('');
-      // Per-guild transfers for this payout, taxed on each guild's total
-      // -- only for payouts recorded after the tax was added (older ones
-      // were sent untaxed, so their pool equals the members' total).
-      // Rate saved with the payout (r.taxPercent); payouts from before
-      // per-guild rates existed were all taxed at the flat default.
-      const byGuild = new Map();
-      p.rows.forEach((r) => {
-        const key = salaryGuildKey(r.guildName);
-        const entry = byGuild.get(key) || { diamonds: 0, taxPercent: r.taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT };
-        entry.diamonds += Number(r.diamonds) || 0;
-        byGuild.set(key, entry);
-      });
-      const guildLines = payoutTax(p) > 0.01
-        ? `<table class="members-table salary-payout-guilds">
-            <thead><tr><th>${t('sovereign.common.guild')}</th><th>💎</th><th>${t('sovereign.salary.thDiamondSendFee')}</th><th>${t('sovereign.salary.thTotalCost')}</th></tr></thead>
-            <tbody>${Array.from(byGuild.entries())
-              .sort((a, b) => b[1].diamonds - a[1].diamonds)
-              .map(([name, { diamonds: d, taxPercent }]) => {
-                const tax = d * (taxPercent / 100);
-                return `<tr><td>${crusadeGuildBadge(name === 'Unassigned' ? null : name)}</td><td>${formatLootValue(d)}</td><td class="salary-tax-cell">${formatLootValue(tax)} (${taxPercent}%)</td><td>${formatLootValue(d + tax)}</td></tr>`;
-              })
-              .join('')}</tbody>
-          </table>`
-        : '';
       return `
-      <details class="salary-payout-entry">
+      <details class="salary-payout-entry" open>
         <summary>
           <strong>Payout #${i + 1}</strong>
           <span>${formatWorldBossEventDateTime(p.createdAt)}</span>
@@ -4583,11 +4617,29 @@ function renderSalaryPayoutHistory() {
           <span style="color:var(--text-muted);">${p.rows.length} people${p.createdBy ? ` · by ${escapeHtml(p.createdBy)}` : ''}</span>
           <button type="button" class="icon-btn admin-only" data-delete-salary-payout="${p.id}" title="Delete this payout">✕</button>
         </summary>
+        <h3 class="salary-payout-subheading">${t('sovereign.salary.computationHeading')}</h3>
         <div class="table-scroll">
-          ${guildLines}
           <table class="members-table">
-            <thead><tr><th>${t('sovereign.common.guild')} / ${t('sovereign.common.ign')}</th><th>${t('sovereign.salary.thMembers')}</th><th>${t('sovereign.salary.thAttendance')}</th><th>💎</th><th>🪙</th></tr></thead>
-            <tbody>${people}</tbody>
+            <thead><tr>
+              <th>${t('sovereign.salary.thId')}</th><th>${t('sovereign.common.ign')}</th><th>${t('sovereign.salary.thGrowthRate')}</th><th>${t('sovereign.salary.thAttendance')}</th>
+              <th>${t('sovereign.salary.thMultiplier')}</th><th>${t('sovereign.salary.thBaseShare')}</th><th>${t('sovereign.salary.thBaseMult')}</th><th>${t('sovereign.salary.thNormShare')}</th>
+              <th>${t('sovereign.salary.thDiamondInitial')}</th><th>${t('sovereign.salary.thDiamondFinal')}</th><th>${t('sovereign.salary.thCrowInitial')}</th><th>${t('sovereign.salary.thCrowFinal')}</th>
+            </tr></thead>
+            <tbody>${computationRows}</tbody>
+            <tfoot><tr>
+              <td colspan="8" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td>
+              <td><strong>${formatLootValue(sumRows('diamonds'))}</strong></td><td></td><td><strong>${formatLootValue(sumRows('crows'))}</strong></td>
+            </tr></tfoot>
+          </table>
+        </div>
+        <h3 class="salary-payout-subheading">${t('sovereign.salary.guildTotalsHeading')}</h3>
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead><tr>
+              <th>${t('sovereign.common.guild')}</th><th>${t('sovereign.salary.thMembers')}</th><th>${t('sovereign.salary.thDiamondFinal')}</th>
+              <th>${t('sovereign.salary.thDiamondSendFee')}</th><th>${t('sovereign.salary.thTotalCost')}</th><th>${t('sovereign.salary.thCrowFinal')}</th>
+            </tr></thead>
+            <tbody>${guildRows}</tbody>
           </table>
         </div>
       </details>`;
@@ -4617,7 +4669,22 @@ document.getElementById('salaryRecordPayoutBtn').addEventListener('click', async
         month: salarySelectedMonth,
         diamondPool,
         crowPool,
-        rows: rows.map((r) => ({ ign: r.ign, guildName: r.guildName, attendance: r.attendance, diamonds: r.diamondFinal, crows: r.crowFinal, taxPercent: r.taxPercent })),
+        rows: rows.map((r) => ({
+          ign: r.ign,
+          guildName: r.guildName,
+          attendance: r.attendance,
+          diamonds: r.diamondFinal,
+          crows: r.crowFinal,
+          taxPercent: r.taxPercent,
+          growthRate: r.growthRate,
+          multiplier: r.multiplier,
+          baseShare: r.baseShare,
+          baseMult: r.baseMult,
+          normShare: r.normShare,
+          diamondInitial: r.diamondInitial,
+          crowInitial: r.crowInitial,
+          feePercent: r.feePercent,
+        })),
       }),
     });
     sovereignState.salaryPayouts = [...(sovereignState.salaryPayouts || []), created];
@@ -4946,8 +5013,14 @@ document.getElementById('salaryScheduleSelect').addEventListener('change', (e) =
 // 'input' recomputes live while typing (no reformatting yet -- inserting
 // commas mid-type would jump the cursor); 'blur' reformats with commas once
 // the admin's done editing, same look as the auto-filled value.
-document.getElementById('salaryDiamondPoolInput').addEventListener('input', renderSalaryComputation);
-document.getElementById('salaryCrowPoolInput').addEventListener('input', renderSalaryComputation);
+document.getElementById('salaryDiamondPoolInput').addEventListener('input', () => {
+  renderSalaryComputation();
+  updateNewComputationState();
+});
+document.getElementById('salaryCrowPoolInput').addEventListener('input', () => {
+  renderSalaryComputation();
+  updateNewComputationState();
+});
 document.getElementById('salaryDiamondPoolInput').addEventListener('blur', (e) => {
   e.target.value = formatPoolInputValue(parsePoolInputValue(e.target.value));
 });
