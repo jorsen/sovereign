@@ -2186,7 +2186,7 @@ function normalizeNameForDupeCheck(name) {
 function memberNameKey(name) {
   const loose = normalizeNameForDupeCheck(name);
   if (loose) return loose;
-  const raw = String(name || '').toLowerCase().replace(/s+/g, '');
+  const raw = String(name || '').toLowerCase().replace(/\s+/g, '');
   return raw ? `raw:${raw}` : '';
 }
 
