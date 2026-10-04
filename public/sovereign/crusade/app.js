@@ -4378,6 +4378,12 @@ function multiplierForGrowthRate(growthRate) {
 // from rank 1 down to rank 10. Index 0 = rank 1's bonus.
 const BALTHAZARD_TOP10_RANK_BONUS = [0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1, 0.05];
 
+// Sending diamonds in-game costs the sender 5% on top of what the member
+// receives, and the guild covers it out of the diamond pool -- so only
+// pool / 1.05 is actually split, and each person's Final is what they
+// receive in full. Crows are sent without a fee.
+const SALARY_DIAMOND_SEND_FEE_PERCENT = 5;
+
 let salarySelectedMonth = null; // 'YYYY-MM'
 // World Boss and Balthazard each get their own independent pool/attendance
 // computation -- switching this re-fills the pool fields from that
@@ -4539,7 +4545,7 @@ document.getElementById('salaryRecordPayoutBtn').addEventListener('click', async
         month: salarySelectedMonth,
         diamondPool,
         crowPool,
-        rows: rows.map((r) => ({ ign: r.ign, guildName: r.guildName, attendance: r.attendance, diamonds: r.diamondFinal, crows: r.crowFinal })),
+        rows: rows.map((r) => ({ ign: r.ign, guildName: r.guildName, attendance: r.attendance, diamonds: r.diamondFinal, diamondSendFee: r.diamondSendFee, crows: r.crowFinal })),
       }),
     });
     sovereignState.salaryPayouts = [...(sovereignState.salaryPayouts || []), created];
@@ -4584,6 +4590,7 @@ function buildSalaryWorkbook(XLSX) {
   const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
   const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
   const totalFeePercent = rows.reduce((sum, r) => sum + (r.feePercent || 0), 0);
+  const diamondsToSplit = diamondPool / (1 + SALARY_DIAMOND_SEND_FEE_PERCENT / 100);
 
   const FMT_MONEY = '#,##0.00';
   const FMT_INT = '#,##0';
@@ -4656,8 +4663,8 @@ function buildSalaryWorkbook(XLSX) {
     [text('Schedule'), text(scheduleLabel)],
     [text('Diamonds Pool'), num(diamondPool, FMT_MONEY), text('Crows Pool'), num(crowPool, FMT_MONEY)],
     [text('Total Fee %'), formula(`SUM(${col('I')})`, totalFeePercent, '0.00')],
-    [],
-    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'GR Multiplier', 'GR Rank', 'Top 10 Bonus', 'Fee %', 'Multiplier', 'Base Share', 'Base + Mult.', 'Norm. Share', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final'].map(text),
+    [text('Diamond Sending Fee %'), num(SALARY_DIAMOND_SEND_FEE_PERCENT, '0.00'), text('Diamonds to Split'), formula('B3/(1+B5/100)', diamondsToSplit, FMT_MONEY)],
+    ['ID', 'IGN', 'Guild', 'Growth Rate', 'Attendance', 'GR Multiplier', 'GR Rank', 'Top 10 Bonus', 'Fee %', 'Multiplier', 'Base Share', 'Base + Mult.', 'Norm. Share', 'Diamonds Initial', 'Diamonds Final', 'Crows Initial', 'Crows Final', 'Diamond Sending Fee'].map(text),
   ];
   rows.forEach((r, i) => {
     const n = first + i;
@@ -4676,10 +4683,11 @@ function buildSalaryWorkbook(XLSX) {
       formula(`IF(SUM(${col('E')})=0,0,E${n}/SUM(${col('E')}))`, r.baseShare, FMT_PCT),
       formula(`K${n}*J${n}`, r.baseMult, '0.0000'),
       formula(`IF(SUM(${col('L')})=0,0,L${n}/SUM(${col('L')}))`, r.normShare, FMT_PCT),
-      formula(`M${n}*MAX(0,$B$3*(1-$B$4/100))`, r.diamondInitial, FMT_MONEY),
-      formula(`N${n}+I${n}/100*$B$3`, r.diamondFinal, FMT_MONEY),
+      formula(`M${n}*MAX(0,$D$5*(1-$B$4/100))`, r.diamondInitial, FMT_MONEY),
+      formula(`N${n}+I${n}/100*$D$5`, r.diamondFinal, FMT_MONEY),
       formula(`M${n}*MAX(0,$D$3*(1-$B$4/100))`, r.crowInitial, FMT_MONEY),
       formula(`P${n}+I${n}/100*$D$3`, r.crowFinal, FMT_MONEY),
+      formula(`O${n}*$B$5/100`, r.diamondSendFee, FMT_MONEY),
     ]);
   });
   const totalOf = (key) => rows.reduce((sum, r) => sum + r[key], 0);
@@ -4688,11 +4696,11 @@ function buildSalaryWorkbook(XLSX) {
   totalRow[4] = formula(`SUM(${col('E')})`, totalOf('attendance'));
   totalRow[11] = formula(`SUM(${col('L')})`, totalOf('baseMult'), '0.0000');
   totalRow[12] = formula(`SUM(${col('M')})`, totalOf('normShare'), FMT_PCT);
-  ['N', 'O', 'P', 'Q'].forEach((letter, k) => {
-    totalRow[13 + k] = formula(`SUM(${col(letter)})`, totalOf(['diamondInitial', 'diamondFinal', 'crowInitial', 'crowFinal'][k]), FMT_MONEY);
+  ['N', 'O', 'P', 'Q', 'R'].forEach((letter, k) => {
+    totalRow[13 + k] = formula(`SUM(${col(letter)})`, totalOf(['diamondInitial', 'diamondFinal', 'crowInitial', 'crowFinal', 'diamondSendFee'][k]), FMT_MONEY);
   });
   salaryGrid.push(totalRow);
-  const salarySheet = sheetFromCells(salaryGrid, [6, 22, 14, 12, 11, 13, 9, 12, 8, 11, 11, 12, 12, 15, 15, 13, 13]);
+  const salarySheet = sheetFromCells(salaryGrid, [6, 22, 14, 12, 11, 13, 9, 12, 8, 11, 11, 12, 12, 15, 15, 13, 13, 18]);
 
   // ---- Guild Totals: SUMIF/COUNTIF over the Salary sheet ----
   const guildNames = Array.from(new Set(rows.map((r) => r.guildName || 'Unassigned')));
@@ -4721,7 +4729,7 @@ function buildSalaryWorkbook(XLSX) {
   // ---- Payouts: a record of what was actually sent, so these stay as the
   // amounts at the time (not formulas), with a summed total row ----
   const payouts = salaryPayoutsForCurrentMonth();
-  const payoutGrid = [['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows'].map(text)];
+  const payoutGrid = [['Payout #', 'Recorded At', 'Recorded By', 'IGN', 'Guild', 'Attendance', 'Diamonds', 'Crows', 'Diamond Sending Fee'].map(text)];
   payouts.forEach((p, i) => {
     p.rows.forEach((r) => {
       payoutGrid.push([
@@ -4733,6 +4741,7 @@ function buildSalaryWorkbook(XLSX) {
         num(r.attendance || 0),
         num(r.diamonds, FMT_MONEY),
         num(r.crows, FMT_MONEY),
+        num(r.diamondSendFee || 0, FMT_MONEY),
       ]);
     });
   });
@@ -4748,9 +4757,10 @@ function buildSalaryWorkbook(XLSX) {
       null,
       formula(`SUM(G2:G${payoutLast})`, totalPaid('diamonds'), FMT_MONEY),
       formula(`SUM(H2:H${payoutLast})`, totalPaid('crows'), FMT_MONEY),
+      formula(`SUM(I2:I${payoutLast})`, totalPaid('diamondSendFee'), FMT_MONEY),
     ]);
   }
-  const payoutSheet = sheetFromCells(payoutGrid, [9, 26, 14, 22, 14, 11, 12, 12]);
+  const payoutSheet = sheetFromCells(payoutGrid, [9, 26, 14, 22, 14, 11, 12, 12, 18]);
 
   // ---- Management Fees: who gets a cut and how much of each pool that is.
   // Fee % and Final amounts are looked up from the Salary sheet by IGN, so
@@ -4764,7 +4774,7 @@ function buildSalaryWorkbook(XLSX) {
       text(r.ign),
       text(r.guildName || 'Unassigned'),
       formula(salaryLookup('I', n), r.feePercent, '0.00'),
-      formula(`C${n}/100*Salary!$B$3`, (r.feePercent / 100) * diamondPool, FMT_MONEY),
+      formula(`C${n}/100*Salary!$D$5`, (r.feePercent / 100) * diamondsToSplit, FMT_MONEY),
       formula(`C${n}/100*Salary!$D$3`, (r.feePercent / 100) * crowPool, FMT_MONEY),
       formula(salaryLookup('O', n), r.diamondFinal, FMT_MONEY),
       formula(salaryLookup('Q', n), r.crowFinal, FMT_MONEY),
@@ -4777,7 +4787,7 @@ function buildSalaryWorkbook(XLSX) {
       text('Total'),
       null,
       formula(`SUM(C2:C${feeLast})`, totalFeePercent, '0.00'),
-      formula(`SUM(D2:D${feeLast})`, (totalFeePercent / 100) * diamondPool, FMT_MONEY),
+      formula(`SUM(D2:D${feeLast})`, (totalFeePercent / 100) * diamondsToSplit, FMT_MONEY),
       formula(`SUM(E2:E${feeLast})`, (totalFeePercent / 100) * crowPool, FMT_MONEY),
       formula(`SUM(F2:F${feeLast})`, feeSum('diamondFinal'), FMT_MONEY),
       formula(`SUM(G2:G${feeLast})`, feeSum('crowFinal'), FMT_MONEY),
@@ -5003,17 +5013,29 @@ function renderSalaryComputation() {
   // (fee recipients included) splits whatever's left by Norm. Share --
   // so total payouts always add back up to exactly the pool, instead of
   // fees inflating the total beyond what was actually earned.
+  //
+  // The diamond side first sets aside the 5% sending fee (see
+  // SALARY_DIAMOND_SEND_FEE_PERCENT), so everything below splits
+  // diamondsToSplit rather than the full pool -- Finals + their sending
+  // fees then add back up to exactly the pool.
+  const diamondsToSplit = diamondPool / (1 + SALARY_DIAMOND_SEND_FEE_PERCENT / 100);
   const totalFeePercent = Array.from(feeByIgn.values()).reduce((sum, p) => sum + p, 0);
-  const remainingDiamondPool = Math.max(0, diamondPool * (1 - totalFeePercent / 100));
+  const remainingDiamondPool = Math.max(0, diamondsToSplit * (1 - totalFeePercent / 100));
   const remainingCrowPool = Math.max(0, crowPool * (1 - totalFeePercent / 100));
   rows.forEach((r) => {
     const feePercent = feeByIgn.get(r.key) || 0;
     r.feePercent = feePercent;
     r.diamondInitial = r.normShare * remainingDiamondPool;
-    r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondPool;
+    r.diamondFinal = r.diamondInitial + (feePercent / 100) * diamondsToSplit;
+    r.diamondSendFee = r.diamondFinal * (SALARY_DIAMOND_SEND_FEE_PERCENT / 100);
     r.crowInitial = r.normShare * remainingCrowPool;
     r.crowFinal = r.crowInitial + (feePercent / 100) * crowPool;
   });
+  const sendFeeNote = document.getElementById('salarySendFeeNote');
+  sendFeeNote.classList.toggle('hidden', !diamondPool);
+  sendFeeNote.innerHTML = diamondPool
+    ? `${SALARY_DIAMOND_SEND_FEE_PERCENT}% sending fee (paid by the guild): <strong>💎 ${formatLootValue(diamondPool - diamondsToSplit)}</strong> — split among members: <strong>💎 ${formatLootValue(diamondsToSplit)}</strong>. Each Diamonds Final is what that person receives in full.`
+    : '';
 
   rows.sort(compareSalaryRank);
   salaryComputedRows = rows;
@@ -5033,6 +5055,7 @@ function renderSalaryComputation() {
       <td>${(r.normShare * 100).toFixed(2)}%</td>
       <td>${formatLootValue(r.diamondInitial)}</td>
       <td><strong>${formatLootValue(r.diamondFinal)}</strong></td>
+      <td>${formatLootValue(r.diamondSendFee)}</td>
       <td>${formatLootValue(r.crowInitial)}</td>
       <td><strong>${formatLootValue(r.crowFinal)}</strong></td>
     </tr>`
@@ -5042,15 +5065,16 @@ function renderSalaryComputation() {
   const totals = rows.reduce(
     (acc, r) => {
       acc.diamondFinal += r.diamondFinal;
+      acc.diamondSendFee += r.diamondSendFee;
       acc.crowFinal += r.crowFinal;
       return acc;
     },
-    { diamondFinal: 0, crowFinal: 0 }
+    { diamondFinal: 0, diamondSendFee: 0, crowFinal: 0 }
   );
   const totalsRow = document.getElementById('salaryComputationTotals');
   totalsRow.classList.toggle('hidden', rows.length === 0);
   totalsRow.innerHTML = rows.length
-    ? `<td colspan="8" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td><td><strong>${formatLootValue(totals.diamondFinal)}</strong></td><td></td><td><strong>${formatLootValue(totals.crowFinal)}</strong></td>`
+    ? `<td colspan="8" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td><td><strong>${formatLootValue(totals.diamondFinal)}</strong></td><td><strong>${formatLootValue(totals.diamondSendFee)}</strong></td><td></td><td><strong>${formatLootValue(totals.crowFinal)}</strong></td>`
     : '';
 
   renderSalaryGuildTotals(rows);

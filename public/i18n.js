@@ -374,6 +374,7 @@ const TRANSLATIONS = {
     'sovereign.salary.useSoldTotalsHint': "Filled automatically from this month's loot totals for the selected schedule (same total shown on that schedule's This Month's Loot page), minus any payouts already recorded below -- overwrite either field manually if needed.",
     'sovereign.salary.recordPayout': '💸 Record payout',
     'sovereign.salary.exportExcel': '📊 Export to Excel',
+    'sovereign.salary.thDiamondSendFee': '💎 Sending Fee (5%)',
     'sovereign.salary.recordPayoutHint': "Saves what's being sent now. Loot sold later gets its own new computation.",
     'sovereign.salary.payoutHistoryHeading': 'Payouts Sent This Month',
     'sovereign.salary.payoutHistoryEmpty': 'No payouts recorded for this month yet.',
