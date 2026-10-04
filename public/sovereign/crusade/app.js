@@ -4422,8 +4422,6 @@ async function loadSalaryComputation() {
   if (!salarySelectedMonth) salarySelectedMonth = new Date().toISOString().slice(0, 7);
   document.getElementById('salaryMonthInput').value = salarySelectedMonth;
   document.getElementById('salaryScheduleSelect').value = salaryActiveSchedule;
-  const exportLangSelect = document.getElementById('salaryExportLangSelect');
-  if (!exportLangSelect.dataset.picked) exportLangSelect.value = typeof getCurrentLang === 'function' && getCurrentLang() === 'zh' ? 'zh' : 'en';
   renderSalaryManagementFees();
   fillSalaryPoolsFromSoldItems();
 }
@@ -4637,8 +4635,7 @@ function renderSalaryPayoutHistory() {
           ${payoutTax(p) > 0.01 ? `<span class="salary-tax-cell">Tax 💎 ${formatLootValue(payoutTax(p))}</span>` : ''}
           <span>🪙 ${formatLootValue(p.crowPool)}</span>
           <span style="color:var(--text-muted);">${p.rows.length} people${p.createdBy ? ` · by ${escapeHtml(p.createdBy)}` : ''}</span>
-          <button type="button" class="btn small salary-payout-export" data-export-salary-payout="${p.id}" data-export-lang="en">📊 Excel (English)</button>
-          <button type="button" class="btn small" data-export-salary-payout="${p.id}" data-export-lang="zh">📊 Excel (中文)</button>
+          <button type="button" class="btn small salary-payout-export" data-export-salary-payout="${p.id}">${t('sovereign.salary.exportExcel')}</button>
           <button type="button" class="icon-btn admin-only" data-delete-salary-payout="${p.id}" title="Delete this payout">✕</button>
         </summary>
         <h3 class="salary-payout-subheading">${t('sovereign.salary.computationHeading')}</h3>
@@ -4788,15 +4785,49 @@ const SALARY_EXCEL_TEXT = {
     unsoldKills: '有未售物品的击杀记录', date: '日期', boss: 'Boss', quantity: '数量',
   },
 };
-function salaryExcelText(lang) {
-  return SALARY_EXCEL_TEXT[lang] || SALARY_EXCEL_TEXT.en;
+// Exports are always bilingual: every label is "English / 中文" (or just
+// one when both are the same, e.g. "Balthazard"). Sheet and file names
+// can't contain "/", so those join with a space instead.
+const SALARY_EXCEL_SPACE_JOINED = new Set(['sheetSalary', 'sheetFees', 'sheetGuilds', 'sheetPayouts', 'sheetUnsold', 'sheetRules', 'sheetPayout', 'fileName', 'payoutFileName']);
+function combineSalaryExcelText() {
+  const { en, zh } = SALARY_EXCEL_TEXT;
+  const join = (key, a, b) => {
+    if (a === b) return a;
+    if (!SALARY_EXCEL_SPACE_JOINED.has(key)) return `${a} / ${b}`;
+    // "Salary - X - 2026-09.xlsx" + "工资 - X - 2026-09.xlsx" -> "Salary 工资 - X - 2026-09.xlsx"
+    const [aHead, ...aRest] = a.split(' - ');
+    const [bHead] = b.split(' - ');
+    return aRest.length ? [`${aHead} ${bHead}`, ...aRest].join(' - ') : `${a} ${b}`;
+  };
+  const out = {};
+  Object.keys(en).forEach((key) => {
+    out[key] = typeof en[key] === 'function' ? (...args) => join(key, en[key](...args), zh[key](...args)) : join(key, en[key], zh[key]);
+  });
+  return out;
 }
-// The language picked next to the Export buttons; starts on the site's own
-// language (中文 -> Chinese, anything else -> English).
+const SALARY_EXCEL_TEXT_BILINGUAL = combineSalaryExcelText();
+function salaryExcelText() {
+  return SALARY_EXCEL_TEXT_BILINGUAL;
+}
 function salaryExportLang() {
-  const picked = document.getElementById('salaryExportLangSelect')?.value;
-  if (picked) return picked;
-  return typeof getCurrentLang === 'function' && getCurrentLang() === 'zh' ? 'zh' : 'en';
+  return 'both';
+}
+
+// Widens each column to fit its longest label (CJK characters count
+// double), ignoring long one-off titles so they don't stretch column A.
+function fitColumnWidths(grid, widths) {
+  const textWidth = (str) => Array.from(String(str)).reduce((w, ch) => w + (/[\u2E80-\uFFEF]/.test(ch) ? 2 : 1), 0);
+  return widths.map((min, c) => {
+    let w = min;
+    grid.forEach((row) => {
+      const cell = row && row[c];
+      const v = cell && typeof cell === 'object' ? cell.v : cell;
+      if (typeof v !== 'string') return;
+      const tw = textWidth(v) + 2;
+      if (tw <= 44) w = Math.max(w, tw);
+    });
+    return w;
+  });
 }
 
 // Builds the workbook with live Excel formulas, not pasted numbers: the
@@ -4850,7 +4881,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
       });
     });
     sheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, grid.length - 1), c: maxCol } });
-    if (colWidths) sheet['!cols'] = colWidths.map((wch) => ({ wch }));
+    if (colWidths) sheet['!cols'] = fitColumnWidths(grid, colWidths).map((wch) => ({ wch }));
     return sheet;
   }
 
@@ -5068,10 +5099,6 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   return { workbook, fileName: opts.fileName || L.fileName(scheduleLabel, month) };
 }
 
-document.getElementById('salaryExportLangSelect').addEventListener('change', (e) => {
-  e.target.dataset.picked = '1';
-});
-
 document.getElementById('salaryExportExcelBtn').addEventListener('click', async () => {
   if (!salaryComputedRows.length) {
     toast('Nothing to export for this month');
@@ -5209,7 +5236,7 @@ function buildUnsoldItemsSheet(XLSX, schedule, month, lang) {
     })
   );
   sheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: grid.length - 1, c: maxCol } });
-  sheet['!cols'] = [30, 16, 30, 10, 8, 10].map((wch) => ({ wch }));
+  sheet['!cols'] = fitColumnWidths(grid, [30, 16, 30, 10, 8, 10]).map((wch) => ({ wch }));
   return sheet;
 }
 
@@ -5239,8 +5266,8 @@ function buildPayoutAmountsWorkbook(XLSX, p, title, lang) {
       if (addr[0] !== '!' && ws[addr].t === 'n') ws[addr].z = FMT_MONEY;
     });
   });
-  sheet['!cols'] = [16, 22, 11, 14, 12].map((wch) => ({ wch }));
-  guildSheet['!cols'] = [16, 10, 14, 8, 13, 19, 12].map((wch) => ({ wch }));
+  sheet['!cols'] = fitColumnWidths(grid, [16, 22, 11, 14, 12]).map((wch) => ({ wch }));
+  guildSheet['!cols'] = fitColumnWidths(guildGrid, [16, 10, 14, 8, 13, 19, 12]).map((wch) => ({ wch }));
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, L.sheetPayout);
   XLSX.utils.book_append_sheet(workbook, guildSheet, L.sheetGuilds);
@@ -5248,9 +5275,7 @@ function buildPayoutAmountsWorkbook(XLSX, p, title, lang) {
   return workbook;
 }
 
-// lang is the button clicked (English / 中文); falls back to the picker
-// next to the main Export button.
-async function exportSalaryPayout(payoutId, langOverride) {
+async function exportSalaryPayout(payoutId) {
   const payouts = salaryPayoutsForCurrentMonth();
   const index = payouts.findIndex((x) => x.id === payoutId);
   const p = payouts[index];
@@ -5262,7 +5287,7 @@ async function exportSalaryPayout(payoutId, langOverride) {
     toast(err.message);
     return;
   }
-  const lang = langOverride || salaryExportLang();
+  const lang = salaryExportLang();
   const L = salaryExcelText(lang);
   const scheduleLabel = p.schedule === 'balthazard' ? L.balthazard : L.worldBoss;
   const sentOn = String(p.createdAt).slice(0, 10);
@@ -5293,7 +5318,7 @@ document.getElementById('salaryPayoutHistory').addEventListener('click', async (
   const exportBtn = e.target.closest('[data-export-salary-payout]');
   if (exportBtn) {
     e.preventDefault(); // inside <summary> -- don't also toggle the details open/closed
-    await exportSalaryPayout(exportBtn.getAttribute('data-export-salary-payout'), exportBtn.getAttribute('data-export-lang'));
+    await exportSalaryPayout(exportBtn.getAttribute('data-export-salary-payout'));
     return;
   }
   const btn = e.target.closest('[data-delete-salary-payout]');
