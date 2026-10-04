@@ -5118,7 +5118,8 @@ function renderSalaryComputation() {
 // Every player's Final Salary summed per guild -- "how much does each
 // guild receive in total" -- with that guild's members listed right under
 // it (highest payout first), so whoever hands out a guild's transfer can
-// see exactly who gets what from it.
+// see exactly who gets what from it. Each member also shows their share
+// of the guild's tax (5% of their Final), which adds up to the guild's.
 function renderSalaryGuildTotals(rows) {
   const byGuild = new Map();
   rows.forEach((r) => {
@@ -5151,8 +5152,8 @@ function renderSalaryGuildTotals(rows) {
       <td>${escapeHtml(r.ign)}</td>
       <td>${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
       <td>${formatLootValue(r.diamondFinal)}</td>
-      <td></td>
-      <td></td>
+      <td class="salary-tax-cell">${formatLootValue(r.diamondFinal * (SALARY_DIAMOND_SEND_FEE_PERCENT / 100))}</td>
+      <td>${formatLootValue(r.diamondFinal * (1 + SALARY_DIAMOND_SEND_FEE_PERCENT / 100))}</td>
       <td>${formatLootValue(r.crowFinal)}</td>
     </tr>`
         )
