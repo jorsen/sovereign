@@ -4973,6 +4973,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   XLSX.utils.book_append_sheet(workbook, feeSheet, 'Management Fees');
   XLSX.utils.book_append_sheet(workbook, guildSheet, 'Guild Totals');
   XLSX.utils.book_append_sheet(workbook, payoutSheet, 'Payouts');
+  XLSX.utils.book_append_sheet(workbook, buildUnsoldItemsSheet(XLSX, schedule, month), 'Unsold Items');
   XLSX.utils.book_append_sheet(workbook, rulesSheet, 'Rules');
   return { workbook, fileName: opts.fileName || `Salary - ${scheduleLabel} - ${month}.xlsx` };
 }
@@ -5038,6 +5039,85 @@ function payoutComputationRows(p) {
   return matches ? rows.sort(compareSalaryRank) : null;
 }
 
+// Loot from this schedule+month's kills that hasn't sold yet, as of now:
+// a per-item summary (Not Sold = Dropped - Sold, as a formula) and, below
+// it, every kill still holding unsold units -- the value still to come
+// into a later payout. Sold counts come from each kill's soldQuantity, the
+// same field behind the Sold/Partial/Not Sold badges on the loot page.
+function buildUnsoldItemsSheet(XLSX, schedule, month) {
+  const [year, mon] = month.split('-').map(Number);
+  const kills = [];
+  (sovereignState.worldBossEvents || []).forEach((ev) => {
+    if ((ev.schedule || 'world_boss') !== schedule) return;
+    const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
+    if (d.getFullYear() !== year || d.getMonth() !== mon - 1) return;
+    (ev.lootItems || []).forEach((item) => {
+      const quantity = Number(item.quantity) || 0;
+      const sold = Math.min(quantity, Number(item.soldQuantity ?? (item.sold ? quantity : 0)) || 0);
+      kills.push({ eventDate: ev.eventDate, bossName: ev.bossName, itemName: canonicalizeItemName(item.itemName), quantity, sold });
+    });
+  });
+
+  const byItem = new Map();
+  kills.forEach((k) => {
+    const key = k.itemName.toLowerCase();
+    if (!byItem.has(key)) byItem.set(key, { itemName: k.itemName, quantity: 0, sold: 0 });
+    const it = byItem.get(key);
+    it.quantity += k.quantity;
+    it.sold += k.sold;
+  });
+  const items = Array.from(byItem.values())
+    .filter((it) => it.quantity > it.sold)
+    .sort((a, b) => b.quantity - b.sold - (a.quantity - a.sold) || a.itemName.localeCompare(b.itemName));
+
+  const text = (v) => ({ t: 's', v: String(v) });
+  const num = (v) => ({ t: 'n', v: Number(v) || 0 });
+  const formula = (f, v) => ({ t: 'n', f, v: Number(v) || 0 });
+  const grid = [
+    [text(`Unsold items — ${schedule === 'balthazard' ? 'Balthazard' : 'World Boss'} ${month} (as of ${new Date().toISOString().slice(0, 10)})`)],
+    [],
+    ['Item', 'Dropped', 'Sold', 'Not Sold'].map(text),
+  ];
+  if (!items.length) {
+    grid.push([text('Everything from this month has been sold')]);
+  } else {
+    items.forEach((it) => {
+      const n = grid.length + 1;
+      grid.push([text(it.itemName), num(it.quantity), num(it.sold), formula(`B${n}-C${n}`, it.quantity - it.sold)]);
+    });
+    const firstRow = 4;
+    const lastRow = grid.length;
+    grid.push([
+      text('Total'),
+      formula(`SUM(B${firstRow}:B${lastRow})`, items.reduce((sum, it) => sum + it.quantity, 0)),
+      formula(`SUM(C${firstRow}:C${lastRow})`, items.reduce((sum, it) => sum + it.sold, 0)),
+      formula(`SUM(D${firstRow}:D${lastRow})`, items.reduce((sum, it) => sum + it.quantity - it.sold, 0)),
+    ]);
+
+    grid.push([], [text('Kills with unsold items')], ['Date', 'Boss', 'Item', 'Quantity', 'Sold', 'Not Sold'].map(text));
+    kills
+      .filter((k) => k.quantity > k.sold)
+      .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)) || a.itemName.localeCompare(b.itemName))
+      .forEach((k) => {
+        const n = grid.length + 1;
+        grid.push([text(formatWorldBossEventDateTime(k.eventDate)), text(k.bossName), text(k.itemName), num(k.quantity), num(k.sold), formula(`D${n}-E${n}`, k.quantity - k.sold)]);
+      });
+  }
+
+  const sheet = {};
+  let maxCol = 0;
+  grid.forEach((row, r) =>
+    row.forEach((cell, c) => {
+      if (!cell) return;
+      sheet[XLSX.utils.encode_cell({ r, c })] = cell;
+      maxCol = Math.max(maxCol, c);
+    })
+  );
+  sheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: grid.length - 1, c: maxCol } });
+  sheet['!cols'] = [30, 16, 30, 10, 8, 10].map((wch) => ({ wch }));
+  return sheet;
+}
+
 // Plain amounts-as-paid workbook, for an older payout whose full
 // computation can't be re-derived exactly anymore -- better a correct
 // record of what was sent than formulas that come out to different numbers.
@@ -5067,6 +5147,7 @@ function buildPayoutAmountsWorkbook(XLSX, p, title) {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, 'Payout');
   XLSX.utils.book_append_sheet(workbook, guildSheet, 'Guild Totals');
+  XLSX.utils.book_append_sheet(workbook, buildUnsoldItemsSheet(XLSX, p.schedule, p.month), 'Unsold Items');
   return workbook;
 }
 
