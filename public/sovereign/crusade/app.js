@@ -4403,6 +4403,10 @@ let salaryActiveSchedule = 'world_boss';
 // The rows last rendered in the Salary Computation table -- what "Record
 // payout" snapshots, so the saved amounts match exactly what was on screen.
 let salaryComputedRows = [];
+// Which guild rows in Total Guild Receives (live and in each payout) are
+// open, remembered across re-renders (e.g. after changing a pool), keyed by
+// table ("live" or a payout id) + guild.
+const salaryExpandedGuilds = new Set();
 
 async function loadSalaryComputation() {
   const [growthSubmissions, events, fees, saleBatches, payouts, guildTaxes] = await Promise.all([
@@ -4603,18 +4607,19 @@ function renderSalaryPayoutHistory() {
         .map((g) => {
           const taxPercent = taxed ? g.rows[0].taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT : 0;
           const tax = g.diamonds * (taxPercent / 100);
+          const open = salaryExpandedGuilds.has(`${p.id}:${g.guildName}`);
           return `
-          <tr class="salary-guild-row">
-            <td>${crusadeGuildBadge(g.guildName === 'Unassigned' ? null : g.guildName)}</td>
+          <tr class="salary-guild-row is-collapsible" data-guild-toggle="${p.id}:${escapeHtml(g.guildName)}" aria-expanded="${open}">
+            <td><span class="salary-guild-chevron">${open ? '▾' : '▸'}</span>${crusadeGuildBadge(g.guildName === 'Unassigned' ? null : g.guildName)}</td>
             <td>${g.rows.length} ${g.rows.length === 1 ? 'member' : 'members'}</td>
             <td><strong>${formatLootValue(g.diamonds)}</strong></td>
-            <td class="salary-tax-cell">${taxed ? `${formatLootValue(tax)} (${taxPercent}%)` : '—'}</td>
+            <td class="salary-tax-cell">${taxed ? `<span class="salary-guild-tax-rate">${taxPercent}%</span>${formatLootValue(tax)}` : '—'}</td>
             <td>${formatLootValue(g.diamonds + tax)}</td>
             <td><strong>${formatLootValue(g.crows)}</strong></td>
           </tr>${g.rows
             .map(
               (r) => `
-          <tr class="salary-guild-member-row">
+          <tr class="salary-guild-member-row${open ? '' : ' hidden'}">
             <td>${escapeHtml(r.ign)}</td>
             <td>${(r.attendance || 0).toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
             <td>${formatLootValue(r.diamonds)}</td>
@@ -5639,12 +5644,13 @@ function renderSalaryGuildTotals(rows) {
     .map((g) => {
       const color = g.guildName === 'Unassigned' ? null : crusadeGuildColor(g.guildName);
       const label = g.guildName === 'Unassigned' ? t('sovereign.common.unassigned') : escapeHtml(g.guildName);
+      const open = salaryExpandedGuilds.has(`live:${g.guildName}`);
       const memberRows = g.people
         .slice()
         .sort(compareSalaryRank)
         .map(
           (r) => `
-    <tr class="salary-guild-member-row">
+    <tr class="salary-guild-member-row${open ? '' : ' hidden'}">
       <td>${escapeHtml(r.ign)}</td>
       <td>${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
       <td>${formatLootValue(r.diamondFinal)}</td>
@@ -5655,13 +5661,13 @@ function renderSalaryGuildTotals(rows) {
         )
         .join('');
       return `
-    <tr class="salary-guild-row">
-      <td style="${color ? `color:${color}; font-weight:600;` : 'font-weight:600;'}">${label}</td>
+    <tr class="salary-guild-row is-collapsible" data-guild-toggle="live:${escapeHtml(g.guildName)}" aria-expanded="${open}">
+      <td style="${color ? `color:${color}; font-weight:600;` : 'font-weight:600;'}"><span class="salary-guild-chevron">${open ? '▾' : '▸'}</span>${label}</td>
       <td>${g.members.toLocaleString()}</td>
       <td><strong>${formatLootValue(g.diamondFinal)}</strong></td>
       <td class="salary-tax-cell">
-        <span class="salary-guild-tax-rate"><input type="number" min="0" max="100" step="0.01" class="salary-guild-tax-input admin-disable" data-guild-tax="${escapeHtml(g.guildName)}" value="${g.taxPercent}" aria-label="Tax % for ${escapeHtml(g.guildName)}">%</span>
-        ${formatLootValue(g.tax)}
+        <span class="salary-guild-tax-rate">${g.taxPercent}%</span>${formatLootValue(g.tax)}
+        <button type="button" class="icon-btn admin-only salary-guild-tax-edit" data-edit-guild-tax="${escapeHtml(g.guildName)}" title="Change ${escapeHtml(g.guildName)}'s tax %">✎</button>
       </td>
       <td>${formatLootValue(g.diamondFinal + g.tax)}</td>
       <td><strong>${formatLootValue(g.crowFinal)}</strong></td>
@@ -5683,14 +5689,16 @@ function renderSalaryGuildTotals(rows) {
 
 // Saving a guild's tax rate recomputes the whole salary -- a different
 // rate changes how much of the pool is left to split for everyone.
-document.getElementById('salaryGuildTotalsBody').addEventListener('change', async (e) => {
-  const input = e.target.closest('[data-guild-tax]');
-  if (!input) return;
-  const guildName = input.getAttribute('data-guild-tax');
-  const percent = Number(input.value);
+document.getElementById('salaryGuildTotalsBody').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-edit-guild-tax]');
+  if (!btn) return;
+  e.stopPropagation(); // don't also open/close the guild
+  const guildName = btn.getAttribute('data-edit-guild-tax');
+  const answer = prompt(`Tax % for ${guildName} (default ${SALARY_DIAMOND_SEND_FEE_PERCENT}%)`, String(guildTaxPercent(guildName === 'Unassigned' ? null : guildName)));
+  if (answer === null || answer.trim() === '') return;
+  const percent = Number(answer);
   if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
     toast('Tax must be between 0 and 100%');
-    input.value = guildTaxPercent(guildName === 'Unassigned' ? null : guildName);
     return;
   }
   try {
@@ -5701,6 +5709,22 @@ document.getElementById('salaryGuildTotalsBody').addEventListener('change', asyn
     toast(`Tax for ${guildName} set to ${percent}%`);
   } catch (err) {
     toast(err.message);
+  }
+});
+
+// Guild rows in Total Guild Receives (live and in each payout) open and
+// close their member list -- see salaryExpandedGuilds.
+document.getElementById('sovereignSalaryPanel').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-guild-toggle]');
+  if (!row || e.target.closest('button, input, a')) return;
+  const key = row.getAttribute('data-guild-toggle');
+  const open = !salaryExpandedGuilds.has(key);
+  if (open) salaryExpandedGuilds.add(key);
+  else salaryExpandedGuilds.delete(key);
+  row.setAttribute('aria-expanded', String(open));
+  row.querySelector('.salary-guild-chevron').textContent = open ? '▾' : '▸';
+  for (let next = row.nextElementSibling; next && next.classList.contains('salary-guild-member-row'); next = next.nextElementSibling) {
+    next.classList.toggle('hidden', !open);
   }
 });
 

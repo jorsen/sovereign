@@ -2456,3 +2456,8 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .salary-guild-tax-rate { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; color: var(--text-muted); }
 .salary-guild-tax-input { width: 56px; padding: 2px 4px; text-align: right; font: inherit; }
 .salary-payout-subheading { font-size: 13px; margin: 12px 0 6px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+/* Accordion guild rows in Total Guild Receives */
+.salary-guild-row.is-collapsible { cursor: pointer; }
+.salary-guild-row.is-collapsible:hover td { background: var(--surface-2, var(--surface-1)); }
+.salary-guild-chevron { display: inline-block; width: 1.1em; color: var(--text-muted); }
+.salary-guild-tax-edit { margin-left: 6px; font-size: 12px; }
