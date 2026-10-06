@@ -2461,3 +2461,4 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .salary-guild-row.is-collapsible:hover td { background: var(--surface-2, var(--surface-1)); }
 .salary-guild-chevron { display: inline-block; width: 1.1em; color: var(--text-muted); }
 .salary-guild-tax-edit { margin-left: 6px; font-size: 12px; }
+.crusade-growth-updated { white-space: nowrap; color: var(--text-muted); font-size: 12px; }

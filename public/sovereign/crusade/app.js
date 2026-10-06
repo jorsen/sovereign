@@ -2091,6 +2091,15 @@ function populateGrowthFilterOptions(submissions) {
   classSelect.value = classNames.includes(currentClass) ? currentClass : '';
 }
 
+// When a Growth Rate record was last changed (bot resubmission, manual add
+// or edit all stamp updated_at), in the viewer's own local time.
+function formatGrowthTimestamp(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 function renderGrowthSubmissions() {
   const all = sovereignState.growthSubmissions || [];
   const search = document.getElementById('growthSearchInput').value.trim().toLowerCase();
@@ -2124,6 +2133,7 @@ function renderGrowthSubmissions() {
           : `<span style="color:var(--text-muted); font-size:12px;">${t('sovereign.growth.noScreenshot')}</span>`
       }</td>
       <td>${s.discordUsername ? `@${escapeHtml(s.discordUsername)}` : '–'}</td>
+      <td class="crusade-growth-updated" title="${s.createdAt ? `Submitted ${escapeHtml(formatGrowthTimestamp(s.createdAt))}` : ''}">${formatGrowthTimestamp(s.updatedAt || s.createdAt) || '–'}</td>
       <td class="admin-only crusade-roster-actions-cell">
         <button type="button" class="icon-btn" data-edit-growth="${s.id}" title="Edit">✎</button>
         <button type="button" class="icon-btn" data-delete-growth="${s.id}" title="Remove submission">✕</button>
