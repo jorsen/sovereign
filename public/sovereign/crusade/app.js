@@ -2581,11 +2581,23 @@ async function loadWorldBossAttendance() {
 // applyFifoSalesToItem), so a converged item costs nothing beyond the
 // initial FIFO-queue recomputation. Re-renders once at the end rather
 // than after every item, since several could change.
+//
+// Also covers every item dropped in the month being viewed, even with no
+// sale at all yet -- so a price on one of that month's kills that no sale
+// backs (the log form used to auto-fill the last known price) is cleared
+// rather than counted as money the month earned.
 async function reconcileFifoSales() {
-  const itemKeys = new Set((sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule).map((b) => b.itemKey));
+  const soldItemKeys = new Set((sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule).map((b) => b.itemKey));
+  const itemKeys = new Set(soldItemKeys);
+  const viewedMonth = worldBossViewedMonthKey();
+  getScheduleEvents().forEach((ev) => {
+    if (String(ev.eventDate).slice(0, 7) !== viewedMonth) return;
+    (ev.lootItems || []).forEach((item) => itemKeys.add(canonicalizeItemName(item.itemName).toLowerCase()));
+  });
   if (!itemKeys.size) return;
   for (const itemKey of itemKeys) {
-    await applyFifoSalesToItem(itemKey);
+    // an item with no sales at all only gets its viewed-month kills touched
+    await applyFifoSalesToItem(itemKey, soldItemKeys.has(itemKey) ? null : viewedMonth);
   }
   renderWorldBossLog();
 }
@@ -3642,8 +3654,15 @@ function computeFifoAllocation(itemKey) {
   return { updatesByEvent, usageByBatch };
 }
 
-async function applyFifoSalesToItem(itemKey) {
+// onlyMonth ('YYYY-MM') limits what's saved to that month's kills.
+async function applyFifoSalesToItem(itemKey, onlyMonth) {
   const { updatesByEvent } = computeFifoAllocation(itemKey);
+  if (onlyMonth) {
+    Array.from(updatesByEvent.keys()).forEach((eventId) => {
+      const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
+      if (!ev || String(ev.eventDate).slice(0, 7) !== onlyMonth) updatesByEvent.delete(eventId);
+    });
+  }
 
   // Skip writing an event whose computed result exactly matches what's
   // already stored -- this runs opportunistically on every page load (see
@@ -4106,21 +4125,21 @@ function addWorldBossLootRow(item) {
       <div class="crusade-loot-suggest-list hidden"></div>
     </div>
     <input type="number" data-loot-field="quantity" placeholder="Qty" min="1" step="1" value="${item?.quantity ?? 1}">
-    <input type="number" data-loot-field="crowsValue" placeholder="Crows" min="0" step="0.01" value="${item?.crowsValue ?? ''}">
-    <input type="number" data-loot-field="diamondsValue" placeholder="Diamonds" min="0" step="0.01" value="${item?.diamondsValue ?? ''}">
+    <input type="hidden" data-loot-field="crowsValue" value="${item?.crowsValue ?? ''}">
+    <input type="hidden" data-loot-field="diamondsValue" value="${item?.diamondsValue ?? ''}">
     <button type="button" class="icon-btn" title="Remove item">✕</button>`;
   row.querySelector('button').addEventListener('click', () => row.remove());
 
   const nameInput = row.querySelector('[data-loot-field="itemName"]');
   const suggestList = row.querySelector('.crusade-loot-suggest-list');
   const quantityInput = row.querySelector('[data-loot-field="quantity"]');
-  const crowsInput = row.querySelector('[data-loot-field="crowsValue"]');
-  const diamondsInput = row.querySelector('[data-loot-field="diamondsValue"]');
 
-  // Enter in Quantity/Crows/Diamonds also adds the next row and jumps into
-  // its item name field, same as Enter in the item name field itself --
-  // there's no suggestion list on these to intercept it first.
-  [quantityInput, crowsInput, diamondsInput].forEach((input) => {
+  // Enter in Quantity also adds the next row and jumps into its item name
+  // field, same as Enter in the item name field itself -- there's no
+  // suggestion list on it to intercept it first. (Crows/Diamonds aren't on
+  // this form: a kill's price only ever comes from a recorded sale, see
+  // This Month's Loot.)
+  [quantityInput].forEach((input) => {
     input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
@@ -4128,15 +4147,6 @@ function addWorldBossLootRow(item) {
       newRow?.querySelector('[data-loot-field="itemName"]').focus();
     });
   });
-
-  // Auto-fills the last known Crows/Diamonds values for a matched item --
-  // only into fields still empty, so it never clobbers something the admin
-  // already typed.
-  function applyMatch(match) {
-    if (!match) return;
-    if (!crowsInput.value && match.crowsValue !== null) crowsInput.value = match.crowsValue;
-    if (!diamondsInput.value && match.diamondsValue !== null) diamondsInput.value = match.diamondsValue;
-  }
 
   // Tracks which suggestion arrow-key navigation has landed on, so Enter can
   // pick it instead of falling through to "add a new row" -- reset whenever
@@ -4147,7 +4157,6 @@ function addWorldBossLootRow(item) {
     nameInput.value = el.getAttribute('data-suggest-name');
     suggestList.classList.add('hidden');
     highlightedIndex = -1;
-    applyMatch(computeKnownLootItems().get(nameInput.value.trim().toLowerCase()));
   }
 
   function highlightSuggestion(nextIndex) {
@@ -4198,10 +4207,7 @@ function addWorldBossLootRow(item) {
     });
   }
 
-  nameInput.addEventListener('input', () => {
-    showSuggestions();
-    applyMatch(computeKnownLootItems().get(nameInput.value.trim().toLowerCase()));
-  });
+  nameInput.addEventListener('input', showSuggestions);
   nameInput.addEventListener('focus', showSuggestions);
   nameInput.addEventListener('blur', () => setTimeout(() => suggestList.classList.add('hidden'), 150));
   // Arrow keys move the highlight through the open suggestion list; Enter
@@ -4357,6 +4363,7 @@ document.getElementById('worldBossForm').addEventListener('submit', async (e) =>
     worldBossCalendarMonth = new Date(y, m - 1, 1);
     worldBossSelectedDate = payload.eventDate.slice(0, 10);
     renderWorldBossLog(); // also re-renders the attendance summary
+    await reconcileFifoSales(); // re-derives this month's sold status/prices from Sales
   } catch (err) {
     toast(err.message);
   }
