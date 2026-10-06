@@ -2179,7 +2179,7 @@ function renderGrowthSubmissions() {
   body.innerHTML = submissions
     .map(
       (s, i) => `
-    <tr data-growth-id="${s.id}">
+    <tr class="crusade-growth-row" data-growth-id="${s.id}" title="Click to see ${escapeHtml(s.ign)}'s Growth Rate history">
       <td>${i + 1}</td>
       <td style="font-weight:600;">${escapeHtml(s.ign)} <button type="button" class="icon-btn crusade-growth-history-btn" data-growth-history="${s.id}" title="Growth Rate history">📈</button></td>
       <td style="font-weight:600;">${s.growthRate !== null && s.growthRate !== undefined ? s.growthRate.toLocaleString() : '–'}</td>
@@ -2214,9 +2214,13 @@ function renderGrowthSubmissions() {
     });
   });
 
-  body.querySelectorAll('[data-growth-history]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const s = submissions.find((x) => x.id === btn.getAttribute('data-growth-history'));
+  // Clicking anywhere on a row opens that player's history -- except the
+  // screenshot thumbnail and the edit/delete buttons, which keep their own
+  // actions. (The 📈 button is just the visible hint for this.)
+  body.querySelectorAll('tr[data-growth-id]').forEach((tr) => {
+    tr.addEventListener('click', (e) => {
+      if (e.target.closest('[data-view-growth-image], [data-edit-growth], [data-delete-growth], a, input')) return;
+      const s = submissions.find((x) => x.id === tr.getAttribute('data-growth-id'));
       if (s) openGrowthHistoryModal(s);
     });
   });

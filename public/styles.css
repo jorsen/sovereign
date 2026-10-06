@@ -2466,3 +2466,5 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-growth-history-btn { font-size: 13px; padding: 0 4px; vertical-align: middle; }
 .crusade-growth-up { color: var(--good); font-weight: 600; }
 .crusade-growth-down { color: var(--bad); font-weight: 600; }
+.crusade-growth-row { cursor: pointer; }
+.crusade-growth-row:hover td { background: var(--surface-2, var(--surface-1)); }
