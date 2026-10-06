@@ -2114,10 +2114,11 @@ async function openGrowthHistoryModal(submission) {
   const key = memberNameKey(submission.ign);
   const entries = growthHistoryCache.filter((h) => memberNameKey(h.ign) === key);
   // keep only entries where something worth showing changed (an edit that
-  // only fixed the class still counts) -- drops exact repeats in a row
+  // only fixed the class still counts, and so does a post with its own
+  // screenshot) -- drops exact repeats in a row
   const shown = entries.filter((h, i) => {
     const prev = entries[i - 1];
-    return !prev || prev.growthRate !== h.growthRate || prev.lampLevel !== h.lampLevel || prev.class !== h.class || prev.guildName !== h.guildName || prev.ign !== h.ign;
+    return !prev || h.hasImage || prev.growthRate !== h.growthRate || prev.lampLevel !== h.lampLevel || prev.class !== h.class || prev.guildName !== h.guildName || prev.ign !== h.ign;
   });
   empty.classList.toggle('hidden', shown.length !== 0);
   body.innerHTML = shown
@@ -2138,6 +2139,11 @@ async function openGrowthHistoryModal(submission) {
         <td>${escapeHtml(h.class || '–')}</td>
         <td>${crusadeGuildBadge(h.guildName)}</td>
         <td>${h.ign !== submission.ign ? escapeHtml(h.ign) + ' · ' : ''}${escapeHtml(h.recordedBy || '–')}</td>
+        <td>${
+          h.hasImage
+            ? `<a href="/api/growth-history/${h.id}/image" target="_blank" rel="noopener" title="Open full size"><img class="crusade-growth-thumb" src="/api/growth-history/${h.id}/image" alt="${escapeHtml(h.ign)} screenshot" loading="lazy"></a>`
+            : `<span style="color:var(--text-muted); font-size:12px;">${t('sovereign.growth.noScreenshot')}</span>`
+        }</td>
       </tr>`
     )
     .join('');
