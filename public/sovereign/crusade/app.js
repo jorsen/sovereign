@@ -3061,35 +3061,24 @@ function renderWorldBossMonthlyLoot() {
     r.guessedBoss = Array.from(r.bossCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
   });
 
-  // Sales are tracked independently of which month/kill an item dropped in
-  // (see loadWorldBossAttendance), so "Total Quantity" and "sold so far"
-  // are computed against every kill ever logged, not just this month's --
-  // otherwise an item collected in August and sold in September would look
-  // like it has leftover stock it doesn't.
-  const totalQuantityByKey = new Map();
-  const allSourcesByKey = new Map();
-  getScheduleEvents().forEach((ev) => {
-    (ev.lootItems || []).forEach((item) => {
-      const key = canonicalizeItemName(item.itemName).toLowerCase();
-      totalQuantityByKey.set(key, (totalQuantityByKey.get(key) || 0) + (item.quantity || 0));
-      if (!allSourcesByKey.has(key)) allSourcesByKey.set(key, []);
-      allSourcesByKey.get(key).push({
-        eventId: ev.id,
-        itemId: item.id,
-        quantity: item.quantity,
-        eventDate: ev.eventDate,
-        sold: item.sold,
-        soldQuantity: item.soldQuantity ?? (item.sold ? item.quantity : 0),
-      });
-    });
-  });
+  // Each month is its own set of records: Total / Sold / Remaining count
+  // only this month's kills, and the Sales list only shows sales that
+  // actually went into this month's kills (or were recorded against this
+  // month) -- see computeFifoAllocation for how sales are kept to a month.
+  const viewedMonth = worldBossViewedMonthKey();
   rows.forEach((r) => {
-    r.totalQuantityEver = totalQuantityByKey.get(r.itemKey) || r.quantity;
-    // Every kill that ever dropped this item, not just this month's --
-    // used to spread a sale's price across the whole pool it was sold from.
-    r.allSources = allSourcesByKey.get(r.itemKey) || r.sources;
+    const { usageByBatch } = computeFifoAllocation(r.itemKey);
     r.saleBatches = (sovereignState.lootSaleBatches || [])
       .filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === r.itemKey)
+      .filter((b) => {
+        const usage = usageByBatch.get(b.id);
+        if (usage && usage.get(viewedMonth)) return true;
+        if (b.month) return b.month === viewedMonth;
+        // an older untagged sale that didn't land on any kill at all still
+        // shows in the month it was sold, so it can be found and removed
+        return !usage && saleMonthKey(b) === viewedMonth;
+      })
+      .map((b) => ({ ...b, usedThisMonth: usageByBatch.get(b.id)?.get(viewedMonth) || 0 }))
       .sort((a, b) => String(b.soldAt).localeCompare(String(a.soldAt)));
     // Summed from each kill's own soldQuantity (the same field driving its
     // individual Sold/Not Sold badge below) rather than independently
@@ -3100,8 +3089,8 @@ function renderWorldBossMonthlyLoot() {
     // Sold. Deriving from the same source the badges use makes that
     // contradiction structurally impossible instead of just patching one
     // item's data.
-    r.soldQuantity = r.allSources.reduce((sum, s) => sum + (s.soldQuantity || 0), 0);
-    r.remainingQuantity = Math.max(0, r.totalQuantityEver - r.soldQuantity);
+    r.soldQuantity = r.sources.reduce((sum, s) => sum + (s.soldQuantity || 0), 0);
+    r.remainingQuantity = Math.max(0, r.quantity - r.soldQuantity);
   });
   worldBossMonthlyLootRows = rows; // read by the change handler below via data-loot-row-index -- indices below are into this full (unfiltered) array
 
@@ -3172,7 +3161,7 @@ function renderWorldBossMonthlyLoot() {
         <div class="crusade-loot-sales ${isExpanded ? '' : 'hidden'}" id="worldBossLootSales-${i}">
           <h4>${t('sovereign.worldBoss.salesHeading')}</h4>
           <div class="crusade-loot-sales-summary">
-            <span>${t('sovereign.worldBoss.salesTotalQty')}: <strong>${r.totalQuantityEver.toLocaleString()}</strong></span>
+            <span>${t('sovereign.worldBoss.salesTotalQty')}: <strong>${r.quantity.toLocaleString()}</strong></span>
             <span>${t('sovereign.worldBoss.salesSold')}: <strong>${r.soldQuantity.toLocaleString()}</strong></span>
             <span>${t('sovereign.worldBoss.salesRemaining')}: <strong>${r.remainingQuantity.toLocaleString()}</strong></span>
           </div>
@@ -3186,7 +3175,7 @@ function renderWorldBossMonthlyLoot() {
                   (b) => `
                 <tr>
                   <td class="crusade-loot-date">${formatSaleBatchDate(b.soldAt)}</td>
-                  <td class="crusade-loot-num">${b.quantity.toLocaleString()}</td>
+                  <td class="crusade-loot-num">${b.usedThisMonth && b.usedThisMonth < b.quantity ? `${b.usedThisMonth.toLocaleString()} of ${b.quantity.toLocaleString()}` : b.quantity.toLocaleString()}</td>
                   <td class="crusade-loot-num">${b.crowsValue !== null ? '🪙 ' + formatLootValue(b.crowsValue) : '—'}</td>
                   <td class="crusade-loot-num">${b.diamondsValue !== null ? '💎 ' + formatLootValue(b.diamondsValue) : '—'}</td>
                   <td><button type="button" class="crusade-loot-sale-delete admin-disable" data-delete-sale-batch="${b.id}">✕</button></td>
@@ -3212,7 +3201,7 @@ function renderWorldBossMonthlyLoot() {
       <td class="crusade-loot-num">
         <span class="crusade-loot-edit-cell diamonds">💎 <input type="number" min="0" step="0.01" class="crusade-loot-edit-input admin-disable" data-loot-row-index="${i}" data-loot-field="diamondsValue" value="${r.diamondsValue !== null ? roundLootValue(r.diamondsValue) : ''}" placeholder="—"></span>
       </td>
-      <td class="crusade-loot-num"><span class="crusade-loot-sold-ratio ${['is-unsold', 'is-partially-sold', 'is-fully-sold'][monthlyLootSoldRank(r)]}">${r.soldQuantity.toLocaleString()} / ${r.totalQuantityEver.toLocaleString()}</span></td>
+      <td class="crusade-loot-num"><span class="crusade-loot-sold-ratio ${['is-unsold', 'is-partially-sold', 'is-fully-sold'][monthlyLootSoldRank(r)]}">${r.soldQuantity.toLocaleString()} / ${r.quantity.toLocaleString()}</span></td>
     </tr>`;
       }
     )
@@ -3288,10 +3277,10 @@ document.getElementById('worldBossMonthlyLootSearchInput').addEventListener('inp
 document.getElementById('worldBossMonthlyLootSortSelect').addEventListener('change', renderWorldBossMonthlyLoot);
 
 // 0 = nothing sold yet, 1 = partially sold, 2 = fully sold -- against every
-// kill ever logged (totalQuantityEver), same as the Sold column.
+// kill this month, same as the Sold column.
 function monthlyLootSoldRank(r) {
   if (r.soldQuantity <= 0) return 0;
-  return r.soldQuantity >= r.totalQuantityEver ? 2 : 1;
+  return r.soldQuantity >= r.quantity ? 2 : 1;
 }
 
 // Stable sort, so rows in the same sold group keep the default
@@ -3347,7 +3336,7 @@ document.getElementById('worldBossMonthlyLootPrintBtn').addEventListener('click'
           <td>${r.quantity.toLocaleString()}</td>
           <td>${r.crowsValue !== null ? formatLootValue(r.crowsValue) : '—'}</td>
           <td>${r.diamondsValue !== null ? formatLootValue(r.diamondsValue) : '—'}</td>
-          <td>${r.soldQuantity.toLocaleString()} / ${r.totalQuantityEver.toLocaleString()}</td>
+          <td>${r.soldQuantity.toLocaleString()} / ${r.quantity.toLocaleString()}</td>
         </tr>`
           )
           .join('')}
@@ -3424,10 +3413,10 @@ async function toggleLootItemSold(btn) {
   }
 }
 
-// Records a sale against the item's shared pool (see loadWorldBossAttendance
-// / renderWorldBossMonthlyLoot) rather than any specific kill's row, so
-// selling the same item again later at a different price is just another
-// independent batch -- it never touches this one's price.
+// Records a sale against the month being viewed (rather than any specific
+// kill's row), so selling the same item again later at a different price is
+// just another independent batch -- it never touches this one's price, and
+// it only ever covers this month's kills (see computeFifoAllocation).
 async function addSaleBatch(form, row) {
   const quantity = Number(form.elements.quantity.value);
   if (!Number.isFinite(quantity) || quantity <= 0) return;
@@ -3440,7 +3429,7 @@ async function addSaleBatch(form, row) {
   try {
     const created = await api('/api/loot-sale-batches', {
       method: 'POST',
-      body: JSON.stringify({ itemName: row.itemName, quantity, crowsValue, diamondsValue, schedule: worldBossActiveSchedule }),
+      body: JSON.stringify({ itemName: row.itemName, quantity, crowsValue, diamondsValue, schedule: worldBossActiveSchedule, month: worldBossViewedMonthKey() }),
     });
     sovereignState.lootSaleBatches.push(created);
     await applyFifoSalesToItem(row.itemKey);
@@ -3507,8 +3496,29 @@ function roundLootValue(value) {
 // everything after it in date order stays Not Sold too. Recomputed from
 // scratch every time (not just the newly-added/removed batch), since one
 // batch changing shifts which units every later kill draws from.
-async function applyFifoSalesToItem(itemKey) {
+//
+// Each month is its own set of records: a sale recorded against a month
+// (b.month, set when it was entered from that month's page) only covers
+// that month's kills, and an older untagged sale only covers kills up to
+// the month it was sold in -- so a sale can never fill a later month's
+// drops, and a new month starts with nothing sold.
+//
+// computeFifoAllocation works it all out without saving anything (the
+// loot table also uses it to tell which sales went into which month);
+// applyFifoSalesToItem saves the result onto the kills.
+function worldBossViewedMonthKey() {
+  const d = worldBossCalendarMonth || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function saleMonthKey(b) {
+  if (b.month) return b.month;
+  const d = new Date(b.soldAt);
+  return Number.isNaN(d.getTime()) ? String(b.soldAt || '').slice(0, 7) : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function computeFifoAllocation(itemKey) {
   const itemBatches = (sovereignState.lootSaleBatches || []).filter((b) => (b.schedule || 'world_boss') === worldBossActiveSchedule && b.itemKey === itemKey);
+  const usageByBatch = new Map(); // batch id -> Map(month -> units it covered there)
 
   // A kill with its own linked sale (from toggleLootItemSold) is locked to
   // that sale -- it's always marked sold from its linked batches first,
@@ -3522,7 +3532,10 @@ async function applyFifoSalesToItem(itemKey) {
   const allSources = computeAllSourcesForItemKey(itemKey);
   const sourceEventIds = new Set(allSources.map((s) => s.eventId));
   const toQueueEntry = (b, quantity) => ({
+    id: b.id,
     soldAt: String(b.soldAt),
+    month: b.month || null,
+    soldMonth: saleMonthKey(b),
     remaining: quantity,
     diamondsPerUnit: b.diamondsValue !== null ? b.diamondsValue / b.quantity : null,
     crowsPerUnit: b.crowsValue !== null ? b.crowsValue / b.quantity : null,
@@ -3541,19 +3554,32 @@ async function applyFifoSalesToItem(itemKey) {
       }
     });
   const sources = allSources.sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)));
-  if (!sources.length) return;
+  if (!sources.length) return { updatesByEvent: new Map(), usageByBatch };
 
-  // Takes up to `need` units off the front of `queue` (mutating it),
-  // returning how many it got and their summed price.
-  function drawFromQueue(queue, need) {
+  // Takes up to `need` units from the oldest sales in `queue` that may
+  // cover a kill from killMonth (mutating it), returning how many it got
+  // and their summed price. killMonth null = no month rule (a kill's own
+  // linked sales).
+  const canCover = (b, killMonth) => !killMonth || (b.month ? b.month === killMonth : killMonth <= b.soldMonth);
+  function drawFromQueue(queue, need, killMonth) {
     let taken = 0;
     let diamondsTotal = 0;
     let crowsTotal = 0;
     let anyDiamonds = false;
     let anyCrows = false;
-    while (need > 0 && queue.length) {
-      const b = queue[0];
+    for (let i = 0; need > 0 && i < queue.length; ) {
+      const b = queue[i];
+      if (!canCover(b, killMonth)) {
+        i++;
+        continue;
+      }
       const take = Math.min(need, b.remaining);
+      if (take > 0 && b.id) {
+        const month = killMonth || '';
+        if (!usageByBatch.has(b.id)) usageByBatch.set(b.id, new Map());
+        const usage = usageByBatch.get(b.id);
+        usage.set(month, (usage.get(month) || 0) + take);
+      }
       if (b.diamondsPerUnit !== null) {
         diamondsTotal += take * b.diamondsPerUnit;
         anyDiamonds = true;
@@ -3565,7 +3591,8 @@ async function applyFifoSalesToItem(itemKey) {
       b.remaining -= take;
       need -= take;
       taken += take;
-      if (b.remaining <= 0) queue.shift();
+      if (b.remaining <= 0) queue.splice(i, 1);
+      else i++;
     }
     return { taken, diamondsTotal, crowsTotal, anyDiamonds, anyCrows };
   }
@@ -3576,7 +3603,20 @@ async function applyFifoSalesToItem(itemKey) {
   sources.forEach((s) => {
     const queue = linkedQueues.get(s.eventId);
     if (!queue) return;
-    lockedResults.set(s.itemId, drawFromQueue(queue, s.quantity));
+    // a kill's own linked sales cover it whatever the month; record that
+    // usage under the kill's month too
+    const before = queue.map((e) => [e.id, e.remaining]);
+    lockedResults.set(s.itemId, drawFromQueue(queue, s.quantity, null));
+    const killMonth = String(s.eventDate).slice(0, 7);
+    before.forEach(([id, was]) => {
+      const now = queue.find((e) => e.id === id)?.remaining ?? 0;
+      const usage = usageByBatch.get(id);
+      if (usage && was > now) {
+        usage.set('', (usage.get('') || 0) - (was - now));
+        if (!usage.get('')) usage.delete('');
+        usage.set(killMonth, (usage.get(killMonth) || 0) + (was - now));
+      }
+    });
   });
   linkedQueues.forEach((queue) => queue.forEach((entry) => genericEntries.push(entry)));
   const batchQueue = genericEntries.sort((a, b) => a.soldAt.localeCompare(b.soldAt));
@@ -3593,12 +3633,17 @@ async function applyFifoSalesToItem(itemKey) {
   // the line" to grab leftover stock instead.
   const updatesByEvent = new Map();
   for (const s of sources) {
-    const { taken, diamondsTotal, crowsTotal, anyDiamonds, anyCrows } = lockedResults.get(s.itemId) || drawFromQueue(batchQueue, s.quantity);
+    const { taken, diamondsTotal, crowsTotal, anyDiamonds, anyCrows } = lockedResults.get(s.itemId) || drawFromQueue(batchQueue, s.quantity, String(s.eventDate).slice(0, 7));
     const diamondsValue = taken > 0 && anyDiamonds ? diamondsTotal : null;
     const crowsValue = taken > 0 && anyCrows ? crowsTotal : null;
     if (!updatesByEvent.has(s.eventId)) updatesByEvent.set(s.eventId, []);
     updatesByEvent.get(s.eventId).push({ itemId: s.itemId, soldQuantity: taken, sold: taken >= s.quantity, diamondsValue, crowsValue });
   }
+  return { updatesByEvent, usageByBatch };
+}
+
+async function applyFifoSalesToItem(itemKey) {
+  const { updatesByEvent } = computeFifoAllocation(itemKey);
 
   // Skip writing an event whose computed result exactly matches what's
   // already stored -- this runs opportunistically on every page load (see
