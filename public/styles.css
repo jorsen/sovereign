@@ -2462,3 +2462,7 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .salary-guild-chevron { display: inline-block; width: 1.1em; color: var(--text-muted); }
 .salary-guild-tax-edit { margin-left: 6px; font-size: 12px; }
 .crusade-growth-updated { white-space: nowrap; color: var(--text-muted); font-size: 12px; }
+/* Growth Rate history */
+.crusade-growth-history-btn { font-size: 13px; padding: 0 4px; vertical-align: middle; }
+.crusade-growth-up { color: var(--good); font-weight: 600; }
+.crusade-growth-down { color: var(--bad); font-weight: 600; }

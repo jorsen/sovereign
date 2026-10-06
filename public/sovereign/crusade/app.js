@@ -2091,6 +2091,58 @@ function populateGrowthFilterOptions(submissions) {
   classSelect.value = classNames.includes(currentClass) ? currentClass : '';
 }
 
+// A player's Growth Rate over time: every post/change on file (bot posts,
+// manual adds, edits), newest first, with the change from the one before.
+// Spelling variants of the same name ("uncleken" / "unclekenツ") are shown
+// together, same name folding as the salary tables. Loaded on first open,
+// then reused until the page reloads.
+let growthHistoryCache = null;
+async function openGrowthHistoryModal(submission) {
+  const modal = document.getElementById('growthHistoryModal');
+  document.getElementById('growthHistoryModalTitle').textContent = `${submission.ign} — ${t('sovereign.growth.historyHeading')}`;
+  const body = document.getElementById('growthHistoryBody');
+  const empty = document.getElementById('growthHistoryEmptyState');
+  body.innerHTML = '';
+  empty.classList.add('hidden');
+  modal.classList.remove('hidden');
+  try {
+    if (!growthHistoryCache) growthHistoryCache = await api('/api/growth-history');
+  } catch (err) {
+    toast(err.message);
+    return;
+  }
+  const key = memberNameKey(submission.ign);
+  const entries = growthHistoryCache.filter((h) => memberNameKey(h.ign) === key);
+  // keep only entries where something worth showing changed (an edit that
+  // only fixed the class still counts) -- drops exact repeats in a row
+  const shown = entries.filter((h, i) => {
+    const prev = entries[i - 1];
+    return !prev || prev.growthRate !== h.growthRate || prev.lampLevel !== h.lampLevel || prev.class !== h.class || prev.guildName !== h.guildName || prev.ign !== h.ign;
+  });
+  empty.classList.toggle('hidden', shown.length !== 0);
+  body.innerHTML = shown
+    .map((h, i) => {
+      const prev = shown[i - 1];
+      const diff = prev && h.growthRate !== null && prev.growthRate !== null ? h.growthRate - prev.growthRate : null;
+      const diffText = diff === null ? '' : diff === 0 ? '±0' : `${diff > 0 ? '+' : '−'}${Math.abs(diff).toLocaleString()}`;
+      return { h, diff, diffText };
+    })
+    .reverse()
+    .map(
+      ({ h, diff, diffText }) => `
+      <tr>
+        <td class="crusade-growth-updated">${formatGrowthTimestamp(h.recordedAt)}</td>
+        <td style="font-weight:600;">${h.growthRate !== null ? h.growthRate.toLocaleString() : '–'}</td>
+        <td class="${diff > 0 ? 'crusade-growth-up' : diff < 0 ? 'crusade-growth-down' : ''}">${diffText}</td>
+        <td>${h.lampLevel !== null && h.lampLevel !== undefined ? `+${h.lampLevel}` : '–'}</td>
+        <td>${escapeHtml(h.class || '–')}</td>
+        <td>${crusadeGuildBadge(h.guildName)}</td>
+        <td>${h.ign !== submission.ign ? escapeHtml(h.ign) + ' · ' : ''}${escapeHtml(h.recordedBy || '–')}</td>
+      </tr>`
+    )
+    .join('');
+}
+
 // Growth Rate record timestamps (created_at = first posted; updated_at =
 // last changed, stamped by bot resubmission, manual add and edit), in the
 // viewer's own local time.
@@ -2123,7 +2175,7 @@ function renderGrowthSubmissions() {
       (s, i) => `
     <tr data-growth-id="${s.id}">
       <td>${i + 1}</td>
-      <td style="font-weight:600;">${escapeHtml(s.ign)}</td>
+      <td style="font-weight:600;">${escapeHtml(s.ign)} <button type="button" class="icon-btn crusade-growth-history-btn" data-growth-history="${s.id}" title="Growth Rate history">📈</button></td>
       <td style="font-weight:600;">${s.growthRate !== null && s.growthRate !== undefined ? s.growthRate.toLocaleString() : '–'}</td>
       <td>${escapeHtml(s.class)}</td>
       <td>${crusadeGuildBadge(s.guildName)}</td>
@@ -2153,6 +2205,13 @@ function renderGrowthSubmissions() {
         : '';
       document.getElementById('growthImageModalImg').src = `/api/growth-submissions/${id}/image?v=${encodeURIComponent(s?.updatedAt || s?.createdAt || '')}`;
       document.getElementById('growthImageModal').classList.remove('hidden');
+    });
+  });
+
+  body.querySelectorAll('[data-growth-history]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const s = submissions.find((x) => x.id === btn.getAttribute('data-growth-history'));
+      if (s) openGrowthHistoryModal(s);
     });
   });
 
@@ -2348,6 +2407,7 @@ document.getElementById('growthEditForm').addEventListener('submit', async (e) =
         growthRate: Number(form.elements.growthRate.value),
       }),
     });
+    growthHistoryCache = null;
     const idx = sovereignState.growthSubmissions.findIndex((s) => s.id === id);
     if (idx !== -1) sovereignState.growthSubmissions[idx] = updated;
     populateGrowthFilterOptions(sovereignState.growthSubmissions);
@@ -2508,6 +2568,7 @@ document.getElementById('growthAddForm').addEventListener('submit', async (e) =>
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    growthHistoryCache = null;
     const idx = sovereignState.growthSubmissions.findIndex((s) => s.id === created.id);
     if (idx !== -1) sovereignState.growthSubmissions[idx] = created;
     else sovereignState.growthSubmissions.push(created);

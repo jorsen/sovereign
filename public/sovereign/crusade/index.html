@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=102">
+  <link rel="stylesheet" href="/styles.css?v=103">
 </head>
 <body>
   <div class="app viz-root">
@@ -784,6 +784,30 @@
     </div>
   </div>
 
+  <div id="growthHistoryModal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:min(94vw, 900px);">
+      <button class="modal-close" data-close="growthHistoryModal" aria-label="Close">×</button>
+      <h2 id="growthHistoryModalTitle" style="margin-top:0;"></h2>
+      <div class="table-scroll">
+        <table class="members-table">
+          <thead>
+            <tr>
+              <th data-i18n="sovereign.common.date">Date</th>
+              <th data-i18n="sovereign.growth.thGrowthRate">Growth Rate</th>
+              <th data-i18n="sovereign.growth.thChange">Change</th>
+              <th data-i18n="sovereign.growth.thLamp">Volcano Lamp</th>
+              <th data-i18n="sovereign.growth.thClass">Class</th>
+              <th data-i18n="sovereign.common.guild">Guild</th>
+              <th data-i18n="sovereign.growth.thPostedBy">Posted By</th>
+            </tr>
+          </thead>
+          <tbody id="growthHistoryBody"></tbody>
+        </table>
+      </div>
+      <p id="growthHistoryEmptyState" class="empty-state hidden" data-i18n="sovereign.growth.historyEmpty">No history on file for this player yet.</p>
+    </div>
+  </div>
+
   <div id="growthEditModal" class="modal-overlay hidden">
     <div class="modal">
       <button class="modal-close" data-close="growthEditModal" aria-label="Close">×</button>
@@ -984,7 +1008,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="/common.js?v=35"></script>
-  <script src="/i18n.js?v=20"></script>
-  <script src="/sovereign/crusade/app.js?v=179"></script>
+  <script src="/i18n.js?v=21"></script>
+  <script src="/sovereign/crusade/app.js?v=180"></script>
 </body>
 </html>
