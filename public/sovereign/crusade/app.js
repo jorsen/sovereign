@@ -4882,7 +4882,7 @@ function loadSheetJs() {
 const SALARY_EXCEL_TEXT = {
   en: {
     sheetSalary: 'Salary', sheetFees: 'Management Fees', sheetGuilds: 'Guild Totals', sheetPayouts: 'Payouts',
-    sheetUnsold: 'Unsold Items', sheetRules: 'Rules', sheetPayout: 'Payout',
+    sheetUnsold: 'Loot', sheetRules: 'Rules', sheetPayout: 'Payout',
     worldBoss: 'World Boss', balthazard: 'Balthazard',
     salaryTitle: (sched, month) => `${sched} Salary — ${month}`,
     payoutTitle: (sched, month, n, date) => `${sched} Salary — ${month} — Payout #${n} (sent ${date})`,
@@ -4898,13 +4898,15 @@ const SALARY_EXCEL_TEXT = {
     payoutNo: 'Payout #', recordedAt: 'Recorded At', recordedBy: 'Recorded By', diamonds: 'Diamonds', crows: 'Crows',
     feeDiamonds: 'Diamonds from Fee', feeCrows: 'Crows from Fee', noFees: 'No management fees this month',
     bracketsHeading: 'Growth Rate Multiplier Brackets', top10Heading: 'Balthazard Top 10 Bonus', minGr: 'Min Growth Rate', extra: 'Extra',
-    unsoldTitle: (sched, month, date) => `Unsold items — ${sched} ${month} (as of ${date})`,
-    item: 'Item', dropped: 'Dropped', sold: 'Sold', notSold: 'Not Sold', allSold: 'Everything from this month has been sold',
-    unsoldKills: 'Kills with unsold items', date: 'Date', boss: 'Boss', quantity: 'Quantity',
+    lootTitle: (sched, month, date) => `Loot — ${sched} ${month} (as of ${date})`,
+    lootFileName: (sched, month) => `Loot - ${sched} - ${month}.xlsx`,
+    bf4: 'BF4 Boss', itemsHeading: 'Items', killsHeading: 'All kills', status: 'Status', partial: 'Partial', noLoot: 'No loot logged this month',
+    item: 'Item', dropped: 'Dropped', sold: 'Sold', notSold: 'Not Sold',
+    date: 'Date', boss: 'Boss', quantity: 'Quantity',
   },
   zh: {
     sheetSalary: '工资', sheetFees: '管理费', sheetGuilds: '公会总计', sheetPayouts: '发放记录',
-    sheetUnsold: '未售物品', sheetRules: '规则', sheetPayout: '发放',
+    sheetUnsold: '掉落记录', sheetRules: '规则', sheetPayout: '发放',
     worldBoss: '世界Boss', balthazard: 'Balthazard',
     salaryTitle: (sched, month) => `${sched} 工资 — ${month}`,
     payoutTitle: (sched, month, n, date) => `${sched} 工资 — ${month} — 第 ${n} 次发放（${date} 发出）`,
@@ -4920,15 +4922,17 @@ const SALARY_EXCEL_TEXT = {
     payoutNo: '发放次数', recordedAt: '记录时间', recordedBy: '记录人', diamonds: '钻石', crows: '乌鸦币',
     feeDiamonds: '管理费钻石', feeCrows: '管理费乌鸦币', noFees: '本月无管理费',
     bracketsHeading: '成长率倍率档位', top10Heading: 'Balthazard 前十加成', minGr: '最低成长率', extra: '额外加成',
-    unsoldTitle: (sched, month, date) => `未售物品 — ${sched} ${month}（截至 ${date}）`,
-    item: '物品', dropped: '掉落', sold: '已售', notSold: '未售', allSold: '本月物品已全部售出',
-    unsoldKills: '有未售物品的击杀记录', date: '日期', boss: 'Boss', quantity: '数量',
+    lootTitle: (sched, month, date) => `掉落记录 — ${sched} ${month}（截至 ${date}）`,
+    lootFileName: (sched, month) => `掉落记录 - ${sched} - ${month}.xlsx`,
+    bf4: 'BF4 Boss', itemsHeading: '物品', killsHeading: '全部击杀记录', status: '状态', partial: '部分售出', noLoot: '本月无掉落记录',
+    item: '物品', dropped: '掉落', sold: '已售', notSold: '未售',
+    date: '日期', boss: 'Boss', quantity: '数量',
   },
 };
 // Exports are always bilingual: every label is "English / 中文" (or just
 // one when both are the same, e.g. "Balthazard"). Sheet and file names
 // can't contain "/", so those join with a space instead.
-const SALARY_EXCEL_SPACE_JOINED = new Set(['sheetSalary', 'sheetFees', 'sheetGuilds', 'sheetPayouts', 'sheetUnsold', 'sheetRules', 'sheetPayout', 'fileName', 'payoutFileName']);
+const SALARY_EXCEL_SPACE_JOINED = new Set(['sheetSalary', 'sheetFees', 'sheetGuilds', 'sheetPayouts', 'sheetUnsold', 'sheetRules', 'sheetPayout', 'fileName', 'payoutFileName', 'lootFileName']);
 function combineSalaryExcelText() {
   const { en, zh } = SALARY_EXCEL_TEXT;
   const join = (key, a, b) => {
@@ -5234,7 +5238,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   XLSX.utils.book_append_sheet(workbook, feeSheet, L.sheetFees);
   XLSX.utils.book_append_sheet(workbook, guildSheet, L.sheetGuilds);
   XLSX.utils.book_append_sheet(workbook, payoutSheet, L.sheetPayouts);
-  XLSX.utils.book_append_sheet(workbook, buildUnsoldItemsSheet(XLSX, schedule, month, opts.lang), L.sheetUnsold);
+  XLSX.utils.book_append_sheet(workbook, buildMonthLootSheet(XLSX, schedule, month, opts.lang), L.sheetUnsold);
   XLSX.utils.book_append_sheet(workbook, rulesSheet, L.sheetRules);
   return { workbook, fileName: opts.fileName || L.fileName(scheduleLabel, month) };
 }
@@ -5300,70 +5304,99 @@ function payoutComputationRows(p) {
   return matches ? rows.sort(compareSalaryRank) : null;
 }
 
-// Loot from this schedule+month's kills that hasn't sold yet, as of now:
-// a per-item summary (Not Sold = Dropped - Sold, as a formula) and, below
-// it, every kill still holding unsold units -- the value still to come
-// into a later payout. Sold counts come from each kill's soldQuantity, the
-// same field behind the Sold/Partial/Not Sold badges on the loot page.
-function buildUnsoldItemsSheet(XLSX, schedule, month, lang) {
+// Every loot record from this schedule+month's kills, as of now: a
+// per-item summary (Dropped, Sold, Not Sold = Dropped - Sold as a formula,
+// and what it's sold for so far) and, below it, every kill's drops with
+// their sold status and value. Sold counts and values come from each kill
+// (soldQuantity / crowsValue / diamondsValue), the same fields behind the
+// loot page's badges and totals -- so Not Sold is what's still to come.
+function buildMonthLootSheet(XLSX, schedule, month, lang) {
   const L = salaryExcelText(lang);
-  const [year, mon] = month.split('-').map(Number);
   const kills = [];
   (sovereignState.worldBossEvents || []).forEach((ev) => {
     if ((ev.schedule || 'world_boss') !== schedule) return;
-    const d = new Date(`${String(ev.eventDate).slice(0, 10)}T00:00:00`);
-    if (d.getFullYear() !== year || d.getMonth() !== mon - 1) return;
+    if (String(ev.eventDate).slice(0, 7) !== month) return;
     (ev.lootItems || []).forEach((item) => {
       const quantity = Number(item.quantity) || 0;
       const sold = Math.min(quantity, Number(item.soldQuantity ?? (item.sold ? quantity : 0)) || 0);
-      kills.push({ eventDate: ev.eventDate, bossName: ev.bossName, itemName: canonicalizeItemName(item.itemName), quantity, sold });
+      kills.push({
+        eventDate: ev.eventDate,
+        bossName: ev.bossName,
+        itemName: canonicalizeItemName(item.itemName),
+        quantity,
+        sold,
+        crows: Number(item.crowsValue) || 0,
+        diamonds: Number(item.diamondsValue) || 0,
+      });
     });
   });
 
   const byItem = new Map();
   kills.forEach((k) => {
     const key = k.itemName.toLowerCase();
-    if (!byItem.has(key)) byItem.set(key, { itemName: k.itemName, quantity: 0, sold: 0 });
+    if (!byItem.has(key)) byItem.set(key, { itemName: k.itemName, quantity: 0, sold: 0, crows: 0, diamonds: 0 });
     const it = byItem.get(key);
     it.quantity += k.quantity;
     it.sold += k.sold;
+    it.crows += k.crows;
+    it.diamonds += k.diamonds;
   });
-  const items = Array.from(byItem.values())
-    .filter((it) => it.quantity > it.sold)
-    .sort((a, b) => b.quantity - b.sold - (a.quantity - a.sold) || a.itemName.localeCompare(b.itemName));
+  const items = Array.from(byItem.values()).sort((a, b) => b.quantity - a.quantity || a.itemName.localeCompare(b.itemName));
 
+  const FMT_MONEY = '#,##0.00';
   const text = (v) => ({ t: 's', v: String(v) });
-  const num = (v) => ({ t: 'n', v: Number(v) || 0 });
-  const formula = (f, v) => ({ t: 'n', f, v: Number(v) || 0 });
-  const grid = [
-    [text(L.unsoldTitle(schedule === 'balthazard' ? L.balthazard : L.worldBoss, month, new Date().toISOString().slice(0, 10)))],
-    [],
-    [L.item, L.dropped, L.sold, L.notSold].map(text),
-  ];
+  const num = (v, z) => ({ t: 'n', v: Number(v) || 0, ...(z ? { z } : {}) });
+  const formula = (f, v, z) => ({ t: 'n', f, v: Number(v) || 0, ...(z ? { z } : {}) });
+  const scheduleLabel = schedule === 'balthazard' ? L.balthazard : schedule === 'bf4' ? L.bf4 : L.worldBoss;
+  const grid = [[text(L.lootTitle(scheduleLabel, month, new Date().toLocaleDateString('en-CA')))], []];
   if (!items.length) {
-    grid.push([text(L.allSold)]);
+    grid.push([text(L.noLoot)]);
   } else {
+    grid.push([text(L.itemsHeading)], [L.item, L.dropped, L.sold, L.notSold, L.crows, L.diamonds].map(text));
+    const itemFirst = grid.length + 1;
     items.forEach((it) => {
       const n = grid.length + 1;
-      grid.push([text(it.itemName), num(it.quantity), num(it.sold), formula(`B${n}-C${n}`, it.quantity - it.sold)]);
+      grid.push([text(it.itemName), num(it.quantity), num(it.sold), formula(`B${n}-C${n}`, it.quantity - it.sold), num(it.crows, FMT_MONEY), num(it.diamonds, FMT_MONEY)]);
     });
-    const firstRow = 4;
-    const lastRow = grid.length;
+    const itemLast = grid.length;
+    const sumItems = (key) => items.reduce((sum, it) => sum + it[key], 0);
     grid.push([
       text(L.total),
-      formula(`SUM(B${firstRow}:B${lastRow})`, items.reduce((sum, it) => sum + it.quantity, 0)),
-      formula(`SUM(C${firstRow}:C${lastRow})`, items.reduce((sum, it) => sum + it.sold, 0)),
-      formula(`SUM(D${firstRow}:D${lastRow})`, items.reduce((sum, it) => sum + it.quantity - it.sold, 0)),
+      formula(`SUM(B${itemFirst}:B${itemLast})`, sumItems('quantity')),
+      formula(`SUM(C${itemFirst}:C${itemLast})`, sumItems('sold')),
+      formula(`SUM(D${itemFirst}:D${itemLast})`, sumItems('quantity') - sumItems('sold')),
+      formula(`SUM(E${itemFirst}:E${itemLast})`, sumItems('crows'), FMT_MONEY),
+      formula(`SUM(F${itemFirst}:F${itemLast})`, sumItems('diamonds'), FMT_MONEY),
     ]);
 
-    grid.push([], [text(L.unsoldKills)], [L.date, L.boss, L.item, L.quantity, L.sold, L.notSold].map(text));
+    grid.push([], [text(L.killsHeading)], [L.date, L.boss, L.item, L.quantity, L.sold, L.notSold, L.status, L.crows, L.diamonds].map(text));
+    const killFirst = grid.length + 1;
     kills
-      .filter((k) => k.quantity > k.sold)
       .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)) || a.itemName.localeCompare(b.itemName))
       .forEach((k) => {
         const n = grid.length + 1;
-        grid.push([text(formatWorldBossEventDateTime(k.eventDate)), text(k.bossName), text(k.itemName), num(k.quantity), num(k.sold), formula(`D${n}-E${n}`, k.quantity - k.sold)]);
+        const status = k.sold >= k.quantity ? L.sold : k.sold > 0 ? L.partial : L.notSold;
+        grid.push([
+          text(formatWorldBossEventDateTime(k.eventDate)),
+          text(k.bossName),
+          text(k.itemName),
+          num(k.quantity),
+          num(k.sold),
+          formula(`D${n}-E${n}`, k.quantity - k.sold),
+          text(status),
+          num(k.crows, FMT_MONEY),
+          num(k.diamonds, FMT_MONEY),
+        ]);
       });
+    const killLast = grid.length;
+    const total = [text(L.total), null, null];
+    ['D', 'E', 'F'].forEach((letter, i) => {
+      total[3 + i] = formula(`SUM(${letter}${killFirst}:${letter}${killLast})`, [sumItems('quantity'), sumItems('sold'), sumItems('quantity') - sumItems('sold')][i]);
+    });
+    total[6] = null;
+    total[7] = formula(`SUM(H${killFirst}:H${killLast})`, sumItems('crows'), FMT_MONEY);
+    total[8] = formula(`SUM(I${killFirst}:I${killLast})`, sumItems('diamonds'), FMT_MONEY);
+    grid.push(total);
   }
 
   const sheet = {};
@@ -5376,9 +5409,28 @@ function buildUnsoldItemsSheet(XLSX, schedule, month, lang) {
     })
   );
   sheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: grid.length - 1, c: maxCol } });
-  sheet['!cols'] = fitColumnWidths(grid, [30, 16, 30, 10, 8, 10]).map((wch) => ({ wch }));
+  sheet['!cols'] = fitColumnWidths(grid, [24, 16, 30, 10, 8, 10, 12, 12, 12]).map((wch) => ({ wch }));
   return sheet;
 }
+
+// This Month's Loot on its own: the same Loot sheet for the month and
+// schedule being viewed, as its own file.
+document.getElementById('worldBossMonthlyLootExportBtn').addEventListener('click', async () => {
+  let XLSX;
+  try {
+    XLSX = await loadSheetJs();
+  } catch (err) {
+    toast(err.message);
+    return;
+  }
+  const L = salaryExcelText(salaryExportLang());
+  const month = worldBossViewedMonthKey();
+  const schedule = worldBossActiveSchedule;
+  const scheduleLabel = schedule === 'balthazard' ? L.balthazard : schedule === 'bf4' ? L.bf4 : L.worldBoss;
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, buildMonthLootSheet(XLSX, schedule, month, salaryExportLang()), L.sheetUnsold);
+  XLSX.writeFile(workbook, L.lootFileName(scheduleLabel, month));
+});
 
 // Plain amounts-as-paid workbook, for an older payout whose full
 // computation can't be re-derived exactly anymore -- better a correct
@@ -5411,7 +5463,7 @@ function buildPayoutAmountsWorkbook(XLSX, p, title, lang) {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, L.sheetPayout);
   XLSX.utils.book_append_sheet(workbook, guildSheet, L.sheetGuilds);
-  XLSX.utils.book_append_sheet(workbook, buildUnsoldItemsSheet(XLSX, p.schedule, p.month, lang), L.sheetUnsold);
+  XLSX.utils.book_append_sheet(workbook, buildMonthLootSheet(XLSX, p.schedule, p.month, lang), L.sheetUnsold);
   return workbook;
 }
 
