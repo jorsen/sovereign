@@ -4509,10 +4509,10 @@ function multiplierForGrowthRate(growthRate) {
 }
 
 // Balthazard-only: on top of the normal GR-bracket multiplier, the top 10
-// attendees ranked by Growth Rate each get an extra +0.50 this month (it
-// used to taper from 0.50 at rank 1 down to 0.05 at rank 10). Index 0 =
-// rank 1's bonus.
-const BALTHAZARD_TOP10_RANK_BONUS = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+// attendees ranked by Growth Rate get an extra bump this month, tapering
+// by 0.05 per rank from +0.50 at rank 1 down to +0.05 at rank 10. Index 0
+// = rank 1's bonus.
+const BALTHAZARD_TOP10_RANK_BONUS = [0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1, 0.05];
 
 // Sending diamonds in-game costs the sender a tax on top of what's
 // received. Payouts go out as one transfer per guild (each guild's total,
