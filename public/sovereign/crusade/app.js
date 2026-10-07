@@ -4896,7 +4896,7 @@ const SALARY_EXCEL_TEXT = {
     grRank: 'GR Rank', top10: 'Top 10 Bonus', feePct: 'Fee %', multiplier: 'Multiplier', baseShare: 'Base Share',
     baseMult: 'Base + Mult.', normShare: 'Norm. Share', diamondsInitial: 'Diamonds Initial', diamondsFinal: 'Diamonds Final',
     crowsInitial: 'Crows Initial', crowsFinal: 'Crows Final', splitFraction: 'Split Fraction',
-    members: 'Members', taxPct: 'Tax %', diamondTax: 'Diamond Tax', totalCost: 'Diamonds Total Cost',
+    members: 'Members', taxPct: 'Tax %', diamondTax: 'Guild Tax', totalCost: 'Total Diamonds to Receive',
     payoutNo: 'Payout #', recordedAt: 'Recorded At', recordedBy: 'Recorded By', diamonds: 'Diamonds', crows: 'Crows',
     feeDiamonds: 'Diamonds from Fee', feeCrows: 'Crows from Fee', noFees: 'No management fees this month',
     bracketsHeading: 'Growth Rate Multiplier Brackets', top10Heading: 'Balthazard Top 10 Bonus', minGr: 'Min Growth Rate', extra: 'Extra',
@@ -4924,7 +4924,7 @@ const SALARY_EXCEL_TEXT = {
     grRank: '成长率排名', top10: '前十加成', feePct: '管理费 %', multiplier: '倍率', baseShare: '基础占比',
     baseMult: '基础 × 倍率', normShare: '标准化占比', diamondsInitial: '钻石（初始）', diamondsFinal: '钻石（最终）',
     crowsInitial: '乌鸦币（初始）', crowsFinal: '乌鸦币（最终）', splitFraction: '分配比例',
-    members: '成员数', taxPct: '税率 %', diamondTax: '钻石税', totalCost: '钻石总成本',
+    members: '成员数', taxPct: '税率 %', diamondTax: '公会税', totalCost: '应收钻石总数',
     payoutNo: '发放次数', recordedAt: '记录时间', recordedBy: '记录人', diamonds: '钻石', crows: '乌鸦币',
     feeDiamonds: '管理费钻石', feeCrows: '管理费乌鸦币', noFees: '本月无管理费',
     bracketsHeading: '成长率倍率档位', top10Heading: 'Balthazard 前十加成', minGr: '最低成长率', extra: '额外加成',
@@ -5514,11 +5514,12 @@ document.getElementById('worldBossMonthlyLootExportBtn').addEventListener('click
 // first, members by Growth Rate -- same as the page), since each guild's
 // share goes out as one transfer. Every block has its members, then a
 // subtotal row; each payout ends with a total of its guild subtotals.
-// Amounts paid stay as the numbers that were sent; the tax and total cost
-// next to them are formulas (Diamond Tax = Diamonds x Tax %, Total Cost =
-// Diamonds + Tax), at the rate saved with the payout.
-// Columns: A IGN  B Attendance  C Diamonds  D Crows  E Tax %
-//          F Diamond Tax  G Total Cost
+// Members are never taxed individually -- only the guild is: each guild's
+// subtotal row carries its Guild Tax (its Diamonds x its rate, saved with
+// the payout) and Total Diamonds to Receive (Diamonds + Guild Tax), both
+// formulas. Amounts paid stay as the numbers that were sent.
+// Columns: A IGN  B Attendance  C Crows  D Diamonds  E Guild Tax
+//          F Total Diamonds to Receive
 function buildPayoutsByGuildSheet(XLSX, payouts, { firstPayoutNumber = 1, lang, schedule, month } = {}) {
   const L = salaryExcelText(lang);
   const FMT_MONEY = '#,##0.00';
@@ -5539,32 +5540,22 @@ function buildPayoutsByGuildSheet(XLSX, payouts, { firstPayoutNumber = 1, lang, 
     const subtotalRows = [];
     groupPayoutRowsByGuild(p.rows).forEach((g) => {
       const pct = taxed ? g.rows[0].taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT : 0;
-      grid.push([xlMark(text(`${guildLabel(g.guildName)} (${g.rows.length})`), 'section')]);
-      grid.push([L.ign, L.attendance, L.diamonds, L.crows, L.taxPct, L.diamondTax, L.totalCost].map(xlHeader));
+      grid.push([xlMark(text(`${guildLabel(g.guildName)} (${g.rows.length}) — ${L.diamondTax} ${pct}%`), 'section')]);
+      grid.push([L.ign, L.attendance, L.crows, L.diamonds, L.diamondTax, L.totalCost].map(xlHeader));
       const first = grid.length + 1;
       g.rows.forEach((r) => {
-        const row = grid.length + 1;
-        const d = Number(r.diamonds) || 0;
-        grid.push([
-          text(r.ign),
-          num(r.attendance || 0),
-          num(d, FMT_MONEY),
-          num(r.crows, FMT_MONEY),
-          num(pct, '0.00'),
-          formula(`C${row}*E${row}/100`, (d * pct) / 100, FMT_MONEY),
-          formula(`C${row}+F${row}`, d * (1 + pct / 100), FMT_MONEY),
-        ]);
+        grid.push([text(r.ign), num(r.attendance || 0), num(r.crows, FMT_MONEY), num(Number(r.diamonds) || 0, FMT_MONEY)]);
       });
       const last = grid.length;
       const sumCol = (letter, v, z) => formula(`SUM(${letter}${first}:${letter}${last})`, v, z);
+      const subtotal = grid.length + 1;
       grid.push([
         xlMark(text(`${L.total} — ${guildLabel(g.guildName)}`), 'total'),
         sumCol('B', g.rows.reduce((sum, r) => sum + (Number(r.attendance) || 0), 0)),
-        sumCol('C', g.diamonds, FMT_MONEY),
-        sumCol('D', g.crows, FMT_MONEY),
-        num(pct, '0.00'),
-        sumCol('F', (g.diamonds * pct) / 100, FMT_MONEY),
-        sumCol('G', g.diamonds * (1 + pct / 100), FMT_MONEY),
+        sumCol('C', g.crows, FMT_MONEY),
+        sumCol('D', g.diamonds, FMT_MONEY),
+        formula(`D${subtotal}*${pct}/100`, (g.diamonds * pct) / 100, FMT_MONEY),
+        formula(`D${subtotal}+E${subtotal}`, g.diamonds * (1 + pct / 100), FMT_MONEY),
       ]);
       subtotalRows.push(grid.length);
       grid.push([]);
@@ -5574,15 +5565,14 @@ function buildPayoutsByGuildSheet(XLSX, payouts, { firstPayoutNumber = 1, lang, 
     const paidD = p.rows.reduce((sum, r) => sum + (Number(r.diamonds) || 0), 0);
     const paidC = p.rows.reduce((sum, r) => sum + (Number(r.crows) || 0), 0);
     const taxTotal = groupPayoutRowsByGuild(p.rows).reduce((sum, g) => sum + (g.diamonds * (taxed ? g.rows[0].taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT : 0)) / 100, 0);
-    grid.push([L.ign, L.attendance, L.diamonds, L.crows, L.taxPct, L.diamondTax, L.totalCost].map(xlHeader));
+    grid.push(['', L.attendance, L.crows, L.diamonds, L.diamondTax, L.totalCost].map(xlHeader));
     grid.push([
       xlMark(text(L.payoutTotal(n)), 'total'),
       formula(addUp('B'), p.rows.reduce((sum, r) => sum + (Number(r.attendance) || 0), 0)),
-      formula(addUp('C'), paidD, FMT_MONEY),
-      formula(addUp('D'), paidC, FMT_MONEY),
-      null,
-      formula(addUp('F'), taxTotal, FMT_MONEY),
-      formula(addUp('G'), paidD + taxTotal, FMT_MONEY),
+      formula(addUp('C'), paidC, FMT_MONEY),
+      formula(addUp('D'), paidD, FMT_MONEY),
+      formula(addUp('E'), taxTotal, FMT_MONEY),
+      formula(addUp('F'), paidD + taxTotal, FMT_MONEY),
     ]);
     grid.push([], []);
   });
@@ -5596,8 +5586,8 @@ function buildPayoutsByGuildSheet(XLSX, payouts, { firstPayoutNumber = 1, lang, 
       maxCol = Math.max(maxCol, c);
     })
   );
-  sheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, grid.length - 1), c: Math.max(maxCol, 6) } });
-  sheet['!cols'] = fitColumnWidths(grid, [24, 12, 14, 12, 8, 14, 16]).map((wch) => ({ wch }));
+  sheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, grid.length - 1), c: Math.max(maxCol, 5) } });
+  sheet['!cols'] = fitColumnWidths(grid, [24, 12, 12, 14, 14, 18]).map((wch) => ({ wch }));
   return styleExcelSheet(XLSX, sheet);
 }
 
