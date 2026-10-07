@@ -4864,7 +4864,9 @@ function loadSheetJs() {
   if (!sheetJsPromise) {
     sheetJsPromise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      // xlsx-js-style: SheetJS with cell styling (fills, fonts, borders,
+      // alignment) -- plain SheetJS can't write styles.
+      script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
       script.onload = () => resolve(window.XLSX);
       script.onerror = () => {
         sheetJsPromise = null;
@@ -4974,6 +4976,104 @@ function fitColumnWidths(grid, widths) {
   });
 }
 
+// Marks a cell for styleExcelSheet: 'title', 'section', 'header', 'label'
+// or 'total' (a total row is any row holding a 'total' cell).
+function xlMark(cell, kind) {
+  cell._k = kind;
+  return cell;
+}
+const xlHeader = (v) => xlMark({ t: 's', v: String(v) }, 'header');
+
+// One consistent look for every exported sheet: a big title merged across
+// the sheet, dark header bars, light borders with striped rows, bold
+// shaded total rows, bold labels -- and every cell aligned left. Rows are
+// recognised from the xlMark markers the sheet builders put on cells; a
+// header row starts a table that runs until a blank row, and the table's
+// empty cells are filled in so its stripes and borders are unbroken.
+const XL_COLORS = { brand: '1F3A5F', brandText: 'FFFFFF', label: '475569', stripe: 'F4F7FB', total: 'E3EAF3', border: 'D5DCE6' };
+function styleExcelSheet(XLSX, ws, { autofilter = false } = {}) {
+  if (!ws['!ref']) return ws;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  const addr = (r, c) => XLSX.utils.encode_cell({ r, c });
+  const thin = { style: 'thin', color: { rgb: XL_COLORS.border } };
+  const box = { top: thin, bottom: thin, left: thin, right: thin };
+  const rows = [];
+  ws['!merges'] = ws['!merges'] || [];
+  let tableWidth = -1;
+  let stripe = 0;
+  let filterStart = -1;
+  let filterEnd = -1;
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    let lastCol = -1;
+    const kinds = new Set();
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[addr(r, c)];
+      if (!cell || (cell.v === '' && !cell.f)) continue;
+      lastCol = c;
+      if (cell._k) kinds.add(cell._k);
+    }
+    const kind = kinds.has('title') ? 'title' : kinds.has('header') ? 'header' : kinds.has('total') ? 'total' : kinds.has('section') ? 'section' : lastCol < 0 ? 'blank' : 'body';
+    if (kind === 'header') {
+      tableWidth = lastCol;
+      stripe = 0;
+      if (autofilter && filterStart < 0) filterStart = r;
+    }
+    if (kind === 'blank' || kind === 'title' || kind === 'section') tableWidth = -1;
+    const inTable = tableWidth >= 0 && (kind === 'header' || kind === 'body' || kind === 'total');
+    if (inTable && filterStart >= 0 && filterEnd < 0 && kind === 'body') filterEnd = r;
+    if (inTable && filterStart >= 0 && kind === 'body' && filterEnd >= 0 && r === filterEnd + 1) filterEnd = r;
+    const width = inTable ? Math.max(tableWidth, lastCol) : lastCol;
+    if (kind === 'body' && inTable) stripe++;
+
+    for (let c = range.s.c; c <= width; c++) {
+      const key = addr(r, c);
+      if (!ws[key]) {
+        if (!inTable) continue;
+        ws[key] = { t: 's', v: '' };
+      }
+      const cell = ws[key];
+      const style = { alignment: { horizontal: 'left', vertical: 'center' }, font: { name: 'Calibri', sz: 11 } };
+      if (kind === 'title') style.font = { name: 'Calibri', sz: 15, bold: true, color: { rgb: XL_COLORS.brand } };
+      else if (kind === 'section') style.font = { name: 'Calibri', sz: 12, bold: true, color: { rgb: XL_COLORS.brand } };
+      else if (kind === 'header') {
+        style.font = { name: 'Calibri', sz: 11, bold: true, color: { rgb: XL_COLORS.brandText } };
+        style.fill = { patternType: 'solid', fgColor: { rgb: XL_COLORS.brand } };
+        style.alignment.wrapText = true;
+        style.border = box;
+      } else if (kind === 'total') {
+        style.font = { name: 'Calibri', sz: 11, bold: true };
+        if (inTable) {
+          style.fill = { patternType: 'solid', fgColor: { rgb: XL_COLORS.total } };
+          style.border = { ...box, top: { style: 'medium', color: { rgb: XL_COLORS.brand } } };
+        }
+      } else if (inTable) {
+        style.border = box;
+        if (stripe % 2 === 0) style.fill = { patternType: 'solid', fgColor: { rgb: XL_COLORS.stripe } };
+      }
+      if (cell._k === 'label') style.font = { name: 'Calibri', sz: 11, bold: true, color: { rgb: XL_COLORS.label } };
+      if (cell.z) style.numFmt = cell.z;
+      cell.s = style;
+      delete cell._k;
+    }
+    if (kind === 'title') ws['!merges'].push({ s: { r, c: 0 }, e: { r, c: Math.max(range.e.c, 3) } });
+    rows[r] = kind === 'title' ? { hpt: 28 } : kind === 'header' ? { hpt: 32 } : kind === 'section' ? { hpt: 22 } : { hpt: 18 };
+  }
+  ws['!rows'] = rows;
+  if (autofilter && filterStart >= 0) {
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: filterStart, c: 0 }, e: { r: Math.max(filterStart, filterEnd), c: Math.max(0, tableWidthAt(ws, XLSX, filterStart)) } }) };
+  }
+  return ws;
+}
+function tableWidthAt(ws, XLSX, r) {
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  let last = 0;
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const cell = ws[XLSX.utils.encode_cell({ r, c })];
+    if (cell && cell.v !== '') last = c;
+  }
+  return last;
+}
+
 // Builds the workbook with live Excel formulas, not pasted numbers: the
 // people's inputs (Growth Rate, Attendance, Fee %, the two pools) are plain
 // values, and every computed column is a formula over them -- so editing
@@ -5031,8 +5131,8 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
 
   // ---- Rules sheet: GR brackets (A3:B7) and top-10 bonuses (E3:E12) ----
   const rulesGrid = [
-    [text(L.bracketsHeading), null, null, text(L.top10Heading)],
-    [text(L.minGr), text(L.multiplier), null, text(L.grRank), text(L.extra)],
+    [xlMark(text(L.bracketsHeading), 'section'), null, null, xlMark(text(L.top10Heading), 'section')],
+    [xlHeader(L.minGr), xlHeader(L.multiplier), null, xlHeader(L.grRank), xlHeader(L.extra)],
   ];
   const bracketCount = SALARY_GR_MULTIPLIER_BRACKETS.length;
   const bonusCount = BALTHAZARD_TOP10_RANK_BONUS.length;
@@ -5048,7 +5148,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   }
   const bracketRange = `${RULES}$A$3:$B$${2 + bracketCount}`;
   const bonusRange = `${RULES}$E$3:$E$${2 + bonusCount}`;
-  const rulesSheet = sheetFromCells(rulesGrid, [18, 12, 4, 10, 10]);
+  const rulesSheet = styleExcelSheet(XLSX, sheetFromCells(rulesGrid, [18, 12, 4, 10, 10]));
 
   // ---- Salary sheet ----
   // Rows 1-4 hold the title/schedule/pools/fee total; header on row 6,
@@ -5075,13 +5175,13 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   });
 
   const salaryGrid = [
-    [text(opts.title || L.salaryTitle(scheduleLabel, month))],
-    [text(L.schedule), text(scheduleLabel)],
-    [text(L.diamondsPool), num(diamondPool, FMT_MONEY), text(L.crowsPool), num(crowPool, FMT_MONEY)],
-    [text(L.totalFee), formula(`SUM(${col('I')})`, totalFeePercent, '0.00')],
+    [xlMark(text(opts.title || L.salaryTitle(scheduleLabel, month)), 'title')],
+    [xlMark(text(L.schedule), 'label'), text(scheduleLabel)],
+    [xlMark(text(L.diamondsPool), 'label'), num(diamondPool, FMT_MONEY), xlMark(text(L.crowsPool), 'label'), num(crowPool, FMT_MONEY)],
+    [xlMark(text(L.totalFee), 'label'), formula(`SUM(${col('I')})`, totalFeePercent, '0.00')],
     // B5 is filled in below, once the Guild Totals layout is known
-    [text(L.avgTax), null, text(L.toSplit), formula('B3/(1+B5/100)', diamondsToSplit, FMT_MONEY)],
-    [L.id, L.ign, L.guild, L.growthRate, L.attendance, L.grMultiplier, L.grRank, L.top10, L.feePct, L.multiplier, L.baseShare, L.baseMult, L.normShare, L.diamondsInitial, L.diamondsFinal, L.crowsInitial, L.crowsFinal, L.splitFraction].map(text),
+    [xlMark(text(L.avgTax), 'label'), null, xlMark(text(L.toSplit), 'label'), formula('B3/(1+B5/100)', diamondsToSplit, FMT_MONEY)],
+    [L.id, L.ign, L.guild, L.growthRate, L.attendance, L.grMultiplier, L.grRank, L.top10, L.feePct, L.multiplier, L.baseShare, L.baseMult, L.normShare, L.diamondsInitial, L.diamondsFinal, L.crowsInitial, L.crowsFinal, L.splitFraction].map(xlHeader),
   ];
   rows.forEach((r, i) => {
     const n = first + i;
@@ -5109,7 +5209,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   });
   const totalOf = (key) => rows.reduce((sum, r) => sum + r[key], 0);
   const totalRow = [];
-  totalRow[1] = text(L.total);
+  totalRow[1] = xlMark(text(L.total), 'total');
   totalRow[4] = formula(`SUM(${col('E')})`, totalOf('attendance'));
   totalRow[11] = formula(`SUM(${col('L')})`, totalOf('baseMult'), '0.0000');
   totalRow[12] = formula(`SUM(${col('M')})`, totalOf('normShare'), FMT_PCT);
@@ -5129,7 +5229,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   // Column H is the guild's share of Diamonds to Split, which weights its
   // rate in Salary!B5 (the average that sets Diamonds to Split).
   const guildTaxOf = (name) => rows.find((r) => salaryGuildKey(r.guildName) === name)?.taxPercent ?? SALARY_DIAMOND_SEND_FEE_PERCENT;
-  const guildGrid = [[L.guild, L.members, L.diamondsFinal, L.taxPct, L.diamondTax, L.totalCost, L.crowsFinal, L.splitFraction].map(text)];
+  const guildGrid = [[L.guild, L.members, L.diamondsFinal, L.taxPct, L.diamondTax, L.totalCost, L.crowsFinal, L.splitFraction].map(xlHeader)];
   guildNames.forEach((name, i) => {
     const n = i + 2;
     const d = guildTotal(name, 'diamondFinal');
@@ -5148,7 +5248,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   const guildLast = guildNames.length + 1;
   const guildTaxTotal = guildNames.reduce((sum, name) => sum + (guildTotal(name, 'diamondFinal') * guildTaxOf(name)) / 100, 0);
   guildGrid.push([
-    text(L.total),
+    xlMark(text(L.total), 'total'),
     formula(`SUM(B2:B${guildLast})`, rows.length),
     formula(`SUM(C2:C${guildLast})`, totalOf('diamondFinal'), FMT_MONEY),
     null,
@@ -5157,17 +5257,17 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
     formula(`SUM(G2:G${guildLast})`, totalOf('crowFinal'), FMT_MONEY),
     formula(`SUM(H2:H${guildLast})`, rows.reduce((sum, r) => sum + splitFraction(r), 0), '0.0000%'),
   ]);
-  const guildSheet = sheetFromCells(guildGrid, [18, 10, 15, 8, 13, 19, 13, 14]);
+  const guildSheet = styleExcelSheet(XLSX, sheetFromCells(guildGrid, [18, 10, 15, 8, 13, 19, 13, 14]), { autofilter: true });
 
   // Salary!B5: the guilds' rates weighted by their share of the split.
   salaryGrid[4][1] = formula(`SUMPRODUCT(${GUILDS}$D$2:$D$${guildLast},${GUILDS}$H$2:$H$${guildLast})`, weightedTaxPercent, '0.00');
-  const salarySheet = sheetFromCells(salaryGrid, [6, 22, 14, 12, 11, 13, 9, 12, 8, 11, 11, 12, 12, 15, 15, 13, 13, 14]);
+  const salarySheet = styleExcelSheet(XLSX, sheetFromCells(salaryGrid, [6, 22, 14, 12, 11, 13, 9, 12, 8, 11, 11, 12, 12, 15, 15, 13, 13, 14]), { autofilter: true });
 
   // ---- Payouts: a record of what was actually sent, so these stay as the
   // amounts at the time (not formulas), with a summed total row ----
   const payouts = opts.payouts || salaryPayoutsForCurrentMonth();
   const firstPayoutNumber = opts.firstPayoutNumber || 1;
-  const payoutGrid = [[L.payoutNo, L.recordedAt, L.recordedBy, L.ign, L.guild, L.attendance, L.diamonds, L.crows].map(text)];
+  const payoutGrid = [[L.payoutNo, L.recordedAt, L.recordedBy, L.ign, L.guild, L.attendance, L.diamonds, L.crows].map(xlHeader)];
   payouts.forEach((p, i) => {
     groupPayoutRowsByGuild(p.rows).flatMap((g) => g.rows).forEach((r) => {
       payoutGrid.push([
@@ -5189,21 +5289,21 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
       null,
       null,
       null,
-      text(L.total),
+      xlMark(text(L.total), 'total'),
       null,
       null,
       formula(`SUM(G2:G${payoutLast})`, totalPaid('diamonds'), FMT_MONEY),
       formula(`SUM(H2:H${payoutLast})`, totalPaid('crows'), FMT_MONEY),
     ]);
   }
-  const payoutSheet = sheetFromCells(payoutGrid, [9, 26, 14, 22, 14, 11, 12, 12]);
+  const payoutSheet = styleExcelSheet(XLSX, sheetFromCells(payoutGrid, [9, 26, 14, 22, 14, 11, 12, 12]), { autofilter: true });
 
   // ---- Management Fees: who gets a cut and how much of each pool that is.
   // Fee % and Final amounts are looked up from the Salary sheet by IGN, so
   // changing a fee there flows through here too.
   const feeRows = rows.filter((r) => (r.feePercent || 0) > 0);
   const salaryLookup = (letter, n) => `INDEX(${SAL}${col(letter)},MATCH(A${n},${SAL}${col('B')},0))`;
-  const feeGrid = [[L.ign, L.guild, L.feePct, L.feeDiamonds, L.feeCrows, L.diamondsFinal, L.crowsFinal].map(text)];
+  const feeGrid = [[L.ign, L.guild, L.feePct, L.feeDiamonds, L.feeCrows, L.diamondsFinal, L.crowsFinal].map(xlHeader)];
   feeRows.forEach((r, i) => {
     const n = i + 2;
     feeGrid.push([
@@ -5220,7 +5320,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
     const feeLast = feeRows.length + 1;
     const feeSum = (key) => feeRows.reduce((sum, r) => sum + r[key], 0);
     feeGrid.push([
-      text(L.total),
+      xlMark(text(L.total), 'total'),
       null,
       formula(`SUM(C2:C${feeLast})`, totalFeePercent, '0.00'),
       formula(`SUM(D2:D${feeLast})`, (totalFeePercent / 100) * diamondsToSplit, FMT_MONEY),
@@ -5231,7 +5331,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   } else {
     feeGrid.push([text(L.noFees)]);
   }
-  const feeSheet = sheetFromCells(feeGrid, [22, 14, 8, 17, 15, 15, 13]);
+  const feeSheet = styleExcelSheet(XLSX, sheetFromCells(feeGrid, [22, 14, 8, 17, 15, 15, 13]));
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, salarySheet, L.sheetSalary);
@@ -5348,11 +5448,11 @@ function buildMonthLootSheet(XLSX, schedule, month, lang) {
   const num = (v, z) => ({ t: 'n', v: Number(v) || 0, ...(z ? { z } : {}) });
   const formula = (f, v, z) => ({ t: 'n', f, v: Number(v) || 0, ...(z ? { z } : {}) });
   const scheduleLabel = schedule === 'balthazard' ? L.balthazard : schedule === 'bf4' ? L.bf4 : L.worldBoss;
-  const grid = [[text(L.lootTitle(scheduleLabel, month, new Date().toLocaleDateString('en-CA')))], []];
+  const grid = [[xlMark(text(L.lootTitle(scheduleLabel, month, new Date().toLocaleDateString('en-CA'))), 'title')], []];
   if (!items.length) {
     grid.push([text(L.noLoot)]);
   } else {
-    grid.push([text(L.itemsHeading)], [L.item, L.dropped, L.sold, L.notSold, L.crows, L.diamonds].map(text));
+    grid.push([xlMark(text(L.itemsHeading), 'section')], [L.item, L.dropped, L.sold, L.notSold, L.crows, L.diamonds].map(xlHeader));
     const itemFirst = grid.length + 1;
     items.forEach((it) => {
       const n = grid.length + 1;
@@ -5361,7 +5461,7 @@ function buildMonthLootSheet(XLSX, schedule, month, lang) {
     const itemLast = grid.length;
     const sumItems = (key) => items.reduce((sum, it) => sum + it[key], 0);
     grid.push([
-      text(L.total),
+      xlMark(text(L.total), 'total'),
       formula(`SUM(B${itemFirst}:B${itemLast})`, sumItems('quantity')),
       formula(`SUM(C${itemFirst}:C${itemLast})`, sumItems('sold')),
       formula(`SUM(D${itemFirst}:D${itemLast})`, sumItems('quantity') - sumItems('sold')),
@@ -5369,7 +5469,7 @@ function buildMonthLootSheet(XLSX, schedule, month, lang) {
       formula(`SUM(F${itemFirst}:F${itemLast})`, sumItems('diamonds'), FMT_MONEY),
     ]);
 
-    grid.push([], [text(L.killsHeading)], [L.date, L.boss, L.item, L.quantity, L.sold, L.notSold, L.status, L.crows, L.diamonds].map(text));
+    grid.push([], [xlMark(text(L.killsHeading), 'section')], [L.date, L.boss, L.item, L.quantity, L.sold, L.notSold, L.status, L.crows, L.diamonds].map(xlHeader));
     const killFirst = grid.length + 1;
     kills
       .sort((a, b) => String(a.eventDate).localeCompare(String(b.eventDate)) || a.itemName.localeCompare(b.itemName))
@@ -5389,7 +5489,7 @@ function buildMonthLootSheet(XLSX, schedule, month, lang) {
         ]);
       });
     const killLast = grid.length;
-    const total = [text(L.total), null, null];
+    const total = [xlMark(text(L.total), 'total'), null, null];
     ['D', 'E', 'F'].forEach((letter, i) => {
       total[3 + i] = formula(`SUM(${letter}${killFirst}:${letter}${killLast})`, [sumItems('quantity'), sumItems('sold'), sumItems('quantity') - sumItems('sold')][i]);
     });
@@ -5410,7 +5510,7 @@ function buildMonthLootSheet(XLSX, schedule, month, lang) {
   );
   sheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: grid.length - 1, c: maxCol } });
   sheet['!cols'] = fitColumnWidths(grid, [24, 16, 30, 10, 8, 10, 12, 12, 12]).map((wch) => ({ wch }));
-  return sheet;
+  return styleExcelSheet(XLSX, sheet);
 }
 
 // This Month's Loot on its own: the same Loot sheet for the month and
@@ -5460,6 +5560,21 @@ function buildPayoutAmountsWorkbook(XLSX, p, title, lang) {
   });
   sheet['!cols'] = fitColumnWidths(grid, [16, 22, 11, 14, 12]).map((wch) => ({ wch }));
   guildSheet['!cols'] = fitColumnWidths(guildGrid, [16, 10, 14, 8, 13, 19, 12]).map((wch) => ({ wch }));
+  const markRow = (ws, r, width, kind) => {
+    for (let c = 0; c < width; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      if (cell) xlMark(cell, kind);
+    }
+  };
+  markRow(sheet, 0, 1, 'title');
+  xlMark(sheet.A2, 'label');
+  xlMark(sheet.C2, 'label');
+  markRow(sheet, 3, 5, 'header');
+  markRow(sheet, grid.length - 1, 1, 'total');
+  markRow(guildSheet, 0, 7, 'header');
+  markRow(guildSheet, guildGrid.length - 1, 1, 'total');
+  styleExcelSheet(XLSX, sheet, { autofilter: true });
+  styleExcelSheet(XLSX, guildSheet, { autofilter: true });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, L.sheetPayout);
   XLSX.utils.book_append_sheet(workbook, guildSheet, L.sheetGuilds);
