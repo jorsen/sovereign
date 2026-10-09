@@ -4897,7 +4897,7 @@ const SALARY_EXCEL_TEXT = {
     grRank: 'GR Rank', top10: 'Top 10 Bonus', feePct: 'Fee %', multiplier: 'Multiplier', baseShare: 'Base Share',
     baseMult: 'Base + Mult.', normShare: 'Norm. Share', diamondsInitial: 'Diamonds Initial', diamondsFinal: 'Diamonds Final',
     crowsInitial: 'Crows Initial', crowsFinal: 'Crows Final', splitFraction: 'Split Fraction',
-    members: 'Members', taxPct: 'Tax %', diamondTax: 'Guild Tax', totalCost: 'Total Diamonds to Receive',
+    members: 'Members', taxPct: 'Tax %', diamondTax: 'Guild Tax', totalCost: 'Total Diamonds to Vend',
     payoutNo: 'Payout #', recordedAt: 'Recorded At', recordedBy: 'Recorded By', diamonds: 'Diamonds', crows: 'Crows',
     feeDiamonds: 'Diamonds from Fee', feeCrows: 'Crows from Fee', noFees: 'No management fees this month',
     bracketsHeading: 'Growth Rate Multiplier Brackets', top10Heading: 'Balthazard Top 10 Bonus', minGr: 'Min Growth Rate', extra: 'Extra',
@@ -4925,7 +4925,7 @@ const SALARY_EXCEL_TEXT = {
     grRank: '成长率排名', top10: '前十加成', feePct: '管理费 %', multiplier: '倍率', baseShare: '基础占比',
     baseMult: '基础 × 倍率', normShare: '标准化占比', diamondsInitial: '钻石（初始）', diamondsFinal: '钻石（最终）',
     crowsInitial: '乌鸦币（初始）', crowsFinal: '乌鸦币（最终）', splitFraction: '分配比例',
-    members: '成员数', taxPct: '税率 %', diamondTax: '公会税', totalCost: '应收钻石总数',
+    members: '成员数', taxPct: '税率 %', diamondTax: '公会税', totalCost: '应发钻石总数',
     payoutNo: '发放次数', recordedAt: '记录时间', recordedBy: '记录人', diamonds: '钻石', crows: '乌鸦币',
     feeDiamonds: '管理费钻石', feeCrows: '管理费乌鸦币', noFees: '本月无管理费',
     bracketsHeading: '成长率倍率档位', top10Heading: 'Balthazard 前十加成', minGr: '最低成长率', extra: '额外加成',
@@ -5517,10 +5517,10 @@ document.getElementById('worldBossMonthlyLootExportBtn').addEventListener('click
 // subtotal row; each payout ends with a total of its guild subtotals.
 // Members are never taxed individually -- only the guild is: each guild's
 // subtotal row carries its Guild Tax (its Diamonds x its rate, saved with
-// the payout) and Total Diamonds to Receive (Diamonds + Guild Tax), both
+// the payout) and Total Diamonds to Vend (Diamonds + Guild Tax), both
 // formulas. Amounts paid stay as the numbers that were sent.
 // Columns: A IGN  B Attendance  C Crows  D Diamonds  E Guild Tax
-//          F Total Diamonds to Receive
+//          F Total Diamonds to Vend
 function buildPayoutsByGuildSheet(XLSX, payouts, { firstPayoutNumber = 1, lang, schedule, month } = {}) {
   const L = salaryExcelText(lang);
   const FMT_MONEY = '#,##0.00';
