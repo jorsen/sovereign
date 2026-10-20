@@ -31,7 +31,7 @@ function deriveMembersFromGrowthSubmissions(submissions) {
   const byName = new Map();
   (submissions || []).forEach((s) => {
     const key = s.ign.trim().toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, lampLevel: s.lampLevel, growthRate: s.growthRate });
+    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, className: s.class || null, lampLevel: s.lampLevel, growthRate: s.growthRate });
   });
   return Array.from(byName.values());
 }
@@ -1148,6 +1148,12 @@ function renderLastCrusadeBidders() {
 // The team's own page shows *all* of its records in one place: roster
 // fields plus each person's diamond earnings (computed from this team's own
 // attendance/bid pool) and a guild breakdown scoped to this team.
+function crusadePartyCountForWarType(warType) {
+  if (warType === '20vs20') return 4;
+  if (warType === '50vs50') return 10;
+  return 5;
+}
+
 function renderTeamDetail(n) {
   document.getElementById('crusadeTeamHeading').textContent = `${t('sovereign.common.team')} ${n}`;
   document.title = `Sovereign — ${sovereignState.crusade.name} — Team ${n}`;
@@ -1164,15 +1170,19 @@ function renderTeamDetail(n) {
   const teamRows = computeTeamDistribution(n);
   document.getElementById('crusadeTeamRosterEmptyState').classList.toggle('hidden', teamRows.length !== 0);
 
-  // Split into parties of up to 5 — Parties 1-5 always show even if empty,
-  // so there's always a party to drag members from the panel into.
+  // Split into parties of up to 5. How many party cards show depends on the
+  // team's war type -- 20vs20 is 4 parties (20 people), 50vs50 is 10 (50);
+  // with no war type set, 5. They show even when empty so there's always
+  // somewhere to drag members into; a party beyond that count still shows
+  // if someone is in it (e.g. after the war type was changed).
   const byParty = new Map();
   teamRows.forEach((row) => {
     const slot = row.participant.partySlot;
     if (!byParty.has(slot)) byParty.set(slot, []);
     byParty.get(slot).push(row);
   });
-  const partySlots = Array.from(new Set([1, 2, 3, 4, 5, ...byParty.keys()])).sort((a, b) => a - b);
+  const partyCount = crusadePartyCountForWarType(team.warType);
+  const partySlots = Array.from(new Set([...Array.from({ length: partyCount }, (_, i) => i + 1), ...byParty.keys()])).sort((a, b) => a - b);
 
   // Each party is its own card/table side by side (grid wraps as needed) —
   // reads all as columns instead of one long table, so a 4-party team
@@ -1430,9 +1440,17 @@ function wireCrusadeRosterDragAndDrop(body, teamNumber) {
 function renderCrusadeMemberPanel(teamNumber) {
   const list = document.getElementById('crusadeMemberPanelList');
   const query = crusadeNameKey(document.getElementById('crusadeMemberPanelSearch').value);
+  // class filter: options rebuilt from whoever's on the roster, keeping the current pick
+  const classSelect = document.getElementById('crusadeMemberPanelClass');
+  const picked = classSelect.value;
+  const classes = Array.from(new Set(sovereignState.memberList.map((m) => m.className).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  classSelect.innerHTML = `<option value="">All classes</option>${classes.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}`;
+  classSelect.value = classes.includes(picked) ? picked : '';
+  const classFilter = classSelect.value;
   const members = sovereignState.memberList
     .filter((m) => crusadeTeamOfName(m.name) !== teamNumber)
     .filter((m) => !query || crusadeNameKey(m.name).includes(query))
+    .filter((m) => !classFilter || m.className === classFilter)
     .sort((a, b) => (crusadeTeamOfName(a.name) === null ? 0 : 1) - (crusadeTeamOfName(b.name) === null ? 0 : 1) || (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
   const available = sovereignState.memberList.filter((m) => crusadeTeamOfName(m.name) === null).length;
   document.getElementById('crusadeMemberPanelCount').textContent = `${available} available`;
@@ -1445,11 +1463,12 @@ function renderCrusadeMemberPanel(teamNumber) {
       <li class="crusade-member-chip${onTeam !== null ? ' is-taken' : ' admin-disable'}" ${onTeam === null ? `draggable="true" data-drag-member="${escapeHtml(m.name)}"` : ''} title="${onTeam !== null ? `Already on Team ${onTeam}` : 'Drag onto a party'}">
         <span class="crusade-member-chip-dot" style="background:${color || 'var(--text-muted)'}"></span>
         <span class="crusade-member-chip-name">${escapeHtml(m.name)}</span>
+        ${m.className ? `<span class="crusade-member-chip-class">${escapeHtml(m.className)}</span>` : ''}
         ${onTeam !== null ? `<span class="crusade-member-chip-tag">Team ${onTeam}</span>` : `<span class="crusade-member-chip-gr">${m.growthRate ? Number(m.growthRate).toLocaleString() : ''}</span>`}
       </li>`;
         })
         .join('')
-    : `<li class="crusade-member-panel-empty">${query ? 'No matching members' : 'Everyone is already on a team'}</li>`;
+    : `<li class="crusade-member-panel-empty">${query || classFilter ? 'No matching members' : 'Everyone is already on a team'}</li>`;
 
   list.querySelectorAll('[data-drag-member]').forEach((chip) => {
     chip.addEventListener('dragstart', (e) => {
@@ -1467,6 +1486,9 @@ function renderCrusadeMemberPanel(teamNumber) {
 }
 
 document.getElementById('crusadeMemberPanelSearch').addEventListener('input', () => {
+  if (sovereignState.mode === 'team') renderCrusadeMemberPanel(sovereignState.activeTeam);
+});
+document.getElementById('crusadeMemberPanelClass').addEventListener('change', () => {
   if (sovereignState.mode === 'team') renderCrusadeMemberPanel(sovereignState.activeTeam);
 });
 

@@ -2498,3 +2498,4 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
   .crusade-lineup { flex-direction: column; }
   .crusade-member-panel { position: static; flex-basis: auto; width: 100%; box-sizing: border-box; max-height: 360px; border-left: none; }
 }
+.crusade-member-chip-class { flex: none; color: var(--text-muted); font-size: 11px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
