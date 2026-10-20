@@ -2601,11 +2601,19 @@ function renderGrowthSubmissions() {
   });
 }
 
-// Ignores spacing, punctuation/symbols, and case -- catches "•elijah•" vs
-// "• ELIJAH •" or "unclekenツ" vs "uncleken" as the same person, without
-// needing an exact string match.
+// Look-alike letters used in stylised IGNs ("・Sкy・" with a Cyrillic к),
+// mapped to the Latin letter they read as -- kept in sync with lib/app.js.
+const NAME_LOOKALIKES = {"а":"a","в":"b","с":"c","ԁ":"d","е":"e","ё":"e","һ":"h","н":"h","і":"i","ї":"i","ј":"j","к":"k","ӏ":"l","м":"m","п":"n","о":"o","р":"p","ԛ":"q","г":"r","я":"r","ѕ":"s","т":"t","у":"y","ў":"y","х":"x","ь":"b","ч":"4","з":"3","л":"n","и":"n","ц":"u","ш":"w","щ":"w","д":"a","ф":"o","ж":"x","α":"a","β":"b","γ":"y","δ":"d","ε":"e","η":"n","ι":"i","κ":"k","μ":"u","ν":"v","ο":"o","ρ":"p","σ":"o","τ":"t","υ":"u","χ":"x","ω":"w","ʀ":"r","ɪ":"i","ʏ":"y","ᴀ":"a","ʙ":"b","ᴄ":"c","ᴅ":"d","ᴇ":"e","ɢ":"g","ʜ":"h","ᴊ":"j","ᴋ":"k","ʟ":"l","ᴍ":"m","ɴ":"n","ᴏ":"o","ᴘ":"p","ꜱ":"s","ᴛ":"t","ᴜ":"u","ᴠ":"v","ᴡ":"w","ᴢ":"z"};
+
+// Ignores spacing, punctuation/symbols, case, accents, full-width forms and
+// look-alike letters -- catches "•elijah•" vs "• ELIJAH •", "unclekenツ" vs
+// "uncleken", or "・Sкy・" vs "• SKY •" as the same person, without needing
+// an exact string match.
 function normalizeNameForDupeCheck(name) {
-  return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const s = String(name || '').normalize('NFKC').toLowerCase();
+  let out = '';
+  for (const ch of s) out += NAME_LOOKALIKES[ch] || ch;
+  return out.normalize('NFD').replace(/[^a-z0-9]/g, '');
 }
 
 // Folds spelling variants of one person into one key for the attendance
