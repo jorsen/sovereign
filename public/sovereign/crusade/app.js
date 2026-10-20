@@ -1904,6 +1904,109 @@ function openCrusadeBulkAddModal(presetPartyNumber) {
 document.getElementById('addCrusadeBulkBtn').addEventListener('click', () => openCrusadeBulkAddModal(null));
 document.getElementById('addTeamBulkBtn').addEventListener('click', () => openCrusadeBulkAddModal(sovereignState.activeTeam));
 document.getElementById('autoPickTeamBtn').addEventListener('click', () => autoPickCrusadeRoster(sovereignState.activeTeam));
+// A printable sheet of just this team's roster -- War Type / Stance / Team
+// banner, Area / Leader / Result, then every party (two per row) with Name,
+// Guild, Position, Gold and an Enter box. Opens in a new tab as a preview
+// with a Print button; uses the Team Details form's current values, same as
+// the party cards on screen.
+const CRUSADE_PRINT_CLASS_COLORS = ['#7c3aed', '#0891b2', '#16a34a', '#ea580c', '#db2777', '#2563eb', '#ca8a04', '#475569', '#dc2626', '#0d9488'];
+function crusadePrintClassColor(label) {
+  const classes = Array.from(new Set(sovereignState.memberList.map((m) => m.className).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  let idx = classes.indexOf(label);
+  if (idx === -1) idx = Array.from(String(label)).reduce((h, ch) => (h * 31 + ch.codePointAt(0)) >>> 0, 7);
+  return CRUSADE_PRINT_CLASS_COLORS[idx % CRUSADE_PRINT_CLASS_COLORS.length];
+}
+
+function printCrusadeTeamRoster(teamNumber) {
+  const form = document.getElementById('teamDetailsForm');
+  const team = getTeamData(teamNumber);
+  const val = (field) => (form && form.elements[field] ? form.elements[field].value : team[field]) || '';
+  const warType = val('warType');
+  const stance = val('stance');
+  const area = val('area');
+  const leader = val('leader');
+  const result = val('result');
+  const isDefense = stance === 'Defense';
+  const grOf = (name) => Number(sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name))?.growthRate) || 0;
+  const members = sovereignState.participants.filter((x) => x.partyNumber === teamNumber);
+  const partyCount = crusadePartyCountForWarType(warType);
+  const slots = Array.from(new Set([...Array.from({ length: partyCount }, (_, i) => i + 1), ...members.map((x) => x.partySlot)])).sort((a, b) => a - b);
+  const esc = escapeHtml;
+
+  const partyTable = (slot) => {
+    const rows = members
+      .filter((x) => x.partySlot === slot)
+      .sort((a, b) => grOf(b.name) - grOf(a.name) || a.name.localeCompare(b.name));
+    const cells = Array.from({ length: CRUSADE_PARTY_MAX_MEMBERS }, (_, i) => {
+      const m = rows[i];
+      if (!m) return '<tr><td class="name"></td><td></td><td></td><td></td><td class="enter"><span class="box"></span></td></tr>';
+      const guildColor = crusadeGuildColor(m.guildName) || '#64748b';
+      const position = m.position || classOfMember(m.name) || '';
+      const gold = isDefense ? '' : m.goldBid > 0 ? crusadeFormatBidShort(m.goldBid) : '';
+      return `<tr>
+        <td class="name${i === 0 ? ' lead' : ''}">${esc(m.name)}</td>
+        <td>${m.guildName ? `<span class="pill" style="background:${guildColor}">${esc(m.guildName)}</span>` : ''}</td>
+        <td>${position ? `<span class="pill" style="background:${crusadePrintClassColor(position)}">${esc(position)}</span>` : ''}</td>
+        <td class="gold">${gold}</td>
+        <td class="enter"><span class="box${m.attended ? ' on' : ''}"></span></td>
+      </tr>`;
+    }).join('');
+    return `<table class="party">
+      <thead><tr><th colspan="5" class="party-title">Party ${slot}</th></tr>
+      <tr><th>Name</th><th>Guild</th><th>Position</th><th>Gold</th><th>Enter</th></tr></thead>
+      <tbody>${cells}</tbody></table>`;
+  };
+
+  const resultLabel = { pending: '', win: 'WIN', lose: 'LOSE', draw: 'DRAW' }[result] ?? result;
+  const crusadeName = sovereignState.crusade?.name || 'Crusade';
+  const html = `<!doctype html><html><head><meta charset="utf-8">
+<title>${esc(crusadeName)} — Team ${teamNumber} Roster</title>
+<style>
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; padding: 16px; font-family: Arial, "Microsoft YaHei", "Malgun Gothic", sans-serif; font-size: 12px; color: #111; background: #fff; }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .toolbar button { font-size: 13px; padding: 6px 14px; cursor: pointer; }
+  .sheet { max-width: 1000px; }
+  .banner, .info { display: grid; gap: 4px; margin-bottom: 4px; }
+  .banner { grid-template-columns: 1fr 1.4fr 1fr; }
+  .banner div { background: #b45309; color: #fff; font-weight: 700; font-size: 18px; text-align: center; padding: 6px; border-radius: 3px; }
+  .banner .stance { background: #fff; color: ${isDefense ? '#1d4ed8' : '#b91c1c'}; border: 2px solid #b45309; }
+  .info { grid-template-columns: 90px 1fr 90px 1fr 90px 1fr; margin-bottom: 14px; }
+  .info div { padding: 5px 8px; border: 1px solid #b45309; font-weight: 700; }
+  .info .k { background: #b45309; color: #fff; text-align: center; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+  table.party { width: 100%; border-collapse: collapse; background: #fde7cf; break-inside: avoid; }
+  table.party th, table.party td { border: 1px solid #c2410c; padding: 3px 6px; height: 22px; white-space: nowrap; }
+  table.party th { background: #fdba74; font-weight: 700; text-align: center; }
+  table.party th.party-title { background: #fed7aa; }
+  td.name { font-weight: 600; min-width: 120px; }
+  td.name.lead { background: #fde047; }
+  td.gold { text-align: right; min-width: 50px; }
+  td.enter { text-align: center; width: 50px; }
+  .pill { display: inline-block; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
+  .box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #555; border-radius: 2px; background: #fff; vertical-align: middle; position: relative; }
+  .box.on::after { content: "✓"; position: absolute; left: 1px; top: -3px; font-size: 13px; font-weight: 700; color: #15803d; }
+  @media print { body { padding: 0; } .toolbar { display: none; } @page { size: landscape; margin: 10mm; } }
+</style></head><body>
+<div class="toolbar"><button onclick="window.print()">🖨 Print</button><span style="color:#666">${esc(crusadeName)} — Team ${teamNumber}</span></div>
+<div class="sheet">
+  <div class="banner"><div>${esc(warType || '—')}</div><div class="stance">${esc(stance || '—')}</div><div>Team ${teamNumber}</div></div>
+  <div class="info"><div class="k">Area</div><div>${esc(area)}</div><div class="k">Leader</div><div>${esc(leader)}</div><div class="k">Result</div><div>${esc(resultLabel)}</div></div>
+  <div class="grid">${slots.map(partyTable).join('')}</div>
+</div>
+</body></html>`;
+  const win = window.open('', '_blank');
+  if (!win) {
+    toast('Allow pop-ups for this site to open the print preview');
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+
+document.getElementById('printTeamRosterBtn').addEventListener('click', () => printCrusadeTeamRoster(sovereignState.activeTeam));
+
 document.getElementById('clearTeamRosterBtn').addEventListener('click', async () => {
   const teamNumber = sovereignState.activeTeam;
   const count = sovereignState.participants.filter((p) => p.partyNumber === teamNumber).length;
