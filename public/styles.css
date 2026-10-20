@@ -2536,3 +2536,10 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-roster-table th + th, .crusade-roster-table td + td { padding-left: 10px !important; }
 /* Max Bid: checkbox + amount in one cell */
 .crusade-roster-table .crusade-maxbid-cell { display: inline-flex !important; flex-direction: row !important; align-items: center; gap: 6px; margin: 0 !important; cursor: pointer; font-size: inherit; color: inherit; }
+/* Party roster: pack the columns together (no stretched Name column) --
+   the table is only as wide as its content; spare card width stays on the
+   right instead of opening a gap between Name and Class. */
+.crusade-roster-table { width: auto !important; }
+.crusade-roster-table th, .crusade-roster-table td,
+.crusade-roster-table th:nth-child(2), .crusade-roster-table .crusade-roster-name-cell { width: auto; }
+.crusade-roster-table th:nth-child(3), .crusade-roster-table .crusade-roster-class-cell { padding-left: 16px !important; }
