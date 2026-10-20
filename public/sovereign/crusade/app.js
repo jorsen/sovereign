@@ -1842,6 +1842,7 @@ function openCrusadeBulkAddModal(presetPartyNumber) {
   // non-bidders, so presuming everyone bid would misrepresent whoever
   // didn't as a bidder (see the single-add modal for the same reasoning).
   form.elements.goldBid.value = 0;
+  form.elements.attended.checked = false;
   form.querySelector('.crusade-goldbid-field').classList.toggle('hidden', noBidding);
   renderCrusadeBulkResults();
   renderCrusadeBulkSelected();
