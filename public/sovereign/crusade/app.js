@@ -1152,6 +1152,60 @@ document.getElementById('teamDetailsForm').elements.warType.addEventListener('ch
   if (sovereignState.mode === 'team') renderTeamDetail(sovereignState.activeTeam);
 });
 
+// Adds `member` to a FULL party by pushing that party's lowest Growth Rate
+// member down to the next party; if that one is full too, its lowest moves
+// on, and so on until a party has room. With no room left in any of the
+// team's parties (per its War Type), the last one pushed goes back to the
+// Members panel. Moves run from the far end backwards so every party has
+// room at the moment someone enters it (the server checks the 5-cap on each
+// move). Asks first, listing every move.
+async function addMemberWithBump(member, teamNumber, slot) {
+  const grOf = (name) => Number(sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name))?.growthRate) || 0;
+  const warTypeSelect = document.getElementById('teamDetailsForm').elements.warType;
+  const partyCount = crusadePartyCountForWarType(warTypeSelect ? warTypeSelect.value : getTeamData(teamNumber).warType);
+  const inParty = (s2) => sovereignState.participants.filter((x) => x.partyNumber === teamNumber && x.partySlot === s2);
+
+  // plan: who leaves each full party, starting with the one picked into
+  const moves = []; // { participant, from, to } -- to === null means off the team
+  let current = slot;
+  for (;;) {
+    const members = inParty(current).filter((x) => !moves.some((m) => m.participant.id === x.id));
+    if (members.length + 1 <= CRUSADE_PARTY_MAX_MEMBERS) break; // room for the one arriving
+    const lowest = members.slice().sort((a, b) => grOf(a.name) - grOf(b.name) || b.name.localeCompare(a.name))[0];
+    const next = current + 1;
+    const to = next <= Math.max(partyCount, current) ? next : null;
+    moves.push({ participant: lowest, from: current, to });
+    if (to === null) break;
+    current = next;
+  }
+
+  const lines = [`${member.name} (${member.className}, GR ${(member.growthRate || 0).toLocaleString()}) joins Party ${slot}`];
+  moves.forEach((m) => lines.push(m.to === null ? `${m.participant.name} (GR ${grOf(m.participant.name).toLocaleString()}) leaves the team — no room in Parties 1-${partyCount}` : `${m.participant.name} (GR ${grOf(m.participant.name).toLocaleString()}) moves Party ${m.from} → Party ${m.to}`));
+  if (!confirm(`Party ${slot} is full:\n\n${lines.join('\n')}\n\nContinue?`)) return;
+
+  try {
+    for (const m of moves.slice().reverse()) {
+      if (m.to === null) {
+        await api(`/api/crusades/${sovereignState.crusadeId}/participants/${m.participant.id}`, { method: 'DELETE' });
+        sovereignState.participants = sovereignState.participants.filter((x) => x.id !== m.participant.id);
+      } else {
+        const updated = await api(`/api/crusades/${sovereignState.crusadeId}/participants/${m.participant.id}`, { method: 'PUT', body: JSON.stringify({ partySlot: m.to }) });
+        const idx = sovereignState.participants.findIndex((x) => x.id === m.participant.id);
+        if (idx !== -1) sovereignState.participants[idx] = updated;
+      }
+    }
+    const created = await api(`/api/crusades/${sovereignState.crusadeId}/participants`, {
+      method: 'POST',
+      body: JSON.stringify({ name: member.name, guildName: member.guildName || null, partyNumber: teamNumber, partySlot: slot, attended: true }),
+    });
+    sovereignState.participants.push(created);
+    toast(`${member.name} added to Party ${slot}${moves.length ? ` — ${moves.length} member${moves.length === 1 ? '' : 's'} moved down` : ''}`);
+  } catch (err) {
+    toast(err.message);
+  }
+  refreshAfterRosterChange();
+}
+
 // A participant's class, from their Growth Rate submission (same name match
 // as the Members panel).
 function classOfMember(name) {
@@ -1241,7 +1295,7 @@ function renderTeamDetail(n) {
         <div class="crusade-party-card-header">
           <h3>${t('sovereign.common.party')} ${slot} — ${rowsInParty.length}/${CRUSADE_PARTY_MAX_MEMBERS}</h3>
           <div class="crusade-party-card-actions">
-            <select class="crusade-party-class-pick admin-only admin-disable" data-party-class-pick="${slot}" title="Add the highest Growth Rate available member of a class to Party ${slot}" ${full ? 'disabled' : ''}>
+            <select class="crusade-party-class-pick admin-only admin-disable" data-party-class-pick="${slot}" title="Add the highest Growth Rate available member of a class to Party ${slot} (if it's full, its lowest Growth Rate member moves to the next party)">
               <option value="">+ ${t('sovereign.common.class')}…</option>
               ${memberClasses.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${availableByClass.get(c) || 0})</option>`).join('')}
             </select>
@@ -1300,7 +1354,9 @@ function renderTeamDetail(n) {
         toast(`No available ${className} left — everyone with that class is already on a team`);
         return;
       }
-      await addMemberToParty(best.name, n, slot);
+      const full = sovereignState.participants.filter((x) => x.partyNumber === n && x.partySlot === slot).length >= CRUSADE_PARTY_MAX_MEMBERS;
+      if (full) await addMemberWithBump(best, n, slot);
+      else await addMemberToParty(best.name, n, slot);
     });
   });
 
