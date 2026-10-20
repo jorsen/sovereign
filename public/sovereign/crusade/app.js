@@ -2922,7 +2922,7 @@ function renderGrowthDuplicateGroups() {
         populateGrowthFilterOptions(sovereignState.growthSubmissions);
         renderGrowthSubmissions();
         renderGrowthDuplicateGroups();
-        toast(`Merged into "${result.keepIgn}" (renamed ${result.renamedAttendees} attendance record${result.renamedAttendees === 1 ? '' : 's'})`);
+        toast(`Merged into "${result.keepIgn}" (updated ${Object.values(result.synced || {}).reduce((a, b) => a + b, 0)} record(s) across crusades, attendance, points and history)`);
       } catch (err) {
         toast(err.message);
       }
@@ -3009,7 +3009,8 @@ document.getElementById('growthEditForm').addEventListener('submit', async (e) =
     populateGrowthFilterOptions(sovereignState.growthSubmissions);
     renderGrowthSubmissions();
     document.getElementById('growthEditModal').classList.add('hidden');
-    toast('Submission updated');
+    const syncedTotal = Object.values(updated.synced || {}).reduce((a, b) => a + b, 0);
+    toast(syncedTotal ? `Submission updated — also updated ${syncedTotal} record${syncedTotal === 1 ? '' : 's'} (crusades, attendance, points, history…)` : 'Submission updated');
   } catch (err) {
     toast(err.message);
   }
