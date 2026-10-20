@@ -2522,3 +2522,15 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-member-chip-flag { flex: none; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; color: #f59e0b; border: 1px solid #f59e0b; }
 .crusade-member-chip-flag.is-blocking { color: var(--bad); border-color: var(--bad); }
 .crusade-standing-warn { color: var(--bad); margin-left: 4px; cursor: help; }
+/* Party roster tables, final layout: columns size to their own content --
+   nothing is cut short with an ellipsis. Name takes whatever width is left;
+   when a card is narrower than the table's content, the table scrolls
+   sideways in its card instead of squeezing or overlapping. (Overrides the
+   earlier fixed-width rules above.) */
+.crusade-roster-table { table-layout: auto !important; width: 100%; min-width: 0; }
+.crusade-roster-table th, .crusade-roster-table td { white-space: nowrap !important; overflow: visible; text-overflow: clip; }
+.crusade-roster-table th, .crusade-roster-table td { width: 1%; }
+.crusade-roster-table th:nth-child(2), .crusade-roster-table .crusade-roster-name-cell { width: auto; }
+.crusade-roster-table .crusade-roster-name-cell .crusade-roster-name-click { max-width: none; overflow: visible; text-overflow: clip; }
+.crusade-roster-table .crusade-roster-guild-cell .crusade-guild-badge { max-width: none; overflow: visible; text-overflow: clip; }
+.crusade-roster-table th + th, .crusade-roster-table td + td { padding-left: 10px !important; }

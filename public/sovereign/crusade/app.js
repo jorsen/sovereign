@@ -1215,7 +1215,10 @@ async function addMemberWithBump(member, teamNumber, slot) {
 // as the Members panel).
 function classOfMember(name) {
   const key = String(name || '').trim().toLowerCase();
-  return sovereignState.memberList.find((m) => String(m.name).trim().toLowerCase() === key)?.className || null;
+  const exact = sovereignState.memberList.find((m) => String(m.name).trim().toLowerCase() === key);
+  if (exact) return exact.className || null;
+  const loose = normalizeNameForDupeCheck(name);
+  return (loose && sovereignState.memberList.find((m) => normalizeNameForDupeCheck(m.name) === loose)?.className) || null;
 }
 
 function crusadePartyCountForWarType(warType) {
@@ -1309,11 +1312,6 @@ function renderTeamDetail(n) {
         </div>
         <div class="table-scroll">
           <table class="members-table crusade-roster-table">
-            <colgroup>
-              <col style="width:26px"><col><col style="width:88px"><col style="width:84px"><col class="crusade-roster-position-col" style="width:70px">
-              <col style="width:46px"><col style="width:52px"><col style="width:58px">${isDefense ? '' : '<col style="width:58px">'}<col style="width:62px">
-              <col class="admin-only" style="width:42px"><col class="admin-only" style="width:58px">
-            </colgroup>
             <thead>
               <tr>
                 <th>#</th><th>${t('sovereign.common.name')}</th><th>${t('sovereign.common.class')}</th><th>${t('sovereign.common.guild')}</th><th class="crusade-roster-position-col">${t('sovereign.modal.positionLabel')}</th>
