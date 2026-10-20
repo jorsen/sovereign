@@ -232,6 +232,9 @@ function showPanel(name) {
   document.getElementById('sovereignActivityLogPanel').classList.toggle('hidden', name !== 'activitylog');
   document.getElementById('sovereignUsersPanel').classList.toggle('hidden', name !== 'users');
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
+  // Crusade-only accounts get edit controls on the crusade screens, and are
+  // view-only everywhere else (the server enforces the same split).
+  if (isCrusadeEditor()) document.body.classList.toggle('view-only', !['list', 'detail', 'guildSalary', 'team'].includes(name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
   if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'balthazard', 'points', 'salary', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
 }
@@ -6851,7 +6854,7 @@ function renderUsers() {
       (u) => `
     <tr>
       <td style="font-weight:600;">${escapeHtml(u.username)}</td>
-      <td><span class="crusade-status-badge ${u.role === 'admin' ? 'is-create' : u.role === 'editor' ? 'is-update' : 'pending'}">${escapeHtml(u.role)}</span></td>
+      <td><span class="crusade-status-badge ${u.role === 'admin' ? 'is-create' : u.role === 'editor' || u.role === 'crusade' ? 'is-update' : 'pending'}">${escapeHtml(u.role)}</span></td>
       <td style="color:var(--text-muted);">${formatLongDate(String(u.createdAt).slice(0, 10))}</td>
       <td class="crusade-roster-actions-cell">
         <button type="button" class="icon-btn" data-edit-user="${u.id}" title="Edit">✎</button>

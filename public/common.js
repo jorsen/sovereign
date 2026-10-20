@@ -12,6 +12,12 @@ function canEdit() {
   return appSession.role === 'admin' || appSession.role === 'editor';
 }
 
+// 'crusade' accounts can edit crusades only -- the crusade page turns
+// view-only off for itself on the crusade screens (see showPanel).
+function isCrusadeEditor() {
+  return appSession.role === 'crusade';
+}
+
 function isAdmin() {
   return appSession.role === 'admin';
 }
@@ -28,7 +34,7 @@ async function loadSession() {
   document.body.classList.toggle('view-only', !canEdit());
   document.body.classList.toggle('not-admin', !isAdmin());
   const badge = document.getElementById('roleBadge');
-  if (badge) badge.classList.toggle('hidden', canEdit());
+  if (badge) badge.classList.toggle('hidden', canEdit() || isCrusadeEditor());
   const whoami = document.getElementById('whoamiBadge');
   if (whoami) {
     whoami.classList.toggle('hidden', !appSession.username);
