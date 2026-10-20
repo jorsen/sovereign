@@ -1152,6 +1152,13 @@ document.getElementById('teamDetailsForm').elements.warType.addEventListener('ch
   if (sovereignState.mode === 'team') renderTeamDetail(sovereignState.activeTeam);
 });
 
+// A participant's class, from their Growth Rate submission (same name match
+// as the Members panel).
+function classOfMember(name) {
+  const key = String(name || '').trim().toLowerCase();
+  return sovereignState.memberList.find((m) => String(m.name).trim().toLowerCase() === key)?.className || null;
+}
+
 function crusadePartyCountForWarType(warType) {
   if (warType === '20vs20') return 4;
   if (warType === '50vs50') return 10;
@@ -1207,8 +1214,9 @@ function renderTeamDetail(n) {
           ({ participant: p, attendanceAmount, bidShare, total }, i) => `
       <tr class="crusade-roster-row admin-disable" draggable="true" data-drag-participant="${p.id}">
         <td>${i + 1}</td>
-        <td class="crusade-roster-name-cell" style="font-weight:600;"><span class="crusade-roster-name-click" data-edit-participant="${p.id}" title="Click to edit">${escapeHtml(p.name)}</span></td>
-        <td>${crusadeGuildBadge(p.guildName)}</td>
+        <td class="crusade-roster-name-cell" style="font-weight:600;"><span class="crusade-roster-name-click" data-edit-participant="${p.id}" title="${escapeHtml(p.name)} — click to edit">${escapeHtml(p.name)}</span></td>
+        <td class="crusade-roster-class-cell" title="${escapeHtml(classOfMember(p.name) || '')}">${classOfMember(p.name) ? escapeHtml(classOfMember(p.name)) : '–'}</td>
+        <td class="crusade-roster-guild-cell">${crusadeGuildBadge(p.guildName)}</td>
         <td class="crusade-roster-position-col">${p.position ? escapeHtml(p.position) : '–'}</td>
         <td>${isDefense ? t('sovereign.common.def') : crusadeFormatGold(p.goldBid)}</td>
         <td><input type="checkbox" class="crusade-attended-check admin-disable" data-participant-id="${p.id}" ${p.attended ? 'checked' : ''}></td>
@@ -1231,15 +1239,20 @@ function renderTeamDetail(n) {
         </div>
         <div class="table-scroll">
           <table class="members-table crusade-roster-table">
+            <colgroup>
+              <col style="width:26px"><col><col style="width:88px"><col style="width:84px"><col class="crusade-roster-position-col" style="width:70px">
+              <col style="width:46px"><col style="width:52px"><col style="width:58px">${isDefense ? '' : '<col style="width:58px">'}<col style="width:62px">
+              <col class="admin-only" style="width:42px"><col class="admin-only" style="width:58px">
+            </colgroup>
             <thead>
               <tr>
-                <th style="width:4%;">#</th><th style="width:20%;">${t('sovereign.common.name')}</th><th>${t('sovereign.common.guild')}</th><th class="crusade-roster-position-col">${t('sovereign.modal.positionLabel')}</th>
-                <th>${t('sovereign.roster.thBid')}</th>
-                <th style="width:6%;">${t('sovereign.roster.thEnter')}</th>
-                <th>${t('sovereign.roster.thAttend')}</th>
-                ${isDefense ? '' : `<th>${t('sovereign.roster.thShare')}</th>`}
+                <th>#</th><th>${t('sovereign.common.name')}</th><th>${t('sovereign.common.class')}</th><th>${t('sovereign.common.guild')}</th><th class="crusade-roster-position-col">${t('sovereign.modal.positionLabel')}</th>
+                <th title="${t('sovereign.roster.thBid')}">${t('sovereign.roster.thBid')}</th>
+                <th title="${t('sovereign.roster.thEnter')}">${t('sovereign.roster.thEnter')}</th>
+                <th title="${t('sovereign.roster.thAttend')}">${t('sovereign.roster.thAttend')}</th>
+                ${isDefense ? '' : `<th title="${t('sovereign.roster.thShare')}">${t('sovereign.roster.thShare')}</th>`}
                 <th>${t('sovereign.common.total')}</th>
-                <th class="admin-only" style="width:6%;">${t('sovereign.roster.thPaid')}</th><th class="admin-only" style="width:8%;"></th>
+                <th class="admin-only" title="${t('sovereign.roster.thPaid')}">${t('sovereign.roster.thPaid')}</th><th class="admin-only"></th>
               </tr>
             </thead>
             <tbody>${memberRows}</tbody>

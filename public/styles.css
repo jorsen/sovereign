@@ -2499,3 +2499,17 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
   .crusade-member-panel { position: static; flex-basis: auto; width: 100%; box-sizing: border-box; max-height: 360px; border-left: none; }
 }
 .crusade-member-chip-class { flex: none; color: var(--text-muted); font-size: 11px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Party roster tables: every column has a set width (see the colgroup in
+   renderTeamDetail); text and badges stay inside their cell with an ellipsis
+   instead of spilling into the next column, and the table scrolls sideways in
+   its card rather than squashing below its natural width. */
+.crusade-roster-table { min-width: 620px; }
+.crusade-roster-table th { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+.crusade-roster-table td { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+.crusade-roster-table .crusade-roster-class-cell { color: var(--text-muted); font-size: 12px; }
+.crusade-roster-table .crusade-roster-guild-cell .crusade-guild-badge {
+  display: inline-block; max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; vertical-align: middle; font-size: 11px; padding: 1px 6px;
+}
+/* two cards per row only when each card has room for the full table */
+.crusade-party-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 640px), 1fr)); }
