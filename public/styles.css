@@ -2534,3 +2534,5 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-roster-table .crusade-roster-name-cell .crusade-roster-name-click { max-width: none; overflow: visible; text-overflow: clip; }
 .crusade-roster-table .crusade-roster-guild-cell .crusade-guild-badge { max-width: none; overflow: visible; text-overflow: clip; }
 .crusade-roster-table th + th, .crusade-roster-table td + td { padding-left: 10px !important; }
+/* Max Bid: checkbox + amount in one cell */
+.crusade-roster-table .crusade-maxbid-cell { display: inline-flex !important; flex-direction: row !important; align-items: center; gap: 6px; margin: 0 !important; cursor: pointer; font-size: inherit; color: inherit; }

@@ -18,6 +18,16 @@ function crusadeFormatGold(amount) {
   return (amount || 0).toLocaleString();
 }
 
+// Ticking a roster row's Max Bid box sets their gold bid to this; unticking
+// sets it back to 0. (Other amounts can still be typed in the edit form.)
+const CRUSADE_MAX_BID = 30000000;
+
+// 30000000 -> "30M", 1500000 -> "1.5M"; smaller amounts as plain numbers.
+function crusadeFormatBidShort(amount) {
+  const n = Number(amount) || 0;
+  return n >= 1e6 ? `${Number((n / 1e6).toFixed(2))}M` : n.toLocaleString();
+}
+
 function crusadeFormatItemQty(amount) {
   return `${Math.round(amount || 0).toLocaleString()} pcs`;
 }
@@ -1204,7 +1214,7 @@ async function addMemberWithBump(member, teamNumber, slot) {
     }
     const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, {
       method: 'POST',
-      body: JSON.stringify({ name: member.name, guildName: member.guildName || null, partyNumber: teamNumber, partySlot: slot, attended: true }),
+      body: JSON.stringify({ name: member.name, guildName: member.guildName || null, partyNumber: teamNumber, partySlot: slot, attended: false }),
     });
     sovereignState.participants.push(created);
     toast(`${member.name} added to Party ${slot}${moves.length ? ` — ${moves.length} member${moves.length === 1 ? '' : 's'} moved down` : ''}`);
@@ -1288,7 +1298,7 @@ function renderTeamDetail(n) {
         <td class="crusade-roster-class-cell" title="${escapeHtml(classOfMember(p.name) || '')}">${classOfMember(p.name) ? escapeHtml(classOfMember(p.name)) : '–'}</td>
         <td class="crusade-roster-guild-cell">${crusadeGuildBadge(p.guildName)}</td>
         <td class="crusade-roster-position-col">${p.position ? escapeHtml(p.position) : '–'}</td>
-        <td>${isDefense ? t('sovereign.common.def') : crusadeFormatGold(p.goldBid)}</td>
+        <td>${isDefense ? t('sovereign.common.def') : `<label class="crusade-maxbid-cell"><input type="checkbox" class="crusade-maxbid-check admin-disable" data-participant-id="${p.id}" ${p.goldBid > 0 ? 'checked' : ''}><span>${crusadeFormatBidShort(p.goldBid)}</span></label>`}</td>
         <td><input type="checkbox" class="crusade-attended-check admin-disable" data-participant-id="${p.id}" ${p.attended ? 'checked' : ''}></td>
         <td>${crusadeFormatDiamonds(attendanceAmount)}</td>
         ${isDefense ? '' : `<td>${crusadeFormatDiamonds(bidShare)}</td>`}
@@ -1335,6 +1345,9 @@ function renderTeamDetail(n) {
 
   body.querySelectorAll('.crusade-attended-check').forEach((cb) => {
     cb.addEventListener('change', () => toggleCrusadeParticipantFlag(cb, 'attended'));
+  });
+  body.querySelectorAll('.crusade-maxbid-check').forEach((cb) => {
+    cb.addEventListener('change', () => toggleCrusadeParticipantFlag(cb, 'goldBid', cb.checked ? CRUSADE_MAX_BID : 0));
   });
   body.querySelectorAll('.crusade-paid-check').forEach((cb) => {
     cb.addEventListener('change', () => toggleCrusadeParticipantFlag(cb, 'paid'));
@@ -1449,7 +1462,7 @@ async function addMemberToParty(name, teamNumber, partySlot) {
   try {
     const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, {
       method: 'POST',
-      body: JSON.stringify({ name, guildName: member?.guildName || null, partyNumber: teamNumber, partySlot, attended: true }),
+      body: JSON.stringify({ name, guildName: member?.guildName || null, partyNumber: teamNumber, partySlot, attended: false }),
     });
     sovereignState.participants.push(created);
     refreshAfterRosterChange();
@@ -1671,12 +1684,12 @@ document.getElementById('crusadeMemberPanelClass').addEventListener('change', ()
   });
 }
 
-async function toggleCrusadeParticipantFlag(checkbox, field) {
+async function toggleCrusadeParticipantFlag(checkbox, field, value = checkbox.checked) {
   const id = checkbox.getAttribute('data-participant-id');
   try {
     const updated = await api(`/api/crusades/${sovereignState.crusadeId}/participants/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ [field]: checkbox.checked }),
+      body: JSON.stringify({ [field]: value }),
     });
     const idx = sovereignState.participants.findIndex((p) => p.id === id);
     if (idx !== -1) sovereignState.participants[idx] = updated;
@@ -1719,7 +1732,7 @@ function openCrusadeParticipantModal(participantId, presetPartyNumber, presetPar
   form.elements.goldBid.value = noBidding ? 0 : participant ? participant.goldBid : 0;
   form.querySelector('.crusade-goldbid-field').classList.toggle('hidden', noBidding);
   form.elements.manualDiamonds.value = participant ? participant.manualDiamonds : 0;
-  form.elements.attended.checked = participant ? participant.attended : true;
+  form.elements.attended.checked = participant ? participant.attended : false;
   document.getElementById('crusadeParticipantModal').classList.remove('hidden');
 }
 
@@ -1917,7 +1930,7 @@ async function autoPickCrusadeRoster(teamNumber) {
     try {
       const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, {
         method: 'POST',
-        body: JSON.stringify({ name: member.name, guildName: member.guildName || null, partyNumber: teamNumber, partySlot: slot, attended: true }),
+        body: JSON.stringify({ name: member.name, guildName: member.guildName || null, partyNumber: teamNumber, partySlot: slot, attended: false }),
       });
       sovereignState.participants.push(created);
       added++;

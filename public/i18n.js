@@ -499,7 +499,7 @@ const TRANSLATIONS = {
     'sovereign.salary.thFeePercent': 'Fee %',
     'sovereign.salary.thTotalSalary': 'Total Salary',
 
-    'sovereign.roster.thBid': 'Bid',
+    'sovereign.roster.thBid': 'Max Bid',
     'sovereign.roster.thEnter': 'Enter',
     'sovereign.roster.thAttend': 'Attend',
     'sovereign.roster.thShare': 'Share',
@@ -870,7 +870,7 @@ const TRANSLATIONS = {
     'sovereign.salary.thFeePercent': '费率 %',
     'sovereign.salary.thTotalSalary': '收益总计',
 
-    'sovereign.roster.thBid': '竞标',
+    'sovereign.roster.thBid': '最高竞标',
     'sovereign.roster.thEnter': '报名',
     'sovereign.roster.thAttend': '出勤',
     'sovereign.roster.thShare': '份额',
@@ -1220,7 +1220,7 @@ const TRANSLATIONS = {
     'sovereign.salary.thFeePercent': '수수료 %',
     'sovereign.salary.thTotalSalary': '총 수익',
 
-    'sovereign.roster.thBid': '입찰',
+    'sovereign.roster.thBid': '최대 입찰',
     'sovereign.roster.thEnter': '참여',
     'sovereign.roster.thAttend': '출석',
     'sovereign.roster.thShare': '분배금',
@@ -1570,7 +1570,7 @@ const TRANSLATIONS = {
     'sovereign.salary.thFeePercent': 'ค่าธรรมเนียม %',
     'sovereign.salary.thTotalSalary': 'รายได้รวม',
 
-    'sovereign.roster.thBid': 'ประมูล',
+    'sovereign.roster.thBid': 'ประมูลสูงสุด',
     'sovereign.roster.thEnter': 'ลงทะเบียน',
     'sovereign.roster.thAttend': 'เข้าร่วม',
     'sovereign.roster.thShare': 'ส่วนแบ่ง',
@@ -1725,7 +1725,7 @@ const TRANSLATIONS = {
     'sovereign.salary.thFeePercent': '手数料 %',
     'sovereign.salary.thTotalSalary': '報酬合計',
 
-    'sovereign.roster.thBid': '入札額',
+    'sovereign.roster.thBid': '最大入札',
     'sovereign.roster.thEnter': '参加',
     'sovereign.roster.thAttend': '出席',
     'sovereign.roster.thShare': '配分',
