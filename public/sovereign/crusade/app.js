@@ -1148,6 +1148,10 @@ function renderLastCrusadeBidders() {
 // The team's own page shows *all* of its records in one place: roster
 // fields plus each person's diamond earnings (computed from this team's own
 // attendance/bid pool) and a guild breakdown scoped to this team.
+document.getElementById('teamDetailsForm').elements.warType.addEventListener('change', () => {
+  if (sovereignState.mode === 'team') renderTeamDetail(sovereignState.activeTeam);
+});
+
 function crusadePartyCountForWarType(warType) {
   if (warType === '20vs20') return 4;
   if (warType === '50vs50') return 10;
@@ -1181,7 +1185,10 @@ function renderTeamDetail(n) {
     if (!byParty.has(slot)) byParty.set(slot, []);
     byParty.get(slot).push(row);
   });
-  const partyCount = crusadePartyCountForWarType(team.warType);
+  // The War Type dropdown's current pick wins over the saved value, so the
+  // party cards follow it as soon as it's changed rather than only after Save.
+  const warTypeSelect = document.getElementById('teamDetailsForm').elements.warType;
+  const partyCount = crusadePartyCountForWarType(warTypeSelect ? warTypeSelect.value : team.warType);
   const partySlots = Array.from(new Set([...Array.from({ length: partyCount }, (_, i) => i + 1), ...byParty.keys()])).sort((a, b) => a - b);
 
   // Each party is its own card/table side by side (grid wraps as needed) —
