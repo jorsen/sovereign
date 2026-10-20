@@ -1227,6 +1227,17 @@ async function addMemberWithBump(member, teamNumber, slot) {
 
 // A participant's class, from their Growth Rate submission (same name match
 // as the Members panel).
+// A member's current guild from Growth Rate (exact name, then look-alike
+// spelling) -- the roster shows this so a guild change there shows up
+// everywhere at once; the server also writes it back (syncGuildsFromGrowth).
+function guildOfMember(name) {
+  const key = String(name || '').trim().toLowerCase();
+  const exact = sovereignState.memberList.find((m) => String(m.name).trim().toLowerCase() === key);
+  if (exact) return exact.guildName || null;
+  const loose = normalizeNameForDupeCheck(name);
+  return (loose && sovereignState.memberList.find((m) => normalizeNameForDupeCheck(m.name) === loose)?.guildName) || null;
+}
+
 function classOfMember(name) {
   const key = String(name || '').trim().toLowerCase();
   const exact = sovereignState.memberList.find((m) => String(m.name).trim().toLowerCase() === key);
@@ -1317,7 +1328,7 @@ function renderTeamDetail(n) {
         <td>${i + 1}</td>
         <td class="crusade-roster-name-cell" style="font-weight:600;"><span class="crusade-roster-name-click" data-copy-name="${escapeHtml(p.name)}" title="${escapeHtml(p.name)} — click to copy">${escapeHtml(p.name)}</span>${crusadeStandingIssue(p.name, n) ? `<span class="crusade-standing-warn" title="${escapeHtml(crusadeStandingIssue(p.name, n))}">⚠</span>` : ''}</td>
         <td class="crusade-roster-class-cell" title="${escapeHtml(classOfMember(p.name) || '')}">${classOfMember(p.name) ? escapeHtml(classOfMember(p.name)) : '–'}</td>
-        <td class="crusade-roster-guild-cell">${crusadeGuildBadge(p.guildName)}</td>
+        <td class="crusade-roster-guild-cell">${crusadeGuildBadge(p.paid ? p.guildName : guildOfMember(p.name) || p.guildName)}</td>
         <td class="crusade-roster-position-col">${p.position ? escapeHtml(p.position) : '–'}</td>
         <td>${isDefense ? t('sovereign.common.def') : `<label class="crusade-maxbid-cell"><input type="checkbox" class="crusade-maxbid-check admin-disable" data-participant-id="${p.id}" ${p.goldBid > 0 ? 'checked' : ''}><span>${crusadeFormatBidShort(p.goldBid)}</span></label>`}</td>
         <td><input type="checkbox" class="crusade-attended-check admin-disable" data-participant-id="${p.id}" ${p.attended ? 'checked' : ''}></td>
@@ -1951,12 +1962,13 @@ function printCrusadeTeamRoster(teamNumber) {
     const cells = Array.from({ length: CRUSADE_PARTY_MAX_MEMBERS }, (_, i) => {
       const m = rows[i];
       if (!m) return '<tr><td class="name"></td><td></td><td></td><td></td><td class="enter"><span class="box"></span></td></tr>';
-      const guildColor = crusadeGuildColor(m.guildName) || '#64748b';
+      const guild = m.paid ? m.guildName : guildOfMember(m.name) || m.guildName;
+      const guildColor = crusadeGuildColor(guild) || '#64748b';
       const position = m.position || classOfMember(m.name) || '';
       const gold = isDefense ? '' : m.goldBid > 0 ? crusadeFormatBidShort(m.goldBid) : '';
       return `<tr>
         <td class="name${i === 0 ? ' lead' : ''}">${esc(m.name)}</td>
-        <td>${m.guildName ? `<span class="pill" style="background:${guildColor}">${esc(m.guildName)}</span>` : ''}</td>
+        <td>${guild ? `<span class="pill" style="background:${guildColor}">${esc(guild)}</span>` : ''}</td>
         <td>${position ? `<span class="pill" style="background:${crusadePrintClassColor(position)}">${esc(position)}</span>` : ''}</td>
         <td class="gold">${gold}</td>
         <td class="enter"><span class="box${m.attended ? ' on' : ''}"></span></td>
