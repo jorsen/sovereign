@@ -1294,7 +1294,7 @@ function renderTeamDetail(n) {
           ({ participant: p, attendanceAmount, bidShare, total }, i) => `
       <tr class="crusade-roster-row admin-disable" draggable="true" data-drag-participant="${p.id}">
         <td>${i + 1}</td>
-        <td class="crusade-roster-name-cell" style="font-weight:600;"><span class="crusade-roster-name-click" data-edit-participant="${p.id}" title="${escapeHtml(p.name)} — click to edit">${escapeHtml(p.name)}</span>${crusadeStandingIssue(p.name, n) ? `<span class="crusade-standing-warn" title="${escapeHtml(crusadeStandingIssue(p.name, n))}">⚠</span>` : ''}</td>
+        <td class="crusade-roster-name-cell" style="font-weight:600;"><span class="crusade-roster-name-click" data-copy-name="${escapeHtml(p.name)}" title="${escapeHtml(p.name)} — click to copy">${escapeHtml(p.name)}</span>${crusadeStandingIssue(p.name, n) ? `<span class="crusade-standing-warn" title="${escapeHtml(crusadeStandingIssue(p.name, n))}">⚠</span>` : ''}</td>
         <td class="crusade-roster-class-cell" title="${escapeHtml(classOfMember(p.name) || '')}">${classOfMember(p.name) ? escapeHtml(classOfMember(p.name)) : '–'}</td>
         <td class="crusade-roster-guild-cell">${crusadeGuildBadge(p.guildName)}</td>
         <td class="crusade-roster-position-col">${p.position ? escapeHtml(p.position) : '–'}</td>
@@ -1357,6 +1357,9 @@ function renderTeamDetail(n) {
   });
   body.querySelectorAll('[data-delete-participant]').forEach((btn) => {
     btn.addEventListener('click', () => deleteCrusadeParticipant(btn.getAttribute('data-delete-participant')));
+  });
+  body.querySelectorAll('[data-copy-name]').forEach((el) => {
+    el.addEventListener('click', () => copyTextToClipboard(el.getAttribute('data-copy-name')));
   });
   // Picking a class adds that class's highest Growth Rate member who isn't on
   // any team of this crusade yet (see addMemberToParty for the checks).
@@ -1682,6 +1685,30 @@ document.getElementById('crusadeMemberPanelClass').addEventListener('change', ()
       toast(err.message);
     }
   });
+}
+
+// Copies a name (e.g. a roster IGN to paste into the game) and says so.
+// Falls back to a hidden textarea where the async Clipboard API isn't
+// available (plain http, older browsers).
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    toast(`Copied "${text}"`);
+  } catch (err) {
+    toast('Could not copy — select the name and copy it manually');
+  }
 }
 
 async function toggleCrusadeParticipantFlag(checkbox, field, value = checkbox.checked) {

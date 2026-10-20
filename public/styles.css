@@ -2543,3 +2543,5 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-roster-table th, .crusade-roster-table td,
 .crusade-roster-table th:nth-child(2), .crusade-roster-table .crusade-roster-name-cell { width: auto; }
 .crusade-roster-table th:nth-child(3), .crusade-roster-table .crusade-roster-class-cell { padding-left: 16px !important; }
+/* roster names copy on click -- for viewers too (rows are .admin-disable) */
+body.view-only .crusade-roster-row .crusade-roster-name-click { pointer-events: auto; }
