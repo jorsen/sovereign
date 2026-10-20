@@ -1905,7 +1905,7 @@ document.getElementById('addCrusadeBulkBtn').addEventListener('click', () => ope
 document.getElementById('addTeamBulkBtn').addEventListener('click', () => openCrusadeBulkAddModal(sovereignState.activeTeam));
 document.getElementById('autoPickTeamBtn').addEventListener('click', () => autoPickCrusadeRoster(sovereignState.activeTeam));
 // A printable sheet of just this team's roster -- War Type / Stance / Team
-// banner, Area / Leader / Result, then every party (two per row) with Name,
+// banner, then every party (two per row) with Name,
 // Guild, Position, Gold and an Enter box. Goes straight to the browser's
 // print preview (rendered in a hidden frame, no new tab); uses the Team
 // Details form's current values, same as the party cards on screen.
@@ -1937,9 +1937,6 @@ function printCrusadeTeamRoster(teamNumber) {
   const val = (field) => (form && form.elements[field] ? form.elements[field].value : team[field]) || '';
   const warType = val('warType');
   const stance = val('stance');
-  const area = val('area');
-  const leader = val('leader');
-  const result = val('result');
   const isDefense = stance === 'Defense';
   const grOf = (name) => Number(sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name))?.growthRate) || 0;
   const members = sovereignState.participants.filter((x) => x.partyNumber === teamNumber);
@@ -1971,7 +1968,6 @@ function printCrusadeTeamRoster(teamNumber) {
       <tbody>${cells}</tbody></table>`;
   };
 
-  const resultLabel = { pending: '', win: 'WIN', lose: 'LOSE', draw: 'DRAW' }[result] ?? result;
   const crusadeName = sovereignState.crusade?.name || 'Crusade';
   const html = `<!doctype html><html><head><meta charset="utf-8">
 <title>${esc(crusadeName)} — Team ${teamNumber} Roster</title>
@@ -1982,7 +1978,7 @@ function printCrusadeTeamRoster(teamNumber) {
   .toolbar button { font-size: 13px; padding: 6px 14px; cursor: pointer; }
   .sheet { max-width: 1000px; }
   .banner, .info { display: grid; gap: 4px; margin-bottom: 4px; }
-  .banner { grid-template-columns: 1fr 1.4fr 1fr; }
+  .banner { grid-template-columns: 1fr 1.4fr 1fr; margin-bottom: 14px; }
   .banner div { background: ${theme.dark}; color: #fff; font-weight: 700; font-size: 18px; text-align: center; padding: 6px; border-radius: 3px; }
   .banner .stance { background: #fff; color: ${isDefense ? '#1d4ed8' : '#b91c1c'}; border: 2px solid ${theme.dark}; }
   .info { grid-template-columns: 90px 1fr 90px 1fr 90px 1fr; margin-bottom: 14px; }
@@ -2004,7 +2000,6 @@ function printCrusadeTeamRoster(teamNumber) {
 </style></head><body>
 <div class="sheet">
   <div class="banner"><div>${esc(warType || '—')}</div><div class="stance">${esc(stance || '—')}</div><div>Team ${teamNumber}</div></div>
-  <div class="info"><div class="k">Area</div><div>${esc(area)}</div><div class="k">Leader</div><div>${esc(leader)}</div><div class="k">Result</div><div>${esc(resultLabel)}</div></div>
   <div class="grid">${slots.map(partyTable).join('')}</div>
 </div>
 </body></html>`;
