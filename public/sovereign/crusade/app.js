@@ -1164,15 +1164,15 @@ function renderTeamDetail(n) {
   const teamRows = computeTeamDistribution(n);
   document.getElementById('crusadeTeamRosterEmptyState').classList.toggle('hidden', teamRows.length !== 0);
 
-  // Split into parties of up to 5 — Party 1 always shows even if empty, so
-  // there's always somewhere to start.
+  // Split into parties of up to 5 — Parties 1-5 always show even if empty,
+  // so there's always a party to drag members from the panel into.
   const byParty = new Map();
   teamRows.forEach((row) => {
     const slot = row.participant.partySlot;
     if (!byParty.has(slot)) byParty.set(slot, []);
     byParty.get(slot).push(row);
   });
-  const partySlots = Array.from(new Set([1, ...byParty.keys()])).sort((a, b) => a - b);
+  const partySlots = Array.from(new Set([1, 2, 3, 4, 5, ...byParty.keys()])).sort((a, b) => a - b);
 
   // Each party is its own card/table side by side (grid wraps as needed) —
   // reads all as columns instead of one long table, so a 4-party team
@@ -1249,6 +1249,7 @@ function renderTeamDetail(n) {
   });
 
   wireCrusadeRosterDragAndDrop(body, n);
+  renderCrusadeMemberPanel(n);
 
   const feeCreditsByGuild = new Map();
   (team.fees || []).forEach((fee) => {
@@ -1261,24 +1262,65 @@ function renderTeamDetail(n) {
   renderCrusadeFeeList(n);
 }
 
-// Drag a roster row from one Party card and drop it on another to move that
-// participant into the target party slot -- an alternative to opening the
-// edit modal just to change the Party field. Blocked the same way every
-// other roster edit is for a view-only session (see the `admin-disable`
-// class on the row: CSS drops its pointer-events, so dragstart never fires).
-function wireCrusadeRosterDragAndDrop(body, teamNumber) {
-  let draggedId = null;
+// What's being dragged right now on the team page: a roster row (a
+// participant already in a party) or a name from the Members panel. Shared
+// between the party cards and the panel so each knows what it's receiving.
+const crusadeDrag = { participantId: null, memberName: null };
+const crusadeNameKey = (name) => String(name || '').trim().toLowerCase();
 
+// Which team (if any) already has this name in the current crusade -- a
+// member can only be on one team's roster per crusade.
+function crusadeTeamOfName(name) {
+  const key = crusadeNameKey(name);
+  const p = sovereignState.participants.find((x) => crusadeNameKey(x.name) === key);
+  return p ? p.partyNumber : null;
+}
+
+async function addMemberToParty(name, teamNumber, partySlot) {
+  const onTeam = crusadeTeamOfName(name);
+  if (onTeam !== null) {
+    toast(onTeam === teamNumber ? `${name} is already on this team` : `${name} is already on Team ${onTeam}`);
+    return;
+  }
+  const count = sovereignState.participants.filter((p) => p.partyNumber === teamNumber && p.partySlot === partySlot).length;
+  if (count >= CRUSADE_PARTY_MAX_MEMBERS) {
+    toast(`Party ${partySlot} is already full`);
+    return;
+  }
+  const member = sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name));
+  try {
+    const created = await api(`/api/crusades/${sovereignState.crusadeId}/participants`, {
+      method: 'POST',
+      body: JSON.stringify({ name, guildName: member?.guildName || null, partyNumber: teamNumber, partySlot, attended: true }),
+    });
+    sovereignState.participants.push(created);
+    refreshAfterRosterChange();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+// Drag a roster row from one Party card and drop it on another to move that
+// participant into the target party slot (or onto a member to swap them) --
+// an alternative to opening the edit modal just to change the Party field.
+// Names dragged in from the Members panel are added to the party they're
+// dropped on. Blocked the same way every other roster edit is for a
+// view-only session (see the `admin-disable` class on the row: CSS drops its
+// pointer-events, so dragstart never fires).
+function wireCrusadeRosterDragAndDrop(body, teamNumber) {
   body.querySelectorAll('[data-drag-participant]').forEach((row) => {
     row.addEventListener('dragstart', (e) => {
-      draggedId = row.getAttribute('data-drag-participant');
+      crusadeDrag.participantId = row.getAttribute('data-drag-participant');
+      crusadeDrag.memberName = null;
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', draggedId);
+      e.dataTransfer.setData('text/plain', crusadeDrag.participantId);
       row.classList.add('crusade-roster-row-dragging');
+      document.getElementById('crusadeMemberPanel').classList.add('crusade-member-panel-droppable');
     });
     row.addEventListener('dragend', () => {
       row.classList.remove('crusade-roster-row-dragging');
-      draggedId = null;
+      crusadeDrag.participantId = null;
+      document.getElementById('crusadeMemberPanel').classList.remove('crusade-member-panel-droppable', 'crusade-member-panel-drop-active');
     });
   });
 
@@ -1296,10 +1338,12 @@ function wireCrusadeRosterDragAndDrop(body, teamNumber) {
   // just move into. The dragged participant is parked on a scratch slot no
   // real party uses in between the two writes so the backend's per-party cap
   // check (each move is validated independently) never sees both members
-  // occupying the same slot at once and rejects the swap.
+  // occupying the same slot at once and rejects the swap. A name from the
+  // Members panel dropped on a row just joins that row's party.
   body.querySelectorAll('[data-drag-participant]').forEach((row) => {
     row.addEventListener('dragover', (e) => {
-      if (!draggedId || draggedId === row.getAttribute('data-drag-participant')) return;
+      const fromPanel = !!crusadeDrag.memberName;
+      if (!fromPanel && (!crusadeDrag.participantId || crusadeDrag.participantId === row.getAttribute('data-drag-participant'))) return;
       e.preventDefault();
       e.stopPropagation();
       row.classList.add('crusade-roster-row-drop-target');
@@ -1309,13 +1353,20 @@ function wireCrusadeRosterDragAndDrop(body, teamNumber) {
     });
     row.addEventListener('drop', async (e) => {
       const targetId = row.getAttribute('data-drag-participant');
+      row.classList.remove('crusade-roster-row-drop-target');
+      const target = sovereignState.participants.find((p) => p.id === targetId);
+      if (crusadeDrag.memberName) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (target) await addMemberToParty(crusadeDrag.memberName, teamNumber, target.partySlot);
+        return;
+      }
+      const draggedId = crusadeDrag.participantId;
       if (!draggedId || draggedId === targetId) return;
       e.preventDefault();
       e.stopPropagation();
-      row.classList.remove('crusade-roster-row-drop-target');
 
       const dragged = sovereignState.participants.find((p) => p.id === draggedId);
-      const target = sovereignState.participants.find((p) => p.id === targetId);
       if (!dragged || !target) return;
       const draggedSlot = dragged.partySlot;
       const targetSlot = target.partySlot;
@@ -1334,7 +1385,7 @@ function wireCrusadeRosterDragAndDrop(body, teamNumber) {
 
   body.querySelectorAll('[data-drop-party-slot]').forEach((card) => {
     card.addEventListener('dragover', (e) => {
-      if (!draggedId) return;
+      if (!crusadeDrag.participantId && !crusadeDrag.memberName) return;
       e.preventDefault();
       card.classList.add('crusade-party-dropzone-active');
     });
@@ -1344,8 +1395,12 @@ function wireCrusadeRosterDragAndDrop(body, teamNumber) {
     card.addEventListener('drop', async (e) => {
       e.preventDefault();
       card.classList.remove('crusade-party-dropzone-active');
-      const participantId = e.dataTransfer.getData('text/plain');
       const targetSlot = Number(card.getAttribute('data-drop-party-slot'));
+      if (crusadeDrag.memberName) {
+        await addMemberToParty(crusadeDrag.memberName, teamNumber, targetSlot);
+        return;
+      }
+      const participantId = crusadeDrag.participantId;
       const participant = sovereignState.participants.find((p) => p.id === participantId);
       if (!participant || participant.partySlot === targetSlot) return;
 
@@ -1364,6 +1419,82 @@ function wireCrusadeRosterDragAndDrop(body, teamNumber) {
         toast(err.message);
       }
     });
+  });
+}
+
+// The Members panel beside the parties: everyone on the Growth Rate roster,
+// highest Growth Rate first, filterable by name. Names already on this team
+// are left out; names on another team of this crusade show greyed out with
+// that team's number and can't be dragged (one team per member per crusade).
+// Dropping a party member back onto the panel removes them from the team.
+function renderCrusadeMemberPanel(teamNumber) {
+  const list = document.getElementById('crusadeMemberPanelList');
+  const query = crusadeNameKey(document.getElementById('crusadeMemberPanelSearch').value);
+  const members = sovereignState.memberList
+    .filter((m) => crusadeTeamOfName(m.name) !== teamNumber)
+    .filter((m) => !query || crusadeNameKey(m.name).includes(query))
+    .sort((a, b) => (crusadeTeamOfName(a.name) === null ? 0 : 1) - (crusadeTeamOfName(b.name) === null ? 0 : 1) || (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
+  const available = sovereignState.memberList.filter((m) => crusadeTeamOfName(m.name) === null).length;
+  document.getElementById('crusadeMemberPanelCount').textContent = `${available} available`;
+  list.innerHTML = members.length
+    ? members
+        .map((m) => {
+          const onTeam = crusadeTeamOfName(m.name);
+          const color = m.guildName ? crusadeGuildColor(m.guildName) : null;
+          return `
+      <li class="crusade-member-chip${onTeam !== null ? ' is-taken' : ' admin-disable'}" ${onTeam === null ? `draggable="true" data-drag-member="${escapeHtml(m.name)}"` : ''} title="${onTeam !== null ? `Already on Team ${onTeam}` : 'Drag onto a party'}">
+        <span class="crusade-member-chip-dot" style="background:${color || 'var(--text-muted)'}"></span>
+        <span class="crusade-member-chip-name">${escapeHtml(m.name)}</span>
+        ${onTeam !== null ? `<span class="crusade-member-chip-tag">Team ${onTeam}</span>` : `<span class="crusade-member-chip-gr">${m.growthRate ? Number(m.growthRate).toLocaleString() : ''}</span>`}
+      </li>`;
+        })
+        .join('')
+    : `<li class="crusade-member-panel-empty">${query ? 'No matching members' : 'Everyone is already on a team'}</li>`;
+
+  list.querySelectorAll('[data-drag-member]').forEach((chip) => {
+    chip.addEventListener('dragstart', (e) => {
+      crusadeDrag.memberName = chip.getAttribute('data-drag-member');
+      crusadeDrag.participantId = null;
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('text/plain', crusadeDrag.memberName);
+      chip.classList.add('is-dragging');
+    });
+    chip.addEventListener('dragend', () => {
+      chip.classList.remove('is-dragging');
+      crusadeDrag.memberName = null;
+    });
+  });
+}
+
+document.getElementById('crusadeMemberPanelSearch').addEventListener('input', () => {
+  if (sovereignState.mode === 'team') renderCrusadeMemberPanel(sovereignState.activeTeam);
+});
+
+// Dropping a party member onto the panel takes them off this team.
+{
+  const panel = document.getElementById('crusadeMemberPanel');
+  panel.addEventListener('dragover', (e) => {
+    if (!crusadeDrag.participantId) return;
+    e.preventDefault();
+    panel.classList.add('crusade-member-panel-drop-active');
+  });
+  panel.addEventListener('dragleave', (e) => {
+    if (!panel.contains(e.relatedTarget)) panel.classList.remove('crusade-member-panel-drop-active');
+  });
+  panel.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    panel.classList.remove('crusade-member-panel-drop-active', 'crusade-member-panel-droppable');
+    const id = crusadeDrag.participantId;
+    if (!id) return;
+    const participant = sovereignState.participants.find((p) => p.id === id);
+    try {
+      await api(`/api/crusades/${sovereignState.crusadeId}/participants/${id}`, { method: 'DELETE' });
+      sovereignState.participants = sovereignState.participants.filter((p) => p.id !== id);
+      refreshAfterRosterChange();
+      toast(`${participant?.name || 'Member'} removed from this team`);
+    } catch (err) {
+      toast(err.message);
+    }
   });
 }
 

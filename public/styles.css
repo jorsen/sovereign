@@ -2468,3 +2468,33 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-growth-down { color: var(--bad); font-weight: 600; }
 .crusade-growth-row { cursor: pointer; }
 .crusade-growth-row:hover td { background: var(--surface-2, var(--surface-1)); }
+/* Crusade team lineup: parties on the left, draggable members panel on the right */
+.crusade-lineup { display: flex; gap: 16px; align-items: flex-start; }
+.crusade-lineup-parties { flex: 1 1 auto; min-width: 0; }
+.crusade-member-panel {
+  flex: 0 0 260px; position: sticky; top: 12px; max-height: calc(100vh - 24px);
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; border-left: 2px solid var(--border); background: var(--surface-2); border-radius: 10px;
+}
+.crusade-member-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.crusade-member-panel-head h3 { margin: 0; font-size: 15px; }
+.crusade-member-panel-count, .crusade-member-panel-hint { color: var(--text-muted); font-size: 12px; margin: 0; }
+.crusade-member-panel-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.crusade-member-chip {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+  background: var(--surface-1); border: 1px solid var(--border); cursor: grab; font-size: 13px; user-select: none;
+}
+.crusade-member-chip:hover { border-color: var(--gold); }
+.crusade-member-chip.is-dragging { opacity: 0.45; }
+.crusade-member-chip.is-taken { cursor: not-allowed; opacity: 0.5; }
+.crusade-member-chip-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.crusade-member-chip-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.crusade-member-chip-gr, .crusade-member-chip-tag { flex: none; color: var(--text-muted); font-size: 11px; }
+.crusade-member-chip-tag { padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); }
+.crusade-member-panel-empty { color: var(--text-muted); font-size: 13px; padding: 8px 2px; }
+.crusade-member-panel-droppable { outline: 2px dashed var(--border); outline-offset: -4px; }
+.crusade-member-panel-drop-active { outline: 2px dashed var(--bad); outline-offset: -4px; }
+@media (max-width: 960px) {
+  .crusade-lineup { flex-direction: column; }
+  .crusade-member-panel { position: static; flex-basis: auto; width: 100%; box-sizing: border-box; max-height: 360px; border-left: none; }
+}

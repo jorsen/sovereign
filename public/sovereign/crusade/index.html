@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=104">
+  <link rel="stylesheet" href="/styles.css?v=105">
 </head>
 <body>
   <div class="app viz-root">
@@ -269,8 +269,21 @@
         <p style="color:var(--text-muted); font-size:13px; margin-top:-4px;">
           Half this team's reward splits evenly across everyone marked "Attended"; the other half splits across gold bidders in proportion to their bid. If this team's Result is Lose, no rewards go out at all.
         </p>
-        <div id="crusadeTeamRosterBody" class="crusade-party-grid"></div>
-        <p id="crusadeTeamRosterEmptyState" class="empty-state hidden" data-i18n="sovereign.team.rosterEmpty">No participants in this team yet.</p>
+        <div class="crusade-lineup">
+          <div class="crusade-lineup-parties">
+            <div id="crusadeTeamRosterBody" class="crusade-party-grid"></div>
+            <p id="crusadeTeamRosterEmptyState" class="empty-state hidden" data-i18n="sovereign.team.rosterEmpty">No participants in this team yet.</p>
+          </div>
+          <aside id="crusadeMemberPanel" class="crusade-member-panel admin-only" aria-label="Members">
+            <div class="crusade-member-panel-head">
+              <h3 data-i18n="sovereign.team.membersPanelHeading">Members</h3>
+              <span id="crusadeMemberPanelCount" class="crusade-member-panel-count"></span>
+            </div>
+            <input type="search" id="crusadeMemberPanelSearch" data-i18n-placeholder="sovereign.team.membersPanelSearch" placeholder="Search members…" autocomplete="off">
+            <p class="crusade-member-panel-hint" data-i18n="sovereign.team.membersPanelHint">Drag a name onto a party. Drag a party member back here to remove them.</p>
+            <ul id="crusadeMemberPanelList" class="crusade-member-panel-list"></ul>
+          </aside>
+        </div>
         <div id="crusadeTeamGuildSummary" class="crusade-guild-summary"></div>
 
         <h3 id="crusadeTeamItemsHeading" class="crusade-item-heading hidden" data-i18n="sovereign.team.itemsByGuildHeading">Items by Guild (attendees only)</h3>
@@ -1010,7 +1023,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script src="/common.js?v=35"></script>
-  <script src="/i18n.js?v=21"></script>
-  <script src="/sovereign/crusade/app.js?v=189"></script>
+  <script src="/i18n.js?v=22"></script>
+  <script src="/sovereign/crusade/app.js?v=190"></script>
 </body>
 </html>
