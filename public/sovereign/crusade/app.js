@@ -495,12 +495,14 @@ document.getElementById('addCrusadeDefaultFeeForm').addEventListener('submit', a
 // ---------- Crusade detail ----------
 
 async function loadCrusadeDetail(id) {
-  const [crusade, guilds, growthSubmissions, defaultFees] = await Promise.all([
+  const [crusade, guilds, growthSubmissions, defaultFees, standing] = await Promise.all([
     api(`/api/crusades/${id}`),
     api('/api/crusade-guilds'),
     api('/api/growth-submissions'),
     api('/api/crusade-default-fees'),
+    api(`/api/crusades/${id}/member-standing`).catch(() => []),
   ]);
+  sovereignState.memberStanding = new Map(standing.map((x) => [String(x.name).trim().toLowerCase(), x]));
   sovereignState.crusade = crusade;
   sovereignState.participants = crusade.participants;
   sovereignState.teams = crusade.teams;
@@ -1151,6 +1153,9 @@ function renderLastCrusadeBidders() {
 document.getElementById('teamDetailsForm').elements.warType.addEventListener('change', () => {
   if (sovereignState.mode === 'team') renderTeamDetail(sovereignState.activeTeam);
 });
+document.getElementById('teamDetailsForm').elements.stance.addEventListener('change', () => {
+  if (sovereignState.mode === 'team') renderTeamDetail(sovereignState.activeTeam);
+});
 
 // Adds `member` to a FULL party by pushing that party's lowest Growth Rate
 // member down to the next party; if that one is full too, its lowest moves
@@ -1194,7 +1199,7 @@ async function addMemberWithBump(member, teamNumber, slot) {
         if (idx !== -1) sovereignState.participants[idx] = updated;
       }
     }
-    const created = await api(`/api/crusades/${sovereignState.crusadeId}/participants`, {
+    const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, {
       method: 'POST',
       body: JSON.stringify({ name: member.name, guildName: member.guildName || null, partyNumber: teamNumber, partySlot: slot, attended: true }),
     });
@@ -1273,7 +1278,7 @@ function renderTeamDetail(n) {
           ({ participant: p, attendanceAmount, bidShare, total }, i) => `
       <tr class="crusade-roster-row admin-disable" draggable="true" data-drag-participant="${p.id}">
         <td>${i + 1}</td>
-        <td class="crusade-roster-name-cell" style="font-weight:600;"><span class="crusade-roster-name-click" data-edit-participant="${p.id}" title="${escapeHtml(p.name)} — click to edit">${escapeHtml(p.name)}</span></td>
+        <td class="crusade-roster-name-cell" style="font-weight:600;"><span class="crusade-roster-name-click" data-edit-participant="${p.id}" title="${escapeHtml(p.name)} — click to edit">${escapeHtml(p.name)}</span>${crusadeStandingIssue(p.name, n) ? `<span class="crusade-standing-warn" title="${escapeHtml(crusadeStandingIssue(p.name, n))}">⚠</span>` : ''}</td>
         <td class="crusade-roster-class-cell" title="${escapeHtml(classOfMember(p.name) || '')}">${classOfMember(p.name) ? escapeHtml(classOfMember(p.name)) : '–'}</td>
         <td class="crusade-roster-guild-cell">${crusadeGuildBadge(p.guildName)}</td>
         <td class="crusade-roster-position-col">${p.position ? escapeHtml(p.position) : '–'}</td>
@@ -1348,10 +1353,10 @@ function renderTeamDetail(n) {
       select.value = '';
       if (!className) return;
       const best = sovereignState.memberList
-        .filter((m) => m.className === className && crusadeTeamOfName(m.name) === null)
+        .filter((m) => m.className === className && crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, n))
         .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name))[0];
       if (!best) {
-        toast(`No available ${className} left — everyone with that class is already on a team`);
+        toast(`No available ${className} left — everyone with that class is already on a team or blocked by a lineup rule`);
         return;
       }
       const full = sovereignState.participants.filter((x) => x.partyNumber === n && x.partySlot === slot).length >= CRUSADE_PARTY_MAX_MEMBERS;
@@ -1376,6 +1381,42 @@ function renderTeamDetail(n) {
   renderTeamItemTable(n);
   renderCrusadeItemList(n);
   renderCrusadeFeeList(n);
+}
+
+// Lineup rules (computed server-side from earlier crusades, see
+// computeCrusadeMemberStanding): "no bid twice" keeps someone off Attack
+// teams, "Defense no-show twice" bans them for the rest of the month. Returns
+// the reason this name can't go on this team, or null. The team's stance is
+// the Team Details dropdown's current pick for the open team.
+function crusadeStandingIssue(name, teamNumber) {
+  const st = sovereignState.memberStanding?.get(String(name || '').trim().toLowerCase());
+  if (!st) return null;
+  if (st.bannedThisMonth) return st.bannedReason;
+  if (st.noBidTwice) {
+    const form = document.getElementById('teamDetailsForm');
+    const stance = teamNumber === sovereignState.activeTeam && form ? form.elements.stance.value : getTeamData(teamNumber).stance;
+    if (stance === 'Attack') return st.noBidReason;
+  }
+  return null;
+}
+function crusadeStandingTag(name) {
+  const st = sovereignState.memberStanding?.get(String(name || '').trim().toLowerCase());
+  if (!st) return null;
+  return st.bannedThisMonth ? { label: 'Banned', reason: st.bannedReason } : { label: 'No bid ×2', reason: st.noBidReason };
+}
+
+// Adds or updates a participant; when the server refuses because of a lineup
+// rule (code 'standing'), shows why and, if the admin confirms, retries with
+// override -- e.g. for an excused absence.
+async function participantApi(url, opts) {
+  try {
+    return await api(url, opts);
+  } catch (err) {
+    if (err.code !== 'standing') throw err;
+    if (!confirm(`⚠ ${err.message}\n\nAdd anyway?`)) throw new Error('Not added');
+    const body = JSON.parse(opts.body || '{}');
+    return api(url, { ...opts, body: JSON.stringify({ ...body, override: true }) });
+  }
 }
 
 // What's being dragged right now on the team page: a roster row (a
@@ -1405,7 +1446,7 @@ async function addMemberToParty(name, teamNumber, partySlot) {
   }
   const member = sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name));
   try {
-    const created = await api(`/api/crusades/${sovereignState.crusadeId}/participants`, {
+    const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, {
       method: 'POST',
       body: JSON.stringify({ name, guildName: member?.guildName || null, partyNumber: teamNumber, partySlot, attended: true }),
     });
@@ -1565,10 +1606,13 @@ function renderCrusadeMemberPanel(teamNumber) {
         .map((m) => {
           const onTeam = crusadeTeamOfName(m.name);
           const color = m.guildName ? crusadeGuildColor(m.guildName) : null;
+          const flag = onTeam === null ? crusadeStandingTag(m.name) : null;
+          const issue = onTeam === null ? crusadeStandingIssue(m.name, teamNumber) : null;
           return `
-      <li class="crusade-member-chip${onTeam !== null ? ' is-taken' : ' admin-disable'}" ${onTeam === null ? `draggable="true" data-drag-member="${escapeHtml(m.name)}"` : ''} title="${onTeam !== null ? `Already on Team ${onTeam}` : 'Drag onto a party'}">
+      <li class="crusade-member-chip${onTeam !== null ? ' is-taken' : ' admin-disable'}" ${onTeam === null ? `draggable="true" data-drag-member="${escapeHtml(m.name)}"` : ''} title="${onTeam !== null ? `Already on Team ${onTeam}` : flag ? escapeHtml(flag.reason) : 'Drag onto a party'}">
         <span class="crusade-member-chip-dot" style="background:${color || 'var(--text-muted)'}"></span>
         <span class="crusade-member-chip-name">${escapeHtml(m.name)}</span>
+        ${flag ? `<span class="crusade-member-chip-flag${issue ? ' is-blocking' : ''}">${flag.label}</span>` : ''}
         ${m.className ? `<span class="crusade-member-chip-class">${escapeHtml(m.className)}</span>` : ''}
         ${onTeam !== null ? `<span class="crusade-member-chip-tag">Team ${onTeam}</span>` : `<span class="crusade-member-chip-gr">${m.growthRate ? Number(m.growthRate).toLocaleString() : ''}</span>`}
       </li>`;
@@ -1831,7 +1875,7 @@ function planCrusadeAutoPick(teamNumber, partyCount) {
     hasPriest.set(slot, members.some((x) => isDivinePriest(classOf(x.name))));
   });
   const pool = sovereignState.memberList
-    .filter((m) => crusadeTeamOfName(m.name) === null)
+    .filter((m) => crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, teamNumber))
     .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
   const priests = pool.filter((m) => isDivinePriest(m.className));
   const plan = [];
@@ -1870,7 +1914,7 @@ async function autoPickCrusadeRoster(teamNumber) {
   let added = 0;
   for (const { member, slot } of plan) {
     try {
-      const created = await api(`/api/crusades/${sovereignState.crusadeId}/participants`, {
+      const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, {
         method: 'POST',
         body: JSON.stringify({ name: member.name, guildName: member.guildName || null, partyNumber: teamNumber, partySlot: slot, attended: true }),
       });
@@ -1921,7 +1965,7 @@ document.getElementById('crusadeBulkAddForm').addEventListener('submit', async (
       partySlot++;
     }
     try {
-      const created = await api(`/api/crusades/${sovereignState.crusadeId}/participants`, {
+      const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, {
         method: 'POST',
         body: JSON.stringify({
           name,
@@ -1969,11 +2013,11 @@ document.getElementById('crusadeParticipantForm').addEventListener('submit', asy
   };
   try {
     if (participantId) {
-      const updated = await api(`/api/crusades/${sovereignState.crusadeId}/participants/${participantId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      const updated = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants/${participantId}`, { method: 'PUT', body: JSON.stringify(payload) });
       const idx = sovereignState.participants.findIndex((p) => p.id === participantId);
       if (idx !== -1) sovereignState.participants[idx] = updated;
     } else {
-      const created = await api(`/api/crusades/${sovereignState.crusadeId}/participants`, { method: 'POST', body: JSON.stringify(payload) });
+      const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, { method: 'POST', body: JSON.stringify(payload) });
       sovereignState.participants.push(created);
     }
     document.getElementById('crusadeParticipantModal').classList.add('hidden');

@@ -2518,3 +2518,7 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-party-class-pick { font-size: 12px; padding: 3px 6px; max-width: 170px; }
 .crusade-party-card-header .crusade-party-class-pick { height: 28px; padding: 2px 26px 2px 8px; font-size: 12px; width: auto; min-width: 0; line-height: 1.2; }
 .crusade-party-card-header .crusade-party-class-pick:disabled { opacity: 0.4; cursor: not-allowed; }
+/* lineup rule flags (no bid x2 / banned this month) */
+.crusade-member-chip-flag { flex: none; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; color: #f59e0b; border: 1px solid #f59e0b; }
+.crusade-member-chip-flag.is-blocking { color: var(--bad); border-color: var(--bad); }
+.crusade-standing-warn { color: var(--bad); margin-left: 4px; cursor: help; }
