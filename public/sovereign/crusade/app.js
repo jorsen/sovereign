@@ -1178,6 +1178,7 @@ document.getElementById('teamDetailsForm').elements.stance.addEventListener('cha
 // room at the moment someone enters it (the server checks the 5-cap on each
 // move). Asks first, listing every move.
 async function addMemberWithBump(member, teamNumber, slot) {
+  if (!crusadeRequireWarType(teamNumber)) return;
   const grOf = (name) => Number(sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name))?.growthRate) || 0;
   const warTypeSelect = document.getElementById('teamDetailsForm').elements.warType;
   const partyCount = crusadePartyCountForWarType(warTypeSelect ? warTypeSelect.value : getTeamData(teamNumber).warType);
@@ -1232,6 +1233,26 @@ function classOfMember(name) {
   if (exact) return exact.className || null;
   const loose = normalizeNameForDupeCheck(name);
   return (loose && sovereignState.memberList.find((m) => normalizeNameForDupeCheck(m.name) === loose)?.className) || null;
+}
+
+// A team's War Type (20vs20 / 50vs50) decides how many parties it has, so
+// it has to be picked before anyone goes on the roster. Uses the Team
+// Details dropdown's current pick for the open team (same as the party
+// count does). Returns false -- with a prompt pointing at the dropdown --
+// when it's still blank.
+function crusadeRequireWarType(teamNumber) {
+  const select = document.getElementById('teamDetailsForm').elements.warType;
+  const isOpenTeam = sovereignState.mode === 'team' && (teamNumber == null || teamNumber === sovereignState.activeTeam);
+  if (!isOpenTeam && teamNumber == null) return true; // not adding to a specific team
+  const warType = isOpenTeam && select ? select.value : getTeamData(teamNumber).warType;
+  if (warType) return true;
+  toast('Select a War Type first (20vs20 or 50vs50) before adding members');
+  if (isOpenTeam && select) {
+    select.focus();
+    select.classList.add('crusade-needs-value');
+    setTimeout(() => select.classList.remove('crusade-needs-value'), 2500);
+  }
+  return false;
 }
 
 function crusadePartyCountForWarType(warType) {
@@ -1451,6 +1472,7 @@ function crusadeTeamOfName(name) {
 }
 
 async function addMemberToParty(name, teamNumber, partySlot) {
+  if (!crusadeRequireWarType(teamNumber)) return;
   const onTeam = crusadeTeamOfName(name);
   if (onTeam !== null) {
     toast(onTeam === teamNumber ? `${name} is already on this team` : `${name} is already on Team ${onTeam}`);
@@ -1741,6 +1763,7 @@ async function deleteCrusadeParticipant(id) {
 }
 
 function openCrusadeParticipantModal(participantId, presetPartyNumber, presetPartySlot) {
+  if (!participantId && !crusadeRequireWarType(presetPartyNumber)) return;
   const form = document.getElementById('crusadeParticipantForm');
   form.reset();
   const participant = participantId ? sovereignState.participants.find((p) => p.id === participantId) : null;
@@ -1856,6 +1879,7 @@ function renderCrusadeBulkSelected() {
 }
 
 function openCrusadeBulkAddModal(presetPartyNumber) {
+  if (!crusadeRequireWarType(presetPartyNumber)) return;
   crusadeBulkAddState.selectedNames = [];
   crusadeBulkAddState.unmatchedNames = [];
   document.getElementById('crusadeBulkSearchInput').value = '';
@@ -1939,6 +1963,7 @@ function planCrusadeAutoPick(teamNumber, partyCount) {
 }
 
 async function autoPickCrusadeRoster(teamNumber) {
+  if (!crusadeRequireWarType(teamNumber)) return;
   const partyCount = crusadePartyCountForWarType(document.getElementById('teamDetailsForm').elements.warType.value || getTeamData(teamNumber).warType);
   const plan = planCrusadeAutoPick(teamNumber, partyCount);
   if (!plan.length) {

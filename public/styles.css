@@ -2549,3 +2549,5 @@ body.view-only .crusade-roster-row .crusade-roster-name-click { pointer-events: 
    columns (each still at least as wide as its content, no ellipsis) rather
    than piling up after Name or leaving an empty strip on the right. */
 .crusade-roster-table { width: 100% !important; }
+/* flashes a required field the user skipped (e.g. War Type before roster) */
+.crusade-needs-value { outline: 2px solid var(--bad) !important; outline-offset: 1px; }
