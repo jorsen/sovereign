@@ -1906,9 +1906,9 @@ document.getElementById('addTeamBulkBtn').addEventListener('click', () => openCr
 document.getElementById('autoPickTeamBtn').addEventListener('click', () => autoPickCrusadeRoster(sovereignState.activeTeam));
 // A printable sheet of just this team's roster -- War Type / Stance / Team
 // banner, Area / Leader / Result, then every party (two per row) with Name,
-// Guild, Position, Gold and an Enter box. Opens in a new tab as a preview
-// with a Print button; uses the Team Details form's current values, same as
-// the party cards on screen.
+// Guild, Position, Gold and an Enter box. Goes straight to the browser's
+// print preview (rendered in a hidden frame, no new tab); uses the Team
+// Details form's current values, same as the party cards on screen.
 const CRUSADE_PRINT_CLASS_COLORS = ['#7c3aed', '#0891b2', '#16a34a', '#ea580c', '#db2777', '#2563eb', '#ca8a04', '#475569', '#dc2626', '#0d9488'];
 function crusadePrintClassColor(label) {
   const classes = Array.from(new Set(sovereignState.memberList.map((m) => m.className).filter(Boolean))).sort((a, b) => a.localeCompare(b));
@@ -1917,7 +1917,21 @@ function crusadePrintClassColor(label) {
   return CRUSADE_PRINT_CLASS_COLORS[idx % CRUSADE_PRINT_CLASS_COLORS.length];
 }
 
+// Sheet colours per team (banner/borders, header row, party title, rows),
+// so printed sheets for different teams are easy to tell apart.
+const CRUSADE_PRINT_TEAM_THEMES = [
+  { dark: '#b45309', mid: '#fdba74', light: '#fed7aa', row: '#fde7cf', line: '#c2410c' }, // 1 orange
+  { dark: '#1d4ed8', mid: '#93c5fd', light: '#bfdbfe', row: '#e0edff', line: '#1e40af' }, // 2 blue
+  { dark: '#15803d', mid: '#86efac', light: '#bbf7d0', row: '#e3fbe9', line: '#166534' }, // 3 green
+  { dark: '#7e22ce', mid: '#d8b4fe', light: '#e9d5ff', row: '#f4ebff', line: '#6b21a8' }, // 4 purple
+  { dark: '#be123c', mid: '#fda4af', light: '#fecdd3', row: '#ffe8eb', line: '#9f1239' }, // 5 red
+  { dark: '#0f766e', mid: '#5eead4', light: '#99f6e4', row: '#dcfbf5', line: '#115e59' }, // 6 teal
+  { dark: '#a16207', mid: '#fde047', light: '#fef08a', row: '#fef9d7', line: '#854d0e' }, // 7 gold
+  { dark: '#334155', mid: '#cbd5e1', light: '#e2e8f0', row: '#f1f5f9', line: '#1e293b' }, // 8 slate
+];
+
 function printCrusadeTeamRoster(teamNumber) {
+  const theme = CRUSADE_PRINT_TEAM_THEMES[(Math.max(1, teamNumber) - 1) % CRUSADE_PRINT_TEAM_THEMES.length];
   const form = document.getElementById('teamDetailsForm');
   const team = getTeamData(teamNumber);
   const val = (field) => (form && form.elements[field] ? form.elements[field].value : team[field]) || '';
@@ -1969,16 +1983,16 @@ function printCrusadeTeamRoster(teamNumber) {
   .sheet { max-width: 1000px; }
   .banner, .info { display: grid; gap: 4px; margin-bottom: 4px; }
   .banner { grid-template-columns: 1fr 1.4fr 1fr; }
-  .banner div { background: #b45309; color: #fff; font-weight: 700; font-size: 18px; text-align: center; padding: 6px; border-radius: 3px; }
-  .banner .stance { background: #fff; color: ${isDefense ? '#1d4ed8' : '#b91c1c'}; border: 2px solid #b45309; }
+  .banner div { background: ${theme.dark}; color: #fff; font-weight: 700; font-size: 18px; text-align: center; padding: 6px; border-radius: 3px; }
+  .banner .stance { background: #fff; color: ${isDefense ? '#1d4ed8' : '#b91c1c'}; border: 2px solid ${theme.dark}; }
   .info { grid-template-columns: 90px 1fr 90px 1fr 90px 1fr; margin-bottom: 14px; }
-  .info div { padding: 5px 8px; border: 1px solid #b45309; font-weight: 700; }
-  .info .k { background: #b45309; color: #fff; text-align: center; }
+  .info div { padding: 5px 8px; border: 1px solid ${theme.dark}; font-weight: 700; }
+  .info .k { background: ${theme.dark}; color: #fff; text-align: center; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
-  table.party { width: 100%; border-collapse: collapse; background: #fde7cf; break-inside: avoid; }
-  table.party th, table.party td { border: 1px solid #c2410c; padding: 3px 6px; height: 22px; white-space: nowrap; }
-  table.party th { background: #fdba74; font-weight: 700; text-align: center; }
-  table.party th.party-title { background: #fed7aa; }
+  table.party { width: 100%; border-collapse: collapse; background: ${theme.row}; break-inside: avoid; }
+  table.party th, table.party td { border: 1px solid ${theme.line}; padding: 3px 6px; height: 22px; white-space: nowrap; }
+  table.party th { background: ${theme.mid}; font-weight: 700; text-align: center; }
+  table.party th.party-title { background: ${theme.light}; }
   td.name { font-weight: 600; min-width: 120px; }
   td.name.lead { background: #fde047; }
   td.gold { text-align: right; min-width: 50px; }
@@ -1986,23 +2000,29 @@ function printCrusadeTeamRoster(teamNumber) {
   .pill { display: inline-block; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
   .box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #555; border-radius: 2px; background: #fff; vertical-align: middle; position: relative; }
   .box.on::after { content: "✓"; position: absolute; left: 1px; top: -3px; font-size: 13px; font-weight: 700; color: #15803d; }
-  @media print { body { padding: 0; } .toolbar { display: none; } @page { size: landscape; margin: 10mm; } }
+  @media print { body { padding: 0; } @page { size: landscape; margin: 10mm; } }
 </style></head><body>
-<div class="toolbar"><button onclick="window.print()">🖨 Print</button><span style="color:#666">${esc(crusadeName)} — Team ${teamNumber}</span></div>
 <div class="sheet">
   <div class="banner"><div>${esc(warType || '—')}</div><div class="stance">${esc(stance || '—')}</div><div>Team ${teamNumber}</div></div>
   <div class="info"><div class="k">Area</div><div>${esc(area)}</div><div class="k">Leader</div><div>${esc(leader)}</div><div class="k">Result</div><div>${esc(resultLabel)}</div></div>
   <div class="grid">${slots.map(partyTable).join('')}</div>
 </div>
 </body></html>`;
-  const win = window.open('', '_blank');
-  if (!win) {
-    toast('Allow pop-ups for this site to open the print preview');
-    return;
-  }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  document.getElementById('crusadePrintFrame')?.remove();
+  const frame = document.createElement('iframe');
+  frame.id = 'crusadePrintFrame';
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0; visibility:hidden;';
+  document.body.appendChild(frame);
+  const doc = frame.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+  // let the fonts/layout settle, then open the browser's print preview
+  setTimeout(() => {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+  }, 250);
 }
 
 document.getElementById('printTeamRosterBtn').addEventListener('click', () => printCrusadeTeamRoster(sovereignState.activeTeam));
