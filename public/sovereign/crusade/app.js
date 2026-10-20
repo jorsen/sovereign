@@ -1694,6 +1694,82 @@ function openCrusadeBulkAddModal(presetPartyNumber) {
 
 document.getElementById('addCrusadeBulkBtn').addEventListener('click', () => openCrusadeBulkAddModal(null));
 document.getElementById('addTeamBulkBtn').addEventListener('click', () => openCrusadeBulkAddModal(sovereignState.activeTeam));
+document.getElementById('autoPickTeamBtn').addEventListener('click', () => autoPickCrusadeRoster(sovereignState.activeTeam));
+
+const isDivinePriest = (className) => /divine\s*priest/i.test(String(className || ''));
+
+// Works out who Auto Pick would add where, without adding anyone: fills only
+// the team's empty slots (its parties per the War Type, see
+// crusadePartyCountForWarType) from members not already on any team of this
+// crusade. Each party first gets one Divine Priest (highest Growth Rate
+// first) unless it already has one; then everyone else goes in by Growth
+// Rate, dealt in snake order (1..N, N..1, ...) so the strongest players are
+// spread across parties instead of stacked in Party 1. Spare priests only
+// fill slots nobody else is left for.
+function planCrusadeAutoPick(teamNumber, partyCount) {
+  const classOf = (name) => sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name))?.className;
+  const parties = Array.from({ length: partyCount }, (_, i) => i + 1);
+  const free = new Map(), hasPriest = new Map();
+  parties.forEach((slot) => {
+    const members = sovereignState.participants.filter((x) => x.partyNumber === teamNumber && x.partySlot === slot);
+    free.set(slot, Math.max(0, CRUSADE_PARTY_MAX_MEMBERS - members.length));
+    hasPriest.set(slot, members.some((x) => isDivinePriest(classOf(x.name))));
+  });
+  const pool = sovereignState.memberList
+    .filter((m) => crusadeTeamOfName(m.name) === null)
+    .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
+  const priests = pool.filter((m) => isDivinePriest(m.className));
+  const plan = [];
+  parties.forEach((slot) => {
+    if (hasPriest.get(slot) || free.get(slot) === 0 || !priests.length) return;
+    plan.push({ member: priests.shift(), slot });
+    free.set(slot, free.get(slot) - 1);
+  });
+  const taken = new Set(plan.map((x) => x.member.name));
+  const rest = [...pool.filter((m) => !isDivinePriest(m.className) && !taken.has(m.name)), ...priests];
+  const snake = [];
+  for (let round = 0; snake.length < CRUSADE_PARTY_MAX_MEMBERS * partyCount; round++) snake.push(...(round % 2 ? [...parties].reverse() : parties));
+  let i = 0;
+  for (const slot of snake) {
+    if (i >= rest.length) break;
+    if (free.get(slot) <= 0) continue;
+    plan.push({ member: rest[i++], slot });
+    free.set(slot, free.get(slot) - 1);
+  }
+  return plan;
+}
+
+async function autoPickCrusadeRoster(teamNumber) {
+  const partyCount = crusadePartyCountForWarType(document.getElementById('teamDetailsForm').elements.warType.value || getTeamData(teamNumber).warType);
+  const plan = planCrusadeAutoPick(teamNumber, partyCount);
+  if (!plan.length) {
+    toast('Nothing to add — every party is full or nobody is left');
+    return;
+  }
+  const priestsAdded = plan.filter((x) => isDivinePriest(x.member.className)).length;
+  const lines = Array.from({ length: partyCount }, (_, i) => i + 1)
+    .map((slot) => {
+      const names = plan.filter((x) => x.slot === slot).map((x) => x.member.name);
+      return names.length ? `Party ${slot}: ${names.join(', ')}` : null;
+    })
+    .filter(Boolean);
+  if (!confirm(`Auto Pick will add ${plan.length} member${plan.length === 1 ? '' : 's'} (${priestsAdded} Divine Priest${priestsAdded === 1 ? '' : 's'}) by Growth Rate:\n\n${lines.join('\n')}\n\nAdd them?`)) return;
+  let added = 0;
+  for (const { member, slot } of plan) {
+    try {
+      const created = await api(`/api/crusades/${sovereignState.crusadeId}/participants`, {
+        method: 'POST',
+        body: JSON.stringify({ name: member.name, guildName: member.guildName || null, partyNumber: teamNumber, partySlot: slot, attended: true }),
+      });
+      sovereignState.participants.push(created);
+      added++;
+    } catch (err) {
+      toast(`${member.name}: ${err.message}`);
+    }
+  }
+  refreshAfterRosterChange();
+  toast(`Auto Pick added ${added} member${added === 1 ? '' : 's'}`);
+}
 document.getElementById('crusadeBulkSearchInput').addEventListener('input', renderCrusadeBulkResults);
 document.getElementById('crusadeBulkSearchInput').addEventListener('paste', (e) => {
   const text = (e.clipboardData || window.clipboardData).getData('text');
