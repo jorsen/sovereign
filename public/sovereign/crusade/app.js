@@ -1197,10 +1197,10 @@ function renderTeamDetail(n) {
   const body = document.getElementById('crusadeTeamRosterBody');
   body.innerHTML = partySlots
     .map((slot) => {
-      // Checked-in (attended) members float to the top of their party, so a
-      // glance at the card shows who's actually present first -- stable sort
-      // keeps everyone's relative order within each of the two groups.
-      const rowsInParty = (byParty.get(slot) || []).slice().sort((a, b) => (b.participant.attended ? 1 : 0) - (a.participant.attended ? 1 : 0));
+      // Highest Growth Rate first within each party (GR from the member's
+      // Growth Rate submission; anyone without one sorts last, by name).
+      const grOf = (name) => Number(sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name))?.growthRate) || 0;
+      const rowsInParty = (byParty.get(slot) || []).slice().sort((a, b) => grOf(b.participant.name) - grOf(a.participant.name) || a.participant.name.localeCompare(b.participant.name));
       const full = rowsInParty.length >= CRUSADE_PARTY_MAX_MEMBERS;
       const memberRows = rowsInParty
         .map(
@@ -1695,6 +1695,23 @@ function openCrusadeBulkAddModal(presetPartyNumber) {
 document.getElementById('addCrusadeBulkBtn').addEventListener('click', () => openCrusadeBulkAddModal(null));
 document.getElementById('addTeamBulkBtn').addEventListener('click', () => openCrusadeBulkAddModal(sovereignState.activeTeam));
 document.getElementById('autoPickTeamBtn').addEventListener('click', () => autoPickCrusadeRoster(sovereignState.activeTeam));
+document.getElementById('clearTeamRosterBtn').addEventListener('click', async () => {
+  const teamNumber = sovereignState.activeTeam;
+  const count = sovereignState.participants.filter((p) => p.partyNumber === teamNumber).length;
+  if (!count) {
+    toast('This team has no members to clear');
+    return;
+  }
+  if (!confirm(`Remove all ${count} member${count === 1 ? '' : 's'} from Team ${teamNumber}? The team's details (war type, reward, items, fees) are kept.`)) return;
+  try {
+    await api(`/api/crusades/${sovereignState.crusadeId}/teams/${teamNumber}/participants`, { method: 'DELETE' });
+    sovereignState.participants = sovereignState.participants.filter((p) => p.partyNumber !== teamNumber);
+    refreshAfterRosterChange();
+    toast(`Team ${teamNumber}'s roster cleared`);
+  } catch (err) {
+    toast(err.message);
+  }
+});
 
 const isDivinePriest = (className) => /divine\s*priest/i.test(String(className || ''));
 
@@ -1703,9 +1720,8 @@ const isDivinePriest = (className) => /divine\s*priest/i.test(String(className |
 // crusadePartyCountForWarType) from members not already on any team of this
 // crusade. Each party first gets one Divine Priest (highest Growth Rate
 // first) unless it already has one; then everyone else goes in by Growth
-// Rate, dealt in snake order (1..N, N..1, ...) so the strongest players are
-// spread across parties instead of stacked in Party 1. Spare priests only
-// fill slots nobody else is left for.
+// Rate in party order -- Party 1 gets the highest, then Party 2, and so on.
+// Spare priests only fill slots nobody else is left for.
 function planCrusadeAutoPick(teamNumber, partyCount) {
   const classOf = (name) => sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name))?.className;
   const parties = Array.from({ length: partyCount }, (_, i) => i + 1);
@@ -1727,14 +1743,12 @@ function planCrusadeAutoPick(teamNumber, partyCount) {
   });
   const taken = new Set(plan.map((x) => x.member.name));
   const rest = [...pool.filter((m) => !isDivinePriest(m.className) && !taken.has(m.name)), ...priests];
-  const snake = [];
-  for (let round = 0; snake.length < CRUSADE_PARTY_MAX_MEMBERS * partyCount; round++) snake.push(...(round % 2 ? [...parties].reverse() : parties));
   let i = 0;
-  for (const slot of snake) {
-    if (i >= rest.length) break;
-    if (free.get(slot) <= 0) continue;
-    plan.push({ member: rest[i++], slot });
-    free.set(slot, free.get(slot) - 1);
+  for (const slot of parties) {
+    while (free.get(slot) > 0 && i < rest.length) {
+      plan.push({ member: rest[i++], slot });
+      free.set(slot, free.get(slot) - 1);
+    }
   }
   return plan;
 }
@@ -1753,7 +1767,7 @@ async function autoPickCrusadeRoster(teamNumber) {
       return names.length ? `Party ${slot}: ${names.join(', ')}` : null;
     })
     .filter(Boolean);
-  if (!confirm(`Auto Pick will add ${plan.length} member${plan.length === 1 ? '' : 's'} (${priestsAdded} Divine Priest${priestsAdded === 1 ? '' : 's'}) by Growth Rate:\n\n${lines.join('\n')}\n\nAdd them?`)) return;
+  if (!confirm(`Auto Pick will add ${plan.length} member${plan.length === 1 ? '' : 's'} (${priestsAdded} Divine Priest${priestsAdded === 1 ? '' : 's'}), highest Growth Rate in Party 1:\n\n${lines.join('\n')}\n\nAdd them?`)) return;
   let added = 0;
   for (const { member, slot } of plan) {
     try {
