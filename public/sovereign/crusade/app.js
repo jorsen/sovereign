@@ -1195,6 +1195,11 @@ function renderTeamDetail(n) {
   // The War Type dropdown's current pick wins over the saved value, so the
   // party cards follow it as soon as it's changed rather than only after Save.
   const warTypeSelect = document.getElementById('teamDetailsForm').elements.warType;
+  const memberClasses = Array.from(new Set(sovereignState.memberList.map((m) => m.className).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  const availableByClass = new Map();
+  sovereignState.memberList.forEach((m) => {
+    if (m.className && crusadeTeamOfName(m.name) === null) availableByClass.set(m.className, (availableByClass.get(m.className) || 0) + 1);
+  });
   const partyCount = crusadePartyCountForWarType(warTypeSelect ? warTypeSelect.value : team.warType);
   const partySlots = Array.from(new Set([...Array.from({ length: partyCount }, (_, i) => i + 1), ...byParty.keys()])).sort((a, b) => a - b);
 
@@ -1235,7 +1240,13 @@ function renderTeamDetail(n) {
       <div class="crusade-party-card" data-drop-party-slot="${slot}">
         <div class="crusade-party-card-header">
           <h3>${t('sovereign.common.party')} ${slot} — ${rowsInParty.length}/${CRUSADE_PARTY_MAX_MEMBERS}</h3>
-          <button type="button" class="icon-btn admin-only" data-add-to-party-slot="${slot}" title="Add to Party ${slot}" ${full ? 'disabled' : ''}>+</button>
+          <div class="crusade-party-card-actions">
+            <select class="crusade-party-class-pick admin-only admin-disable" data-party-class-pick="${slot}" title="Add the highest Growth Rate available member of a class to Party ${slot}" ${full ? 'disabled' : ''}>
+              <option value="">+ ${t('sovereign.common.class')}…</option>
+              ${memberClasses.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${availableByClass.get(c) || 0})</option>`).join('')}
+            </select>
+            <button type="button" class="icon-btn admin-only" data-add-to-party-slot="${slot}" title="Add to Party ${slot}" ${full ? 'disabled' : ''}>+</button>
+          </div>
         </div>
         <div class="table-scroll">
           <table class="members-table crusade-roster-table">
@@ -1274,6 +1285,25 @@ function renderTeamDetail(n) {
   body.querySelectorAll('[data-delete-participant]').forEach((btn) => {
     btn.addEventListener('click', () => deleteCrusadeParticipant(btn.getAttribute('data-delete-participant')));
   });
+  // Picking a class adds that class's highest Growth Rate member who isn't on
+  // any team of this crusade yet (see addMemberToParty for the checks).
+  body.querySelectorAll('[data-party-class-pick]').forEach((select) => {
+    select.addEventListener('change', async () => {
+      const className = select.value;
+      const slot = Number(select.getAttribute('data-party-class-pick'));
+      select.value = '';
+      if (!className) return;
+      const best = sovereignState.memberList
+        .filter((m) => m.className === className && crusadeTeamOfName(m.name) === null)
+        .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name))[0];
+      if (!best) {
+        toast(`No available ${className} left — everyone with that class is already on a team`);
+        return;
+      }
+      await addMemberToParty(best.name, n, slot);
+    });
+  });
+
   body.querySelectorAll('[data-add-to-party-slot]').forEach((btn) => {
     btn.addEventListener('click', () => openCrusadeParticipantModal(null, n, Number(btn.getAttribute('data-add-to-party-slot'))));
   });
