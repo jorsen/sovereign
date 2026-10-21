@@ -1990,7 +1990,8 @@ function crusadeTeamPrintSheet(teamNumber, useForm) {
 </section>`;
 }
 
-// Prints the given teams' sheets -- one team per page -- straight to the
+// Prints the given teams' sheets on ONE landscape page -- stacked, then
+// shrunk to fit the page if they're taller than it -- straight to the
 // browser's print preview (rendered in a hidden frame, no new tab).
 function printCrusadeRosterSheets(teamNumbers, useForm) {
   const esc = escapeHtml;
@@ -2002,7 +2003,11 @@ function printCrusadeRosterSheets(teamNumbers, useForm) {
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; padding: 16px; font-family: Arial, "Microsoft YaHei", "Malgun Gothic", sans-serif; font-size: 12px; color: #111; background: #fff; }
   .sheet { max-width: 1000px; }
-  .sheet + .sheet { break-before: page; page-break-before: always; margin-top: 24px; }
+  .sheet + .sheet { margin-top: 14px; padding-top: 12px; border-top: 2px dashed #999; }
+  .multi .banner div { font-size: 14px; padding: 3px; }
+  .multi .banner { margin-bottom: 8px; }
+  .multi .grid { gap: 8px 16px; }
+  .multi table.party th, .multi table.party td { height: 18px; padding: 1px 5px; font-size: 11px; }
   .banner { display: grid; gap: 4px; grid-template-columns: 1fr 1.4fr 1fr; margin-bottom: 14px; }
   .banner div { background: var(--dark); color: #fff; font-weight: 700; font-size: 18px; text-align: center; padding: 6px; border-radius: 3px; }
   .banner .stance { background: #fff; color: var(--stance); border: 2px solid var(--dark); }
@@ -2018,8 +2023,8 @@ function printCrusadeRosterSheets(teamNumbers, useForm) {
   .pill { display: inline-block; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
   .box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #555; border-radius: 2px; background: #fff; vertical-align: middle; position: relative; }
   .box.on::after { content: "✓"; position: absolute; left: 1px; top: -3px; font-size: 13px; font-weight: 700; color: #15803d; }
-  @media print { body { padding: 0; } .sheet + .sheet { margin-top: 0; } @page { size: landscape; margin: 10mm; } }
-</style></head><body>
+  @media print { body { padding: 0; } @page { size: landscape; margin: 8mm; } }
+</style></head><body class="${teamNumbers.length > 1 ? 'multi' : ''}">
 ${teamNumbers.map((n) => crusadeTeamPrintSheet(n, useForm && n === sovereignState.activeTeam)).join('\n')}
 </body></html>`;
   document.getElementById('crusadePrintFrame')?.remove();
@@ -2032,8 +2037,14 @@ ${teamNumbers.map((n) => crusadeTeamPrintSheet(n, useForm && n === sovereignStat
   doc.open();
   doc.write(html);
   doc.close();
-  // let the fonts/layout settle, then open the browser's print preview
+  // let the fonts/layout settle, shrink everything to fit one landscape
+  // page (Letter/A4 minus margins is about 1000 x 700 CSS px), then open
+  // the browser's print preview
   setTimeout(() => {
+    const body = doc.body;
+    body.style.width = '1000px';
+    const scale = Math.min(1, 700 / body.scrollHeight, 1000 / body.scrollWidth);
+    if (scale < 1) body.style.zoom = String(Math.floor(scale * 100) / 100);
     frame.contentWindow.focus();
     frame.contentWindow.print();
   }, 250);
