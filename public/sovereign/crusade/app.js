@@ -1941,9 +1941,13 @@ const CRUSADE_PRINT_TEAM_THEMES = [
   { dark: '#334155', mid: '#cbd5e1', light: '#e2e8f0', row: '#f1f5f9', line: '#1e293b' }, // 8 slate
 ];
 
-function printCrusadeTeamRoster(teamNumber) {
+// One team's sheet (banner + party tables). Colours come from CSS variables
+// set on the sheet, so several teams can share one printout. useForm: read
+// War Type / Stance from the open team's Team Details form (unsaved picks
+// included) instead of the saved team.
+function crusadeTeamPrintSheet(teamNumber, useForm) {
   const theme = CRUSADE_PRINT_TEAM_THEMES[(Math.max(1, teamNumber) - 1) % CRUSADE_PRINT_TEAM_THEMES.length];
-  const form = document.getElementById('teamDetailsForm');
+  const form = useForm ? document.getElementById('teamDetailsForm') : null;
   const team = getTeamData(teamNumber);
   const val = (field) => (form && form.elements[field] ? form.elements[field].value : team[field]) || '';
   const warType = val('warType');
@@ -1980,27 +1984,33 @@ function printCrusadeTeamRoster(teamNumber) {
       <tbody>${cells}</tbody></table>`;
   };
 
+  return `<section class="sheet" style="--dark:${theme.dark}; --mid:${theme.mid}; --light:${theme.light}; --row:${theme.row}; --line:${theme.line}; --stance:${isDefense ? '#1d4ed8' : '#b91c1c'};">
+  <div class="banner"><div>${esc(warType || '—')}</div><div class="stance">${esc(stance || '—')}</div><div>Team ${teamNumber}</div></div>
+  <div class="grid">${slots.map(partyTable).join('')}</div>
+</section>`;
+}
+
+// Prints the given teams' sheets -- one team per page -- straight to the
+// browser's print preview (rendered in a hidden frame, no new tab).
+function printCrusadeRosterSheets(teamNumbers, useForm) {
+  const esc = escapeHtml;
   const crusadeName = sovereignState.crusade?.name || 'Crusade';
+  const title = teamNumbers.length === 1 ? `${crusadeName} — Team ${teamNumbers[0]} Roster` : `${crusadeName} — All Rosters`;
   const html = `<!doctype html><html><head><meta charset="utf-8">
-<title>${esc(crusadeName)} — Team ${teamNumber} Roster</title>
+<title>${esc(title)}</title>
 <style>
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; padding: 16px; font-family: Arial, "Microsoft YaHei", "Malgun Gothic", sans-serif; font-size: 12px; color: #111; background: #fff; }
-  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-  .toolbar button { font-size: 13px; padding: 6px 14px; cursor: pointer; }
   .sheet { max-width: 1000px; }
-  .banner, .info { display: grid; gap: 4px; margin-bottom: 4px; }
-  .banner { grid-template-columns: 1fr 1.4fr 1fr; margin-bottom: 14px; }
-  .banner div { background: ${theme.dark}; color: #fff; font-weight: 700; font-size: 18px; text-align: center; padding: 6px; border-radius: 3px; }
-  .banner .stance { background: #fff; color: ${isDefense ? '#1d4ed8' : '#b91c1c'}; border: 2px solid ${theme.dark}; }
-  .info { grid-template-columns: 90px 1fr 90px 1fr 90px 1fr; margin-bottom: 14px; }
-  .info div { padding: 5px 8px; border: 1px solid ${theme.dark}; font-weight: 700; }
-  .info .k { background: ${theme.dark}; color: #fff; text-align: center; }
+  .sheet + .sheet { break-before: page; page-break-before: always; margin-top: 24px; }
+  .banner { display: grid; gap: 4px; grid-template-columns: 1fr 1.4fr 1fr; margin-bottom: 14px; }
+  .banner div { background: var(--dark); color: #fff; font-weight: 700; font-size: 18px; text-align: center; padding: 6px; border-radius: 3px; }
+  .banner .stance { background: #fff; color: var(--stance); border: 2px solid var(--dark); }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
-  table.party { width: 100%; border-collapse: collapse; background: ${theme.row}; break-inside: avoid; }
-  table.party th, table.party td { border: 1px solid ${theme.line}; padding: 3px 6px; height: 22px; white-space: nowrap; }
-  table.party th { background: ${theme.mid}; font-weight: 700; text-align: center; }
-  table.party th.party-title { background: ${theme.light}; }
+  table.party { width: 100%; border-collapse: collapse; background: var(--row); break-inside: avoid; }
+  table.party th, table.party td { border: 1px solid var(--line); padding: 3px 6px; height: 22px; white-space: nowrap; }
+  table.party th { background: var(--mid); font-weight: 700; text-align: center; }
+  table.party th.party-title { background: var(--light); }
   td.name { font-weight: 600; min-width: 120px; }
   td.name.lead { background: #fde047; }
   td.gold { text-align: right; min-width: 50px; }
@@ -2008,12 +2018,9 @@ function printCrusadeTeamRoster(teamNumber) {
   .pill { display: inline-block; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
   .box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #555; border-radius: 2px; background: #fff; vertical-align: middle; position: relative; }
   .box.on::after { content: "✓"; position: absolute; left: 1px; top: -3px; font-size: 13px; font-weight: 700; color: #15803d; }
-  @media print { body { padding: 0; } @page { size: landscape; margin: 10mm; } }
+  @media print { body { padding: 0; } .sheet + .sheet { margin-top: 0; } @page { size: landscape; margin: 10mm; } }
 </style></head><body>
-<div class="sheet">
-  <div class="banner"><div>${esc(warType || '—')}</div><div class="stance">${esc(stance || '—')}</div><div>Team ${teamNumber}</div></div>
-  <div class="grid">${slots.map(partyTable).join('')}</div>
-</div>
+${teamNumbers.map((n) => crusadeTeamPrintSheet(n, useForm && n === sovereignState.activeTeam)).join('\n')}
 </body></html>`;
   document.getElementById('crusadePrintFrame')?.remove();
   const frame = document.createElement('iframe');
@@ -2032,6 +2039,21 @@ function printCrusadeTeamRoster(teamNumber) {
   }, 250);
 }
 
+function printCrusadeTeamRoster(teamNumber) {
+  printCrusadeRosterSheets([teamNumber], true);
+}
+
+// Every team of the open crusade (the crusade's date lineup), in team order.
+function printAllCrusadeRosters() {
+  const numbers = Array.from(new Set([...sovereignState.teams.map((t) => t.teamNumber), ...sovereignState.participants.map((x) => x.partyNumber)])).sort((a, b) => a - b);
+  if (!numbers.length) {
+    toast('This crusade has no teams to print yet');
+    return;
+  }
+  printCrusadeRosterSheets(numbers, false);
+}
+
+document.getElementById('printAllRostersBtn').addEventListener('click', printAllCrusadeRosters);
 document.getElementById('printTeamRosterBtn').addEventListener('click', () => printCrusadeTeamRoster(sovereignState.activeTeam));
 
 document.getElementById('clearTeamRosterBtn').addEventListener('click', async () => {
