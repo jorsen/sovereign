@@ -1448,23 +1448,21 @@ function crusadeStandingIssue(name, teamNumber) {
   }
   return null;
 }
-// "Absent 2/5" chip for the roster picker: this month's wars they were
-// lined up for but didn't enter (decided wars only, see
-// computeCrusadeMemberStanding).
+// Roster picker chips for this month's misses only -- "Absent 2/5" (lined up
+// but didn't enter, decided wars only) and "No bid 1/3" (0 gold bid on an
+// Attack team). Members who bid and attended get no chip at all.
 function crusadeAbsenceTag(name) {
   const st = sovereignState.memberStanding?.get(String(name || '').trim().toLowerCase());
   if (!st) return '';
   const more = (n, list) => (n > list.length ? ', …' : '');
   let html = '';
-  // Didn't attend (Enter unticked in a decided war)
-  if (st.played) {
-    const title = st.absences ? `Didn't attend ${st.absences} of ${st.played} crusades this month: ${st.absentIn.join(', ')}${more(st.absences, st.absentIn)}` : `Attended all ${st.played} crusades this month`;
-    html += `<span class="crusade-absence-chip${st.absences ? ' has-absences' : ''}" title="${escapeHtml(title)}">Absent ${st.absences}/${st.played}</span>`;
+  if (st.absences) {
+    const title = `Didn't attend ${st.absences} of ${st.played} crusades this month: ${st.absentIn.join(', ')}${more(st.absences, st.absentIn)}`;
+    html += `<span class="crusade-absence-chip has-absences" title="${escapeHtml(title)}">Absent ${st.absences}/${st.played}</span>`;
   }
-  // Didn't bid (0 gold bid on an Attack team)
-  if (st.bidChances) {
-    const title = st.noBids ? `Didn't bid in ${st.noBids} of ${st.bidChances} attack crusades this month: ${st.noBidIn.join(', ')}${more(st.noBids, st.noBidIn)}` : `Bid in all ${st.bidChances} attack crusades this month`;
-    html += `<span class="crusade-absence-chip${st.noBids ? ' has-nobids' : ''}" title="${escapeHtml(title)}">No bid ${st.noBids}/${st.bidChances}</span>`;
+  if (st.noBids) {
+    const title = `Didn't bid in ${st.noBids} of ${st.bidChances} attack crusades this month: ${st.noBidIn.join(', ')}${more(st.noBids, st.noBidIn)}`;
+    html += `<span class="crusade-absence-chip has-nobids" title="${escapeHtml(title)}">No bid ${st.noBids}/${st.bidChances}</span>`;
   }
   return html;
 }
