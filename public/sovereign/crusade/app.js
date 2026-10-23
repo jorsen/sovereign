@@ -1448,12 +1448,13 @@ function crusadeStandingIssue(name, teamNumber) {
   }
   return null;
 }
-// "Absent 2/5" chip for the roster picker: wars they were lined up for but
-// didn't enter (decided wars only, see computeCrusadeMemberStanding).
+// "Absent 2/5" chip for the roster picker: this month's wars they were
+// lined up for but didn't enter (decided wars only, see
+// computeCrusadeMemberStanding).
 function crusadeAbsenceTag(name) {
   const st = sovereignState.memberStanding?.get(String(name || '').trim().toLowerCase());
   if (!st || !st.played) return '';
-  const title = st.absences ? `Absent in ${st.absences} of ${st.played} crusades: ${st.absentIn.join(', ')}${st.absences > st.absentIn.length ? ', …' : ''}` : `Entered all ${st.played} crusades they were lined up for`;
+  const title = st.absences ? `This month: absent in ${st.absences} of ${st.played} crusades: ${st.absentIn.join(', ')}${st.absences > st.absentIn.length ? ', …' : ''}` : `This month: entered all ${st.played} crusades they were lined up for`;
   return `<span class="crusade-absence-chip${st.absences ? ' has-absences' : ''}" title="${escapeHtml(title)}">${st.absences ? `✗ ${st.absences}/${st.played}` : `✓ ${st.played}`}</span>`;
 }
 
