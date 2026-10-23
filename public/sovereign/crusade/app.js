@@ -1453,9 +1453,20 @@ function crusadeStandingIssue(name, teamNumber) {
 // computeCrusadeMemberStanding).
 function crusadeAbsenceTag(name) {
   const st = sovereignState.memberStanding?.get(String(name || '').trim().toLowerCase());
-  if (!st || !st.played) return '';
-  const title = st.absences ? `This month: absent in ${st.absences} of ${st.played} crusades: ${st.absentIn.join(', ')}${st.absences > st.absentIn.length ? ', …' : ''}` : `This month: entered all ${st.played} crusades they were lined up for`;
-  return `<span class="crusade-absence-chip${st.absences ? ' has-absences' : ''}" title="${escapeHtml(title)}">${st.absences ? `✗ ${st.absences}/${st.played}` : `✓ ${st.played}`}</span>`;
+  if (!st) return '';
+  const more = (n, list) => (n > list.length ? ', …' : '');
+  let html = '';
+  // Didn't attend (Enter unticked in a decided war)
+  if (st.played) {
+    const title = st.absences ? `Didn't attend ${st.absences} of ${st.played} crusades this month: ${st.absentIn.join(', ')}${more(st.absences, st.absentIn)}` : `Attended all ${st.played} crusades this month`;
+    html += `<span class="crusade-absence-chip${st.absences ? ' has-absences' : ''}" title="${escapeHtml(title)}">Absent ${st.absences}/${st.played}</span>`;
+  }
+  // Didn't bid (0 gold bid on an Attack team)
+  if (st.bidChances) {
+    const title = st.noBids ? `Didn't bid in ${st.noBids} of ${st.bidChances} attack crusades this month: ${st.noBidIn.join(', ')}${more(st.noBids, st.noBidIn)}` : `Bid in all ${st.bidChances} attack crusades this month`;
+    html += `<span class="crusade-absence-chip${st.noBids ? ' has-nobids' : ''}" title="${escapeHtml(title)}">No bid ${st.noBids}/${st.bidChances}</span>`;
+  }
+  return html;
 }
 
 function crusadeStandingTag(name) {
