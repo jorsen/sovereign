@@ -1448,9 +1448,18 @@ function crusadeStandingIssue(name, teamNumber) {
   }
   return null;
 }
+// "Absent 2/5" chip for the roster picker: wars they were lined up for but
+// didn't enter (decided wars only, see computeCrusadeMemberStanding).
+function crusadeAbsenceTag(name) {
+  const st = sovereignState.memberStanding?.get(String(name || '').trim().toLowerCase());
+  if (!st || !st.played) return '';
+  const title = st.absences ? `Absent in ${st.absences} of ${st.played} crusades: ${st.absentIn.join(', ')}${st.absences > st.absentIn.length ? ', …' : ''}` : `Entered all ${st.played} crusades they were lined up for`;
+  return `<span class="crusade-absence-chip${st.absences ? ' has-absences' : ''}" title="${escapeHtml(title)}">${st.absences ? `✗ ${st.absences}/${st.played}` : `✓ ${st.played}`}</span>`;
+}
+
 function crusadeStandingTag(name) {
   const st = sovereignState.memberStanding?.get(String(name || '').trim().toLowerCase());
-  if (!st) return null;
+  if (!st || (!st.bannedThisMonth && !st.noBidTwice)) return null;
   return st.bannedThisMonth ? { label: 'Banned', reason: st.bannedReason } : { label: 'No bid ×2', reason: st.noBidReason };
 }
 
@@ -1663,6 +1672,7 @@ function renderCrusadeMemberPanel(teamNumber) {
         <span class="crusade-member-chip-dot" style="background:${color || 'var(--text-muted)'}"></span>
         <span class="crusade-member-chip-name">${escapeHtml(m.name)}</span>
         ${flag ? `<span class="crusade-member-chip-flag${issue ? ' is-blocking' : ''}">${flag.label}</span>` : ''}
+        ${crusadeAbsenceTag(m.name)}
         ${m.className ? `<span class="crusade-member-chip-class">${escapeHtml(m.className)}</span>` : ''}
         ${onTeam !== null ? `<span class="crusade-member-chip-tag">Team ${onTeam}</span>` : `<span class="crusade-member-chip-gr">${m.growthRate ? Number(m.growthRate).toLocaleString() : ''}</span>`}
       </li>`;

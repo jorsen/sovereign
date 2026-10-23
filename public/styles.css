@@ -2551,3 +2551,6 @@ body.view-only .crusade-roster-row .crusade-roster-name-click { pointer-events: 
 .crusade-roster-table { width: 100% !important; }
 /* flashes a required field the user skipped (e.g. War Type before roster) */
 .crusade-needs-value { outline: 2px solid var(--bad) !important; outline-offset: 1px; }
+/* roster picker: each member's absence record */
+.crusade-absence-chip { flex: none; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; color: var(--text-muted); border: 1px solid var(--border, #334155); cursor: help; }
+.crusade-absence-chip.has-absences { color: #f97316; border-color: #f97316; }
