@@ -5486,8 +5486,8 @@ function renderSalaryPayoutHistory() {
       return `
       <details class="salary-payout-entry" open>
         <summary>
-          <strong>Payout #${i + 1}</strong>
-          <span>${formatWorldBossEventDateTime(p.createdAt)}</span>
+          <strong>${escapeHtml(formatMonthYear(p.month))} — Payout #${i + 1}</strong>
+          <span>Sent ${formatWorldBossEventDateTime(p.createdAt)}</span>
           <span>💎 ${formatLootValue(p.diamondPool)}</span>
           ${payoutTax(p) > 0.01 ? `<span class="salary-tax-cell">Tax 💎 ${formatLootValue(payoutTax(p))}</span>` : ''}
           <span>🪙 ${formatLootValue(p.crowPool)}</span>
