@@ -2945,7 +2945,7 @@ function renderGrowthSubmissions() {
       e.stopPropagation();
       const id = btn.getAttribute('data-delete-growth');
       const s = submissions.find((x) => x.id === id);
-      if (!confirm(`Remove the growth-rate submission for "${s?.ign}"?`)) return;
+      if (!confirm(`Remove the growth-rate submission for "${s?.ign}"? They're also taken out of the salary, including saved payouts -- their share goes to the management fee recipients.`)) return;
       try {
         await api(`/api/growth-submissions/${id}`, { method: 'DELETE' });
         sovereignState.growthSubmissions = sovereignState.growthSubmissions.filter((x) => x.id !== id);
@@ -5472,7 +5472,7 @@ function renderSalaryPayoutHistory() {
             .map(
               (r) => `
           <tr class="salary-guild-member-row${open ? '' : ' hidden'}">
-            <td>${escapeHtml(r.ign)}${hasGrowthEntryFor(r.ign) ? '' : linkOldIgnButton(r.ign)}</td>
+            <td>${escapeHtml(r.ign)}${hasGrowthEntryFor(r.ign) ? '' : linkOldIgnButton(r.ign) + removeFromPayoutsButton(r.ign)}</td>
             <td>${(r.attendance || 0).toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
             <td>${formatLootValue(r.diamonds)}</td>
             <td class="salary-tax-cell">${taxed ? formatLootValue((Number(r.diamonds) || 0) * (taxPercent / 100)) : ''}</td>
@@ -6833,6 +6833,26 @@ function hasGrowthEntryFor(name) {
 function linkOldIgnButton(name) {
   return ` <button type="button" class="icon-btn admin-only salary-guild-tax-edit" data-link-salary-name="${escapeHtml(name)}" title="Old IGN? Link it to the member it belongs to">🔗</button>`;
 }
+
+function removeFromPayoutsButton(name) {
+  return ` <button type="button" class="icon-btn admin-only salary-guild-tax-edit" data-remove-payout-name="${escapeHtml(name)}" title="Removed member? Take them out of saved payouts -- their share goes to the management fee recipients">✕</button>`;
+}
+
+document.getElementById('sovereignSalaryPanel').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-remove-payout-name]');
+  if (!btn) return;
+  e.stopPropagation(); // don't also open/close the guild
+  const ign = btn.getAttribute('data-remove-payout-name');
+  if (!confirm(`Remove "${ign}" from saved payouts? Their diamonds and crows go to each payout's management fee recipients (by fee %), so payout totals stay the same. Use 🔗 instead if this is a member's old IGN.`)) return;
+  try {
+    const result = await api('/api/salary-payouts/remove-name', { method: 'POST', body: JSON.stringify({ ign }) });
+    sovereignState.salaryPayouts = await api('/api/salary-payouts');
+    renderSalaryPayoutHistory();
+    toast(`Removed "${ign}" from ${result.payoutsChanged} saved payout${result.payoutsChanged === 1 ? '' : 's'}`);
+  } catch (err) {
+    toast(err.message);
+  }
+});
 
 let linkNameOldIgn = null;
 function linkNameTarget() {
