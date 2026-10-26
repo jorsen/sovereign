@@ -6566,6 +6566,7 @@ function renderSalaryComputation() {
       ign: g ? g.name : attendanceByIgn.get(key)?.sampleName || key,
       guildName: g ? g.guildName : null,
       growthRate: g ? g.growthRate : 0,
+      hasGrowthEntry: !!g,
       attendance: attendanceByIgn.get(key)?.count || 0,
       feePercent: feeByIgn.get(key) || 0,
     };
@@ -6664,7 +6665,11 @@ function renderSalaryGuildTotals(rows) {
         .map(
           (r) => `
     <tr class="salary-guild-member-row${open ? '' : ' hidden'}">
-      <td>${escapeHtml(r.ign)}</td>
+      <td>${escapeHtml(r.ign)}${
+        r.hasGrowthEntry
+          ? ''
+          : ` <button type="button" class="icon-btn admin-only salary-guild-tax-edit" data-link-salary-name="${escapeHtml(r.ign)}" title="Changed IGN? Link to their current Growth Rate entry">🔗</button>`
+      }</td>
       <td>${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
       <td>${formatLootValue(r.diamondFinal)}</td>
       <td class="salary-tax-cell">${formatLootValue(r.diamondFinal * (g.taxPercent / 100))}</td>
@@ -6720,6 +6725,51 @@ document.getElementById('salaryGuildTotalsBody').addEventListener('click', async
     sovereignState.salaryGuildTaxes.set(guildName, percent);
     renderSalaryComputation();
     toast(`Tax for ${guildName} set to ${percent}%`);
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+// Someone who changed their IGN outside the Growth Rate edit (e.g. posted
+// a fresh submission under the new name) leaves attendance under the old
+// name, which matches no submission and lands in Unassigned. Linking folds
+// that old name into the current submission -- the same merge the Growth
+// Rate page's duplicate finder does, for names too different to be caught
+// as a spelling variant.
+document.getElementById('salaryGuildTotalsBody').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-link-salary-name]');
+  if (!btn) return;
+  e.stopPropagation();
+  const oldName = btn.getAttribute('data-link-salary-name');
+  const answer = prompt(`"${oldName}" has no Growth Rate entry. What is their current IGN?`);
+  const typed = memberNameKey(answer);
+  if (!typed) return;
+  const submissions = sovereignState.growthSubmissions || [];
+  const exact = submissions.filter((s) => memberNameKey(s.ign) === typed);
+  const matches = exact.length ? exact : submissions.filter((s) => memberNameKey(s.ign).includes(typed));
+  if (!matches.length) {
+    toast(`No Growth Rate entry matches "${answer}"`);
+    return;
+  }
+  if (matches.length > 1) {
+    toast(`"${answer}" matches ${matches.length} entries (${matches.slice(0, 5).map((s) => s.ign).join(', ')}${matches.length > 5 ? ', …' : ''}) -- type more of the name`);
+    return;
+  }
+  const target = matches[0];
+  if (!confirm(`Link "${oldName}" to "${target.ign}" (${target.guildName || t('sovereign.common.unassigned')})? Their attendance, crusade, points and fee records under "${oldName}" are renamed to "${target.ign}".`)) return;
+  try {
+    await api('/api/growth-submissions/merge', { method: 'POST', body: JSON.stringify({ keepId: target.id, extraNames: [oldName] }) });
+    const [growthSubmissions, events, fees] = await Promise.all([
+      api('/api/growth-submissions'),
+      api('/api/world-boss-attendance'),
+      api('/api/world-boss-management-fees'),
+    ]);
+    sovereignState.growthSubmissions = growthSubmissions;
+    sovereignState.worldBossEvents = events;
+    sovereignState.salaryManagementFees = fees;
+    renderSalaryManagementFees();
+    renderSalaryComputation();
+    toast(`Linked "${oldName}" to "${target.ign}"`);
   } catch (err) {
     toast(err.message);
   }
