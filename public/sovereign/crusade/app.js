@@ -5472,7 +5472,7 @@ function renderSalaryPayoutHistory() {
             .map(
               (r) => `
           <tr class="salary-guild-member-row${open ? '' : ' hidden'}">
-            <td>${escapeHtml(r.ign)}</td>
+            <td>${escapeHtml(r.ign)}${hasGrowthEntryFor(r.ign) ? '' : linkOldIgnButton(r.ign)}</td>
             <td>${(r.attendance || 0).toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
             <td>${formatLootValue(r.diamonds)}</td>
             <td class="salary-tax-cell">${taxed ? formatLootValue((Number(r.diamonds) || 0) * (taxPercent / 100)) : ''}</td>
@@ -6623,7 +6623,7 @@ function renderSalaryComputation() {
   // this month (an officer who manages but didn't personally fight) -- so
   // the row set is attendees UNION fee recipients, not just attendees.
   const allKeys = new Set([...attendanceByIgn.keys(), ...feeByIgn.keys()]);
-  const rows = Array.from(allKeys).map((key) => {
+  const allRows = Array.from(allKeys).map((key) => {
     const g = growthByIgn.get(key);
     return {
       key,
@@ -6635,6 +6635,18 @@ function renderSalaryComputation() {
       feePercent: feeByIgn.get(key) || 0,
     };
   });
+  // Growth Rate is the member list: a name with no entry there (removed
+  // from it, or an old IGN never linked) gets no share -- it's listed
+  // separately instead, with a way to link it to the member it belongs to.
+  const rows = allRows.filter((r) => r.hasGrowthEntry);
+  const unlisted = allRows.filter((r) => !r.hasGrowthEntry).sort((a, b) => b.attendance - a.attendance);
+  document.getElementById('salaryUnlistedSection').classList.toggle('hidden', unlisted.length === 0);
+  document.getElementById('salaryUnlistedList').innerHTML = unlisted
+    .map(
+      (r) =>
+        `<span class="crusade-loot-chip">${escapeHtml(r.ign)} — ${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}${r.feePercent ? ` · ${r.feePercent}% fee` : ''}${linkOldIgnButton(r.ign)}</span>`
+    )
+    .join('');
   rows.forEach((r) => {
     r.taxPercent = guildTaxPercent(r.guildName);
   });
@@ -6729,11 +6741,7 @@ function renderSalaryGuildTotals(rows) {
         .map(
           (r) => `
     <tr class="salary-guild-member-row${open ? '' : ' hidden'}">
-      <td>${escapeHtml(r.ign)}${
-        r.hasGrowthEntry
-          ? ''
-          : ` <button type="button" class="icon-btn admin-only salary-guild-tax-edit" data-link-salary-name="${escapeHtml(r.ign)}" title="Changed IGN? Link to their current Growth Rate entry">🔗</button>`
-      }</td>
+      <td>${escapeHtml(r.ign)}</td>
       <td>${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}</td>
       <td>${formatLootValue(r.diamondFinal)}</td>
       <td class="salary-tax-cell">${formatLootValue(r.diamondFinal * (g.taxPercent / 100))}</td>
@@ -6796,44 +6804,78 @@ document.getElementById('salaryGuildTotalsBody').addEventListener('click', async
 
 // Someone who changed their IGN outside the Growth Rate edit (e.g. posted
 // a fresh submission under the new name) leaves attendance under the old
-// name, which matches no submission and lands in Unassigned. Linking folds
-// that old name into the current submission -- the same merge the Growth
-// Rate page's duplicate finder does, for names too different to be caught
-// as a spelling variant.
-document.getElementById('salaryGuildTotalsBody').addEventListener('click', async (e) => {
+// name, which matches no Growth Rate entry -- so it gets no salary share
+// and saved payouts show it without a guild. Linking renames everything
+// under the old name to the member's IGN (see POST
+// /api/growth-submissions/link-name), saved payouts included.
+function hasGrowthEntryFor(name) {
+  const key = memberNameKey(name);
+  return (sovereignState.growthSubmissions || []).some((s) => memberNameKey(s.ign) === key);
+}
+function linkOldIgnButton(name) {
+  return ` <button type="button" class="icon-btn admin-only salary-guild-tax-edit" data-link-salary-name="${escapeHtml(name)}" title="Old IGN? Link it to the member it belongs to">🔗</button>`;
+}
+
+let linkNameOldIgn = null;
+function linkNameTarget() {
+  const typed = memberNameKey(document.getElementById('linkNameInput').value);
+  if (!typed) return null;
+  return (sovereignState.growthSubmissions || []).find((s) => memberNameKey(s.ign) === typed) || null;
+}
+function updateLinkNameMatch() {
+  const target = linkNameTarget();
+  const el = document.getElementById('linkNameMatch');
+  el.style.color = target ? 'var(--text-muted)' : 'var(--gold)';
+  el.textContent = target
+    ? `${target.ign} — ${target.guildName || t('sovereign.common.unassigned')} · Growth Rate ${target.growthRate?.toLocaleString() ?? '?'}`
+    : document.getElementById('linkNameInput').value.trim()
+      ? 'Not on the Growth Rate list — pick a name from the suggestions'
+      : '';
+}
+
+document.getElementById('sovereignSalaryPanel').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-link-salary-name]');
   if (!btn) return;
-  e.stopPropagation();
-  const oldName = btn.getAttribute('data-link-salary-name');
-  const answer = prompt(`"${oldName}" has no Growth Rate entry. What is their current IGN?`);
-  const typed = memberNameKey(answer);
-  if (!typed) return;
-  const submissions = sovereignState.growthSubmissions || [];
-  const exact = submissions.filter((s) => memberNameKey(s.ign) === typed);
-  const matches = exact.length ? exact : submissions.filter((s) => memberNameKey(s.ign).includes(typed));
-  if (!matches.length) {
-    toast(`No Growth Rate entry matches "${answer}"`);
+  e.stopPropagation(); // don't also open/close the guild
+  linkNameOldIgn = btn.getAttribute('data-link-salary-name');
+  document.getElementById('linkNameModalTitle').textContent = `Link "${linkNameOldIgn}"`;
+  document.getElementById('linkNameSuggestions').innerHTML = (sovereignState.growthSubmissions || [])
+    .slice()
+    .sort((a, b) => a.ign.localeCompare(b.ign))
+    .map((s) => `<option value="${escapeHtml(s.ign)}">${escapeHtml(s.guildName || '')}</option>`)
+    .join('');
+  document.getElementById('linkNameInput').value = '';
+  updateLinkNameMatch();
+  document.getElementById('linkNameModal').classList.remove('hidden');
+  document.getElementById('linkNameInput').focus();
+});
+document.getElementById('linkNameInput').addEventListener('input', updateLinkNameMatch);
+
+document.getElementById('linkNameForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const target = linkNameTarget();
+  if (!target || !linkNameOldIgn) {
+    updateLinkNameMatch();
     return;
   }
-  if (matches.length > 1) {
-    toast(`"${answer}" matches ${matches.length} entries (${matches.slice(0, 5).map((s) => s.ign).join(', ')}${matches.length > 5 ? ', …' : ''}) -- type more of the name`);
-    return;
-  }
-  const target = matches[0];
-  if (!confirm(`Link "${oldName}" to "${target.ign}" (${target.guildName || t('sovereign.common.unassigned')})? Their attendance, crusade, points and fee records under "${oldName}" are renamed to "${target.ign}".`)) return;
+  if (!confirm(`Link "${linkNameOldIgn}" to "${target.ign}"? Everything under "${linkNameOldIgn}" is renamed to "${target.ign}", including saved payouts.`)) return;
   try {
-    await api('/api/growth-submissions/merge', { method: 'POST', body: JSON.stringify({ keepId: target.id, extraNames: [oldName] }) });
-    const [growthSubmissions, events, fees] = await Promise.all([
+    await api('/api/growth-submissions/link-name', { method: 'POST', body: JSON.stringify({ keepId: target.id, oldIgn: linkNameOldIgn }) });
+    const [growthSubmissions, events, fees, payouts] = await Promise.all([
       api('/api/growth-submissions'),
       api('/api/world-boss-attendance'),
       api('/api/world-boss-management-fees'),
+      api('/api/salary-payouts'),
     ]);
     sovereignState.growthSubmissions = growthSubmissions;
     sovereignState.worldBossEvents = events;
     sovereignState.salaryManagementFees = fees;
+    sovereignState.salaryPayouts = payouts;
+    document.getElementById('linkNameModal').classList.add('hidden');
     renderSalaryManagementFees();
     renderSalaryComputation();
-    toast(`Linked "${oldName}" to "${target.ign}"`);
+    renderSalaryPayoutHistory();
+    toast(`Linked "${linkNameOldIgn}" to "${target.ign}"`);
   } catch (err) {
     toast(err.message);
   }
