@@ -6636,24 +6636,42 @@ function renderSalaryComputation() {
     };
   });
   // Growth Rate is the member list: a name with no entry there (removed
-  // from it, or an old IGN never linked) gets no share -- it's listed
-  // separately instead, with a way to link it to the member it belongs to.
+  // from it, or an old IGN never linked) isn't paid. Its share is still
+  // worked out as usual, then handed to the management fee recipients in
+  // proportion to their fee % -- taxed at their guilds' rates, since that's
+  // who receives it. With no fees set, it's split among members instead.
   const rows = allRows.filter((r) => r.hasGrowthEntry);
   const unlisted = allRows.filter((r) => !r.hasGrowthEntry).sort((a, b) => b.attendance - a.attendance);
-  document.getElementById('salaryUnlistedSection').classList.toggle('hidden', unlisted.length === 0);
-  document.getElementById('salaryUnlistedList').innerHTML = unlisted
-    .map(
-      (r) =>
-        `<span class="crusade-loot-chip">${escapeHtml(r.ign)} — ${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}${r.feePercent ? ` · ${r.feePercent}% fee` : ''}${linkOldIgnButton(r.ign)}</span>`
-    )
-    .join('');
   rows.forEach((r) => {
     r.taxPercent = guildTaxPercent(r.guildName);
+  });
+  const feeRecipients = rows.filter((r) => r.feePercent > 0);
+  const recipientFeeTotal = feeRecipients.reduce((sum, r) => sum + r.feePercent, 0);
+  const sendUnlistedToFees = unlisted.length > 0 && recipientFeeTotal > 0;
+  unlisted.forEach((r) => {
+    r.taxPercent = recipientFeeTotal ? feeRecipients.reduce((sum, f) => sum + f.taxPercent * f.feePercent, 0) / recipientFeeTotal : 0;
   });
 
   const diamondPool = parsePoolInputValue(document.getElementById('salaryDiamondPoolInput').value);
   const crowPool = parsePoolInputValue(document.getElementById('salaryCrowPoolInput').value);
-  const { diamondsToSplit } = computeSalaryShares(rows, { schedule: salaryActiveSchedule, diamondPool, crowPool });
+  const { diamondsToSplit } = computeSalaryShares(sendUnlistedToFees ? [...rows, ...unlisted] : rows, { schedule: salaryActiveSchedule, diamondPool, crowPool });
+  const forfeitedDiamonds = sendUnlistedToFees ? unlisted.reduce((sum, r) => sum + r.diamondFinal, 0) : 0;
+  const forfeitedCrows = sendUnlistedToFees ? unlisted.reduce((sum, r) => sum + r.crowFinal, 0) : 0;
+  feeRecipients.forEach((r) => {
+    r.diamondFinal += forfeitedDiamonds * (r.feePercent / recipientFeeTotal);
+    r.crowFinal += forfeitedCrows * (r.feePercent / recipientFeeTotal);
+  });
+
+  document.getElementById('salaryUnlistedSection').classList.toggle('hidden', unlisted.length === 0);
+  document.getElementById('salaryUnlistedNote').textContent = sendUnlistedToFees
+    ? `Their share — 💎 ${formatLootValue(forfeitedDiamonds) || 0} · 🪙 ${formatLootValue(forfeitedCrows) || 0} — goes to the management fee recipients (${feeRecipients.map((r) => r.ign).join(', ')}), split by fee %.`
+    : 'No management fees are set, so their share is split among members instead.';
+  document.getElementById('salaryUnlistedList').innerHTML = unlisted
+    .map(
+      (r) =>
+        `<span class="crusade-loot-chip">${escapeHtml(r.ign)} — ${r.attendance.toLocaleString()} ${t('sovereign.salary.thAttendance').toLowerCase()}${sendUnlistedToFees ? ` · 💎 ${formatLootValue(r.diamondFinal) || 0} to fees` : ''}${linkOldIgnButton(r.ign)}</span>`
+    )
+    .join('');
   const sendFeeNote = document.getElementById('salarySendFeeNote');
   sendFeeNote.innerHTML = `
     <span class="crusade-loot-chip diamonds">💎 Pool ${formatLootValue(diamondPool) || 0}</span>
