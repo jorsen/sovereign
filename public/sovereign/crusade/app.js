@@ -2712,7 +2712,71 @@ async function loadGrowthSubmissions() {
   sovereignState.unmatchedAttendeeNames = unmatchedAttendeeNames;
   populateGrowthFilterOptions(submissions);
   renderGrowthSubmissions();
+  loadIgnChangeRequests().catch((err) => toast(err.message));
 }
+
+// "I changed my IGN" posts from /uniongr waiting for an admin -- see
+// /api/ign-change-requests. Each card puts the old name's entry next to
+// the new post so the admin can tell it's the same character.
+async function loadIgnChangeRequests() {
+  const requests = await api('/api/ign-change-requests');
+  document.getElementById('growthIgnChangePanel').classList.toggle('hidden', requests.length === 0);
+  const compare = (label, before, after) => {
+    const changed = before !== null && before !== undefined && String(before) !== String(after);
+    return `<span class="crusade-loot-chip">${label}: ${before === null || before === undefined ? '' : `${escapeHtml(String(before))} → `}<strong${changed ? ' style="color:var(--gold);"' : ''}>${escapeHtml(String(after))}</strong></span>`;
+  };
+  document.getElementById('growthIgnChangeList').innerHTML = requests
+    .map((r) => {
+      const o = r.old;
+      const accountChip = !o
+        ? `<span class="crusade-loot-chip">"${escapeHtml(r.oldIgn)}" has no Growth Rate entry (${r.oldAttendance} attendance) — compare screenshots by hand</span>`
+        : o.sameDiscordAccount
+          ? '<span class="crusade-loot-chip" style="color:var(--green, #2ecc71);">✓ Same Discord account posted the old IGN</span>'
+          : `<span class="crusade-loot-chip" style="color:var(--red, #e74c3c);">⚠ Different Discord account (old: ${escapeHtml(o.discordUsername || 'unknown')})</span>`;
+      const shot = (src, caption) =>
+        `<figure style="margin:0;"><a href="${src}" target="_blank" rel="noopener"><img class="crusade-growth-thumb" src="${src}" alt="${escapeHtml(caption)}" loading="lazy"></a><figcaption style="font-size:12px; color:var(--text-muted);">${escapeHtml(caption)}</figcaption></figure>`;
+      return `
+      <div style="border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;">
+        <div style="font-weight:600; margin-bottom:6px;">${escapeHtml(r.oldIgn)} → ${escapeHtml(r.ign)}
+          <span style="font-weight:400; color:var(--text-muted); font-size:12px;"> · by ${escapeHtml(r.discordUsername || 'unknown')} · ${escapeHtml(formatLongDate(String(r.createdAt).slice(0, 10)))}</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+          ${accountChip}
+          ${compare('Growth Rate', o ? o.growthRate?.toLocaleString() : null, r.growthRate.toLocaleString())}
+          ${compare('Class', o ? o.class : null, r.class)}
+          ${compare('Guild', o ? o.guildName : null, r.guildName)}
+          ${compare('Lamp', o ? `+${o.lampLevel}` : null, `+${r.lampLevel}`)}
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:10px;">
+          ${o && o.hasImage ? shot(`/api/growth-submissions/${o.id}/image`, `Old: ${r.oldIgn}`) : ''}
+          ${shot(`/api/ign-change-requests/${r.id}/image`, `New: ${r.ign}`)}
+        </div>
+        <button type="button" class="btn small primary" data-ign-change-approve="${r.id}">Approve</button>
+        <button type="button" class="btn small" data-ign-change-reject="${r.id}">Reject</button>
+      </div>`;
+    })
+    .join('');
+}
+
+document.getElementById('growthIgnChangeList').addEventListener('click', async (e) => {
+  const approveId = e.target.closest('[data-ign-change-approve]')?.getAttribute('data-ign-change-approve');
+  const rejectId = e.target.closest('[data-ign-change-reject]')?.getAttribute('data-ign-change-reject');
+  if (!approveId && !rejectId) return;
+  try {
+    if (approveId) {
+      if (!confirm('Approve this IGN change? Every record under the old IGN (attendance, crusades, points, fees, history) is renamed to the new one.')) return;
+      const result = await api(`/api/ign-change-requests/${approveId}/approve`, { method: 'POST' });
+      toast(`Renamed "${result.oldIgn}" to "${result.ign}"`);
+    } else {
+      if (!confirm('Reject this IGN change? Nothing is renamed.')) return;
+      await api(`/api/ign-change-requests/${rejectId}/reject`, { method: 'POST' });
+      toast('IGN change rejected');
+    }
+    await loadGrowthSubmissions();
+  } catch (err) {
+    toast(err.message);
+  }
+});
 
 // Options are derived from whatever's actually in the data (not a hardcoded
 // list), so a class/guild that's since been renamed or retired doesn't leave

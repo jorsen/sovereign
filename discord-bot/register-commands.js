@@ -7,7 +7,14 @@ const commands = [
   new SlashCommandBuilder()
     .setName('uniongr')
     .setDescription('Submit your growth rate to the Growth Rate list')
-    .addStringOption((opt) => opt.setName('ign').setDescription('Your in-game name').setRequired(true))
+    .addStringOption((opt) => opt.setName('ign').setDescription('Your in-game name (your NEW one if you changed it)').setRequired(true))
+    .addStringOption((opt) =>
+      opt
+        .setName('ignchange')
+        .setDescription('Old or new IGN? Pick "I changed my IGN" if you were on the list under a different name')
+        .setRequired(true)
+        .addChoices({ name: 'Same IGN as before / first time', value: 'same' }, { name: 'I changed my IGN', value: 'changed' })
+    )
     .addStringOption((opt) =>
       opt
         .setName('class')
@@ -57,6 +64,12 @@ const commands = [
         .setName('screenshot')
         .setDescription('Full landscape screenshot showing your character + Artifacts tab (not just the popup cropped)')
         .setRequired(true)
+    )
+    // Only used with ignchange = "I changed my IGN" -- suggestions come from
+    // every name on our lists (see the autocomplete branch in
+    // lib/discordInteractions.js). The change waits for an admin to approve.
+    .addStringOption((opt) =>
+      opt.setName('oldign').setDescription('Changed your IGN? Start typing your OLD IGN and pick it').setRequired(false).setAutocomplete(true)
     )
     .toJSON(),
 ];

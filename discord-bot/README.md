@@ -60,13 +60,19 @@ You should see `Logged in as <BotName> — watching channel ...` in the
 console. Members submit with:
 
 ```
-/uniongr ign:<name> class:<pick from dropdown> guild:<pick from dropdown> lamp:<1-25> growthrate:<the Growth Rate number> screenshot:<attach the Artifacts-tab image>
+/uniongr ign:<name> ignchange:<Same IGN / I changed my IGN> class:<pick from dropdown> guild:<pick from dropdown> lamp:<1-25> growthrate:<the Growth Rate number> screenshot:<attach the Artifacts-tab image>
 ```
 
 The bot posts a confirmation embed into the channel and replies privately
 (✅ or an error) to whoever ran the command. It shows up on the Sovereign
 app's Growth Rate page right away. Deleting that confirmation embed later
 removes the entry from the page too.
+
+Someone who changed their IGN picks **I changed my IGN** and fills in the
+optional `oldign` (it suggests every name on our lists as they type). That
+post is not saved straight away: it waits under **IGN change requests** on
+the Growth Rate page until an admin approves it, and approving renames the
+old IGN everywhere.
 
 ## 5. Keep it running (hosting)
 

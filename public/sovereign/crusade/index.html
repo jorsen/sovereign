@@ -396,6 +396,11 @@
         <button id="growthFindDuplicatesBtn" type="button" class="btn small admin-only" data-i18n="sovereign.growth.findDuplicates">Find Duplicate Names</button>
         <button id="growthAddBtn" type="button" class="btn primary admin-only" data-i18n="sovereign.growth.addRecord">+ Add Record</button>
       </div>
+      <section id="growthIgnChangePanel" class="panel admin-only hidden">
+        <h3 style="margin-top:0;">IGN change requests</h3>
+        <p style="color:var(--text-muted); font-size:13px; margin:-4px 0 10px;">Posted on Discord with "I changed my IGN". Nothing is renamed until you approve. Check that the screenshots show the same character (class, gear, Growth Rate close to before) and whether the same Discord account posted the old name.</p>
+        <div id="growthIgnChangeList"></div>
+      </section>
       <section class="panel">
         <div class="crusade-growth-filters">
           <input type="text" id="growthSearchInput" placeholder="Search by IGN…" data-i18n-placeholder="sovereign.growth.searchPlaceholder">
