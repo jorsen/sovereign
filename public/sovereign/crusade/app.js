@@ -153,8 +153,16 @@ function crusadeIdFromHashSegment(segment) {
   return idx === -1 ? segment : segment.slice(idx + 2);
 }
 
+// Logged-out visitors only get the boss pages (and the Points/Salary pages
+// linked from them) -- everything else sends them to World Boss.
+const GUEST_HASHES = ['worldboss', 'balthazard', 'points', 'salary'];
+
 function route() {
   const hash = window.location.hash.slice(1);
+  if (!appSession.username && !GUEST_HASHES.includes(hash)) {
+    window.location.replace('#worldboss');
+    return;
+  }
   const teamMatch = hash.match(/^crusade\/([^/]+)\/team\/(\d+)$/);
   const guildSalaryMatch = hash.match(/^crusade\/([^/]+)\/guild-salary$/);
   const crusadeMatch = hash.match(/^crusade\/([^/]+)$/);

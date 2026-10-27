@@ -33,6 +33,7 @@ async function loadSession() {
   }
   document.body.classList.toggle('view-only', !canEdit());
   document.body.classList.toggle('not-admin', !isAdmin());
+  document.body.classList.toggle('guest', !appSession.username);
   const badge = document.getElementById('roleBadge');
   if (badge) badge.classList.toggle('hidden', canEdit() || isCrusadeEditor());
   const whoami = document.getElementById('whoamiBadge');
