@@ -23,15 +23,25 @@ const CLASS_CHOICES = [
 ];
 const GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL', 'BUBBLEGANG'];
 
-function addSubmissionOptions(sub) {
+// Growth Rate + screenshot are always required. class/guild/lamp are
+// required on changed-ign, but optional on same-ign: left empty, they're
+// copied from that IGN's current entry (see processUniongrSubmission), so a
+// returning member only has to update their GR. Discord needs every
+// required option listed before the optional ones.
+function addGrowthAndScreenshot(sub) {
   return sub
-    .addStringOption((opt) => opt.setName('class').setDescription('Your Class (4th advancement)').setRequired(true).addChoices(...CLASS_CHOICES.map((c) => ({ name: c, value: c }))))
-    .addStringOption((opt) => opt.setName('guild').setDescription('Your Guild').setRequired(true).addChoices(...GUILD_CHOICES.map((g) => ({ name: g, value: g }))))
-    .addIntegerOption((opt) => opt.setName('lamp').setDescription('Volcano Lamp Enhancement Level (the + next to it)').setRequired(true).setMinValue(1).setMaxValue(25))
     .addIntegerOption((opt) => opt.setName('growthrate').setDescription('Growth Rate Stat Shown at the Top of Character Details').setRequired(true).setMinValue(0))
     .addAttachmentOption((opt) =>
       opt.setName('screenshot').setDescription('Full Landscape Screenshot Showing Your Character + Artifacts Tab (Not Just the Popup Cropped)').setRequired(true)
     );
+}
+
+function addProfileOptions(sub, required) {
+  const hint = required ? '' : ' — Leave Empty to Keep Your Current One';
+  return sub
+    .addStringOption((opt) => opt.setName('class').setDescription(`Your Class (4th Advancement)${hint}`).setRequired(required).addChoices(...CLASS_CHOICES.map((c) => ({ name: c, value: c }))))
+    .addStringOption((opt) => opt.setName('guild').setDescription(`Your Guild${hint}`).setRequired(required).addChoices(...GUILD_CHOICES.map((g) => ({ name: g, value: g }))))
+    .addIntegerOption((opt) => opt.setName('lamp').setDescription(`Volcano Lamp Level (the + Number)${hint}`).setRequired(required).setMinValue(1).setMaxValue(25));
 }
 
 const commands = [
@@ -39,18 +49,29 @@ const commands = [
     .setName('uniongr')
     .setDescription('Submit your growth rate to the Growth Rate list')
     .addSubcommand((sub) =>
-      addSubmissionOptions(sub.setName('same-ign').setDescription('Same IGN as Before / First Time').addStringOption((opt) => opt.setName('ign').setDescription('Your In-Game Name').setRequired(true)))
+      addProfileOptions(
+        addGrowthAndScreenshot(
+          sub
+            .setName('same-ign')
+            .setDescription('Same IGN as Before / First Time')
+            .addStringOption((opt) => opt.setName('ign').setDescription('Your In-Game Name — Start Typing and Pick It').setRequired(true).setAutocomplete(true))
+        ),
+        false
+      )
     )
     // oldign suggestions come from every name on our lists (see the
     // autocomplete branch in lib/discordInteractions.js). The change waits
     // for an admin to approve it on the Growth Rate page.
     .addSubcommand((sub) =>
-      addSubmissionOptions(
-        sub
-          .setName('changed-ign')
-          .setDescription('I Changed My IGN (needs admin approval)')
-          .addStringOption((opt) => opt.setName('oldign').setDescription('Your OLD In-Game Name — Start Typing and Pick It').setRequired(true).setAutocomplete(true))
-          .addStringOption((opt) => opt.setName('ign').setDescription('Your NEW In-Game Name').setRequired(true))
+      addGrowthAndScreenshot(
+        addProfileOptions(
+          sub
+            .setName('changed-ign')
+            .setDescription('I Changed My IGN (needs admin approval)')
+            .addStringOption((opt) => opt.setName('oldign').setDescription('Your OLD In-Game Name — Start Typing and Pick It').setRequired(true).setAutocomplete(true))
+            .addStringOption((opt) => opt.setName('ign').setDescription('Your NEW In-Game Name').setRequired(true)),
+          true
+        )
       )
     )
     .toJSON(),
