@@ -75,6 +75,13 @@ not saved straight away: it waits under **IGN change requests** on the Growth
 Rate page until an admin approves it, and approving renames the old IGN
 everywhere.
 
+### Pinned how-to guide
+
+`node post-guide.js` posts the "How to Submit Your Growth Rate" guide in the
+channel and pins it. To change the wording later, edit `post-guide.js` and
+run `node post-guide.js <messageId>` to update that same message in place
+(current one: `1564743508433043527`).
+
 ## 5. Keep it running (hosting)
 
 This bot needs a persistent process (it holds a live connection to Discord),
