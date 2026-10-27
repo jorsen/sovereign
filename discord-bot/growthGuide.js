@@ -10,41 +10,63 @@ const GROWTH_GUIDE = {
       title: GROWTH_GUIDE_TITLE,
       color: 0x22c55e,
       description:
-        'Type **`/uniongr`** in this channel and pick one of the two options below. ' +
-        'Every field is required — Discord will walk you through them one by one.',
+        'Submissions only count when they go through the **`/uniongr`** command — normal chat messages are not saved.\n\n' +
+        '**Quick steps**\n' +
+        '1. **Take your screenshot first** (see 📸 below) so it\'s ready to attach.\n' +
+        '2. In this channel, type `/uniongr` and **click** the option that pops up — don\'t send it as plain text.\n' +
+        '3. Pick **same-ign** (most people) or **switched-ign** (only if you renamed your character).\n' +
+        '4. Fill in each field — click the next field, or press **Tab** to move along.\n' +
+        '5. Attach your screenshot and press **Enter** to send.\n' +
+        '6. Check the bot\'s reply — only you can see it.',
       fields: [
         {
           name: '1️⃣  `/uniongr same-ign` — Same IGN as Before / First Time',
           value:
-            'Use this if your in-game name hasn\'t changed (or it\'s your first submission).\n' +
-            '• **ign** — start typing and **pick your name** from the list (first time? just type it exactly as in game)\n' +
-            '• **growthrate** — the Growth Rate number at the top of Character Details\n' +
-            '• **screenshot** — attach your screenshot (see below)\n' +
-            '• **class / guild / lamp** — *optional when updating*: leave them empty to keep what you had. Fill them in only if they changed, or if it\'s your **first** submission.\n' +
-            'It\'s saved right away ✅',
+            'For updating your Growth Rate, or for your very first submission.\n' +
+            '• **ign** *(required)* — start typing and **pick your name** from the list so it matches exactly (symbols like ・ ツ 丶 included). First time? Type your name exactly as it shows in game.\n' +
+            '• **growthrate** *(required)* — the Growth Rate number at the top of **Character Details**. Numbers only — no commas or spaces.\n' +
+            '• **screenshot** *(required)* — your screenshot (see 📸 below).\n' +
+            '• **class / guild / lamp** *(optional when updating)* — leave them empty to keep what you had. Fill in only what changed. **First submission? Fill in all three.**\n' +
+            '  ‣ **lamp** = the **+number** on your Volcano Lamp (1–25)\n' +
+            '✅ Saved right away — submitting again simply replaces your old entry.',
         },
         {
           name: '2️⃣  `/uniongr switched-ign` — I Changed My IGN',
           value:
-            'Use this **only** if you renamed your character.\n' +
-            '• **oldign** — start typing your OLD name and **pick it from the list**\n' +
-            '• **ign** — your NEW in-game name\n' +
-            '• then class, guild, lamp, growthrate and screenshot, same as above\n' +
-            '⏳ This one waits for an **admin to approve** it. Once approved, your attendance and history move to your new name — nothing is lost.',
+            'Use this **only** if you renamed your character in game.\n' +
+            '• **oldign** — start typing your **OLD** name and **pick it from the list**\n' +
+            '• **ign** — your **NEW** name, exactly as in game\n' +
+            '• **class, guild, lamp, growthrate, screenshot** — all required here\n' +
+            '⏳ An **admin checks and approves** it first. Once approved, your attendance, salary and history move to your new name — nothing is lost. You\'ll see a message in this channel when it\'s done.',
         },
         {
-          name: '📸 Screenshot Rules',
+          name: '📸 Screenshot — What It Must Show',
           value:
-            '• **Full landscape screenshot** showing your character **and the Artifacts tab**\n' +
-            '• Don\'t crop it down to just the popup\n' +
-            '• The Growth Rate and lamp level must be readable',
+            '• **Full screen, landscape** (wider than it is tall)\n' +
+            '• Your **character** on screen **and** the **Character Details → Artifacts** tab open\n' +
+            '• The **Growth Rate** number and **Volcano Lamp +level** clearly readable\n' +
+            '**How to take it**\n' +
+            '• **PC:** press **Print Screen** (or **Win + Shift + S** → full screen) and save the image\n' +
+            '• **Phone:** hold the phone **sideways**, press **Power + Volume Down**\n' +
+            '**How to attach it**\n' +
+            '• Click the **screenshot** field, then **drag the image in** or click it to choose the file\n' +
+            '❌ **Rejected:** only the popup cropped out, a portrait (tall) image, blurry or cut-off numbers',
+        },
+        {
+          name: '🤖 What the Bot Replies',
+          value:
+            '• ✅ **Saved** — you\'re on the Growth Rate list.\n' +
+            '• ⏳ **Sent for admin approval** — switched-ign only; wait for the approval message.\n' +
+            '• ❌ **Error** — the reply says exactly what to fix. Fix it and run `/uniongr` again.\n' +
+            'Most common errors: cropped or portrait screenshot · picked the wrong IGN · first submission without class/guild/lamp.',
         },
         {
           name: '💡 Tips',
           value:
-            '• Updating your Growth Rate? Run `/uniongr same-ign`, pick your IGN, enter the new number and screenshot — that\'s it.\n' +
-            '• Made a mistake? Submit again with the right values.\n' +
-            '• The bot replies only to you (✅ or what went wrong). If `/uniongr` doesn\'t show up, ask an admin.',
+            '• Update whenever your Growth Rate goes up — same command, **same-ign**.\n' +
+            '• Changed guild, class or lamp? Fill in just that field; everything else carries over.\n' +
+            '• Made a mistake? Submit again with the right values — no duplicates are created.\n' +
+            '• `/uniongr` not showing up? Make sure you\'re in this channel, then ask an admin.',
         },
       ],
     },
