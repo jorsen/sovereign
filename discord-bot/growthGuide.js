@@ -5,7 +5,7 @@ const GROWTH_GUIDE_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '1547642467728
 const GROWTH_GUIDE_TITLE = '📈 How to Submit Your Growth Rate';
 // Drawn by make-infographic.js, served from public/guide/ on the site. Bump
 // ?v= after re-drawing it -- Discord caches embed images by URL.
-const GROWTH_GUIDE_IMAGE = 'https://sovereign-nightcrows.vercel.app/guide/uniongr-guide.png?v=1';
+const GROWTH_GUIDE_IMAGE = 'https://sovereign-nightcrows.vercel.app/guide/uniongr-guide.png?v=2';
 
 const GROWTH_GUIDE = {
   embeds: [

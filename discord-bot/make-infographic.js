@@ -7,7 +7,7 @@ const fs = require('fs');
 const sharp = require('sharp');
 
 const W = 1200;
-const H = 1440;
+const H = 1530;
 const OUT = path.join(__dirname, '..', 'public', 'guide', 'uniongr-guide.png');
 
 const C = {
@@ -93,66 +93,72 @@ const step4 = (x, y) =>
   text(x + 130, y + 280, 'Saved', { size: 34, weight: 800, fill: C.green }) +
   text(x + 130, y + 320, 'Only you can see this reply', { size: 24, weight: 500, fill: C.muted });
 
-// Screenshot section: correct vs wrong.
+// Screenshot section: a real correct screenshot (assets/correct-screenshot.png)
+// next to the "wrong" version -- the same image cropped down to just the
+// Character Details popup. Both are embedded in the SVG as data URIs.
 const SY = 960;
-function landscapeShot(x, y) {
-  const w = 520;
-  const h = 292;
+const SHOT = path.join(__dirname, 'assets', 'correct-screenshot.png');
+// Where the popup and the Growth Rate box sit in the source image (1470×917).
+const POPUP_CROP = { left: 15, top: 70, width: 335, height: 560 };
+const GR_BOX = { x: 48, y: 305, w: 274, h: 36 };
+
+function imageTag(x, y, w, h, dataUri, id) {
   return (
-    rect(x, y, w, h, { fill: '#0f1a24', stroke: C.green, sw: 6, r: 10 }) +
-    // character silhouette
-    `<circle cx="${x + 120}" cy="${y + 100}" r="34" fill="#4b6a85"/>` +
-    `<path d="M${x + 70} ${y + 250} q50 -130 100 0 z" fill="#4b6a85"/>` +
-    // Character Details / Artifacts panel
-    rect(x + 250, y + 30, 245, 232, { fill: '#22303d', stroke: '#5b7287', sw: 2, r: 8 }) +
-    text(x + 268, y + 66, 'Character Details', { size: 22, weight: 700 }) +
-    rect(x + 268, y + 82, 105, 34, { fill: C.gold, r: 6 }) +
-    text(x + 320, y + 107, 'Artifacts', { size: 20, weight: 800, fill: '#1e1f22', anchor: 'middle' }) +
-    text(x + 268, y + 158, 'Growth Rate', { size: 22, weight: 500, fill: C.muted }) +
-    text(x + 268, y + 194, '678,910', { size: 32, weight: 800, fill: C.gold }) +
-    text(x + 268, y + 240, 'Volcano Lamp +12', { size: 22, weight: 600, fill: C.text })
-  );
-}
-function croppedShot(x, y) {
-  return (
-    rect(x, y, 170, 292, { fill: '#22303d', stroke: C.red, sw: 6, r: 10 }) +
-    text(x + 85, y + 60, 'popup', { size: 22, weight: 600, fill: C.muted, anchor: 'middle' }) +
-    text(x + 85, y + 90, 'only', { size: 22, weight: 600, fill: C.muted, anchor: 'middle' }) +
-    text(x + 85, y + 160, '678,910', { size: 26, weight: 800, fill: C.gold, anchor: 'middle' })
+    `<clipPath id="${id}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/></clipPath>` +
+    `<image x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none" clip-path="url(#${id})" href="${dataUri}" xlink:href="${dataUri}"/>`
   );
 }
 
-const screenshotSection =
-  rect(30, SY, W - 60, 450) +
-  text(60, SY + 60, 'Your screenshot', { size: 38, weight: 800 }) +
-  landscapeShot(60, SY + 90) +
-  `<circle cx="${120}" cy="${SY + 405}" r="0"/>` +
-  check(60, SY + 392, 0.9) +
-  text(100, SY + 418, 'Full screen · landscape · Artifacts tab', { size: 24, weight: 700, fill: C.green }) +
-  croppedShot(680, SY + 90) +
-  text(870, SY + 150, 'Cropped popup', { size: 28, weight: 700, fill: C.text }) +
-  text(870, SY + 190, 'Tall / portrait image', { size: 28, weight: 700, fill: C.text }) +
-  text(870, SY + 230, 'Blurry or cut-off', { size: 28, weight: 700, fill: C.text }) +
-  text(870, SY + 270, 'numbers', { size: 28, weight: 700, fill: C.text }) +
-  cross(680, SY + 395, 0.9) +
-  text(720, SY + 418, 'Rejected', { size: 26, weight: 800, fill: C.red });
+async function screenshotSection() {
+  const meta = await sharp(SHOT).metadata();
+  const full = `data:image/png;base64,${(await sharp(SHOT).png().toBuffer()).toString('base64')}`;
+  const cropped = `data:image/png;base64,${(await sharp(SHOT).extract(POPUP_CROP).png().toBuffer()).toString('base64')}`;
 
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  const gw = 600;
+  const gh = Math.round((gw * meta.height) / meta.width);
+  const gx = 60;
+  const gy = SY + 90;
+  const k = gw / meta.width;
+
+  const bh = gh;
+  const bw = Math.round((bh * POPUP_CROP.width) / POPUP_CROP.height);
+  const bx = 690;
+  const by = gy;
+  const tx = bx + bw + 24;
+
+  return (
+    rect(30, SY, W - 60, 540) +
+    text(60, SY + 60, 'Your screenshot', { size: 38, weight: 800 }) +
+    imageTag(gx, gy, gw, gh, full, 'clipGood') +
+    rect(gx, gy, gw, gh, { fill: 'none', stroke: C.green, sw: 6, r: 10 }) +
+    // point at the Growth Rate number
+    rect(gx + GR_BOX.x * k - 6, gy + GR_BOX.y * k - 6, GR_BOX.w * k + 12, GR_BOX.h * k + 12, { fill: 'none', stroke: C.gold, sw: 4, r: 8 }) +
+    check(gx, gy + gh + 22, 0.9) +
+    text(gx + 42, gy + gh + 48, 'Full screen · landscape · Growth Rate visible', { size: 24, weight: 700, fill: C.green }) +
+    imageTag(bx, by, bw, bh, cropped, 'clipBad') +
+    rect(bx, by, bw, bh, { fill: 'none', stroke: C.red, sw: 6, r: 10 }) +
+    text(tx, by + 60, 'Cropped popup', { size: 26, weight: 700 }) +
+    text(tx, by + 100, 'Tall / portrait', { size: 26, weight: 700 }) +
+    text(tx, by + 140, 'Blurry numbers', { size: 26, weight: 700 }) +
+    cross(bx, by + bh + 22, 0.9) +
+    text(bx + 40, by + bh + 48, 'Rejected', { size: 26, weight: 800, fill: C.red })
+  );
+}
+
+(async () => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   ${rect(0, 0, W, H, { fill: C.bg, r: 0 })}
   ${text(W / 2, 82, 'How to submit your Growth Rate', { size: 52, weight: 800, anchor: 'middle' })}
   ${card(0, 'Type /uniongr', step1)}
   ${card(1, 'Pick an option', step2)}
   ${card(2, 'Fill in the fields', step3)}
   ${card(3, 'Send it', step4)}
-  ${screenshotSection}
+  ${await screenshotSection()}
 </svg>`;
-
-fs.mkdirSync(path.dirname(OUT), { recursive: true });
-sharp(Buffer.from(svg))
-  .png()
-  .toFile(OUT)
-  .then(() => console.log(`Saved ${OUT}`))
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  await sharp(Buffer.from(svg)).png().toFile(OUT);
+  console.log(`Saved ${OUT}`);
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
