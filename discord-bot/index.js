@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, EmbedBuilder } = require('discord.js');
 const sharp = require('sharp');
+const { GROWTH_GUIDE, GROWTH_GUIDE_TITLE } = require('./growthGuide');
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '1547642467728236706';
@@ -225,73 +226,42 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// The growth-rate channel only accepts submissions via the /uniongr slash
-// command -- interactions never fire messageCreate, so any messageCreate we
-// see here is a human typing plain chat (including someone literally typing
-// "/uniongr" as text instead of picking the actual slash command). Delete it
-// and point them at the real command instead of letting stray chat pile up.
+// The growth-rate channel only takes submissions through the /uniongr slash
+// command -- interactions never fire messageCreate, so any message we see
+// here is someone typing plain chat (or typing "/uniongr" as text instead of
+// picking the command). Reply with the full guide so they know what to do,
+// remove that reply after a couple of minutes, and keep the guide as the
+// newest message in the channel. Their own message is left alone.
+const GUIDE_REPLY_TTL_MS = 2 * 60 * 1000;
+let restickTimer = null;
+
+// Same as restickGrowthGuide in lib/discordInteractions.js: drop the bot's
+// previous bottom copy of the guide (never the pinned one) and post it again.
+// Debounced so a burst of chat only re-posts it once.
+function scheduleRestick(channel) {
+  clearTimeout(restickTimer);
+  restickTimer = setTimeout(async () => {
+    try {
+      const recent = await channel.messages.fetch({ limit: 50 });
+      const oldCopies = recent.filter((m) => m.author.id === client.user.id && !m.pinned && !m.reference && m.embeds[0]?.title === GROWTH_GUIDE_TITLE);
+      for (const m of oldCopies.values()) await m.delete().catch(() => {});
+      await channel.send(GROWTH_GUIDE);
+    } catch (err) {
+      console.error('Failed to re-post the growth guide:', err);
+    }
+  }, 10 * 1000);
+}
+
 client.on('messageCreate', async (message) => {
   if (message.channelId !== CHANNEL_ID || message.author.bot) return;
-  await message.delete().catch(() => {});
-  const guide = new EmbedBuilder()
-    .setColor(0xe74c3c)
-    .setTitle('This channel is for /uniongr submissions only')
-    .setDescription(
-      `${message.author}, plain messages aren't allowed here -- please use the **/uniongr** slash command instead.`
-    )
-    .addFields(
-      {
-        name: '🇬🇧 How to submit your Growth Rate',
-        value:
-          '1. Type `/uniongr` in this channel and pick it from the command list that pops up (don\'t just type it as text).\n' +
-          '2. Fill in your **IGN**, **Class**, **Guild**, and **Volcano Lamp** level.\n' +
-          '3. Enter your **Growth Rate** number.\n' +
-          '4. Attach a **screenshot** of your Growth Rate/Artifacts tab.\n' +
-          '5. Send it -- your entry shows up on the website automatically.',
-      },
-      DIVIDER_FIELD,
-      {
-        name: '🇨🇳 如何提交你的成长率 (Mandarin)',
-        value:
-          '1. 在此频道输入 `/uniongr`，并从弹出的指令列表中选择它（不要直接打字发送）。\n' +
-          '2. 填写你的 **IGN**、**职业**、**公会** 和 **火山灯** 等级。\n' +
-          '3. 输入你的 **成长率** 数值。\n' +
-          '4. 附上你 成长率/artifacts 页面的 **截图**。\n' +
-          '5. 发送即可 -- 你的数据会自动显示在网站上。',
-      },
-      DIVIDER_FIELD,
-      {
-        name: '🇯🇵 成長率の提出方法 (Japanese)',
-        value:
-          '1. このチャンネルで `/uniongr` と入力し、表示されるコマンド一覧から選択してください（文字として直接送信しないでください）。\n' +
-          '2. **IGN**、**クラス**、**ギルド**、**火山ランプ** レベルを入力します。\n' +
-          '3. **成長率** の数値を入力します。\n' +
-          '4. 成長率/アーティファクトタブの **スクリーンショット** を添付します。\n' +
-          '5. 送信すれば完了です -- あなたのデータは自動的にウェブサイトに表示されます。',
-      },
-      DIVIDER_FIELD,
-      {
-        name: '🇹🇭 วิธีส่ง Growth Rate ของคุณ (Thai)',
-        value:
-          '1. พิมพ์ `/uniongr` ในช่องนี้ แล้วเลือกจากรายการคำสั่งที่ปรากฏขึ้น (อย่าพิมพ์เป็นข้อความธรรมดา)\n' +
-          '2. กรอก **IGN**, **Class**, **Guild** และระดับ **Volcano Lamp** ของคุณ\n' +
-          '3. กรอกตัวเลข **Growth Rate** ของคุณ\n' +
-          '4. แนบ **ภาพหน้าจอ** ของแท็บ Growth Rate/Artifacts\n' +
-          '5. กดส่ง -- ข้อมูลของคุณจะแสดงบนเว็บไซต์โดยอัตโนมัติ',
-      },
-      DIVIDER_FIELD,
-      {
-        name: '🇻🇳 Cách gửi Growth Rate của bạn (Vietnamese)',
-        value:
-          '1. Gõ `/uniongr` trong kênh này và chọn nó từ danh sách lệnh hiện ra (đừng gõ như một tin nhắn thường).\n' +
-          '2. Điền **IGN**, **Class**, **Guild**, và cấp độ **Volcano Lamp** của bạn.\n' +
-          '3. Nhập số **Growth Rate** của bạn.\n' +
-          '4. Đính kèm **ảnh chụp màn hình** tab Growth Rate/Artifacts.\n' +
-          '5. Gửi đi -- thông tin của bạn sẽ tự động hiển thị trên website.',
-      }
-    );
-  const notice = await message.channel.send({ embeds: [guide] }).catch(() => null);
-  if (notice) setTimeout(() => notice.delete().catch(() => {}), 60000);
+  const reply = await message
+    .reply({ content: `${message.author} please use the **/uniongr** command here — type \`/uniongr\` and pick it from the list. How it works:`, ...GROWTH_GUIDE })
+    .catch((err) => {
+      console.error('Failed to reply with the guide:', err);
+      return null;
+    });
+  if (reply) setTimeout(() => reply.delete().catch(() => {}), GUIDE_REPLY_TTL_MS);
+  scheduleRestick(message.channel);
 });
 
 // Deleting the bot's own /uniongr confirmation post removes the growth-rate

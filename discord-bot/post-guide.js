@@ -12,7 +12,7 @@ if (!DISCORD_TOKEN) {
   process.exit(1);
 }
 
-const { GROWTH_GUIDE: guide } = require('../lib/growthGuide');
+const { GROWTH_GUIDE: guide } = require('./growthGuide');
 
 async function discord(method, path, body) {
   const res = await fetch(`https://discord.com/api/v10${path}`, {

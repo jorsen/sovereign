@@ -1,6 +1,6 @@
 // The "how to use /uniongr" guide shown in the growth-rate channel. Used by
 // discord-bot/post-guide.js (the pinned copy) and by restickGrowthGuide in
-// lib/discordInteractions.js (the copy kept at the bottom of the channel).
+// lib/discordInteractions.js and discord-bot/index.js (the copy kept at the bottom of the channel).
 const GROWTH_GUIDE_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '1547642467728236706';
 const GROWTH_GUIDE_TITLE = '📈 How to Submit Your Growth Rate';
 
