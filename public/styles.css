@@ -2482,9 +2482,14 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-member-panel-count, .crusade-member-panel-hint { color: var(--text-muted); font-size: 12px; margin: 0; }
 .crusade-member-panel-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 .crusade-member-chip {
-  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+  display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border-radius: 6px;
   background: var(--surface-1); border: 1px solid var(--border); cursor: grab; font-size: 13px; user-select: none;
 }
+/* Two lines: dot + name + GR on top; class and the No bid / Absent badges
+   underneath (indented past the dot) so a long name always stays readable. */
+.crusade-member-chip-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.crusade-member-chip-meta { flex-wrap: wrap; gap: 4px 6px; padding-left: 16px; }
+.crusade-member-chip-meta .crusade-member-chip-class { max-width: none; margin-right: auto; }
 .crusade-member-chip:hover { border-color: var(--gold); }
 .crusade-member-chip.is-dragging { opacity: 0.45; }
 .crusade-member-chip.is-taken { cursor: not-allowed; opacity: 0.5; }

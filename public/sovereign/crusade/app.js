@@ -1687,12 +1687,16 @@ function renderCrusadeMemberPanel(teamNumber) {
           const issue = onTeam === null ? crusadeStandingIssue(m.name, teamNumber) : null;
           return `
       <li class="crusade-member-chip${onTeam !== null ? ' is-taken' : ' admin-disable'}" ${onTeam === null ? `draggable="true" data-drag-member="${escapeHtml(m.name)}"` : ''} title="${onTeam !== null ? `Already on Team ${onTeam}` : flag ? escapeHtml(flag.reason) : 'Drag onto a party'}">
-        <span class="crusade-member-chip-dot" style="background:${color || 'var(--text-muted)'}"></span>
-        <span class="crusade-member-chip-name">${escapeHtml(m.name)}</span>
-        ${flag ? `<span class="crusade-member-chip-flag${issue ? ' is-blocking' : ''}">${flag.label}</span>` : ''}
-        ${crusadeAbsenceTag(m.name)}
-        ${m.className ? `<span class="crusade-member-chip-class">${escapeHtml(m.className)}</span>` : ''}
-        ${onTeam !== null ? `<span class="crusade-member-chip-tag">Team ${onTeam}</span>` : `<span class="crusade-member-chip-gr">${m.growthRate ? Number(m.growthRate).toLocaleString() : ''}</span>`}
+        <div class="crusade-member-chip-row">
+          <span class="crusade-member-chip-dot" style="background:${color || 'var(--text-muted)'}"></span>
+          <span class="crusade-member-chip-name">${escapeHtml(m.name)}</span>
+          ${onTeam !== null ? `<span class="crusade-member-chip-tag">Team ${onTeam}</span>` : `<span class="crusade-member-chip-gr">${m.growthRate ? Number(m.growthRate).toLocaleString() : ''}</span>`}
+        </div>
+        <div class="crusade-member-chip-row crusade-member-chip-meta">
+          ${m.className ? `<span class="crusade-member-chip-class">${escapeHtml(m.className)}</span>` : ''}
+          ${flag ? `<span class="crusade-member-chip-flag${issue ? ' is-blocking' : ''}">${flag.label}</span>` : ''}
+          ${crusadeAbsenceTag(m.name)}
+        </div>
       </li>`;
         })
         .join('')
