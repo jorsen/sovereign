@@ -4,7 +4,7 @@ require('dotenv').config();
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 // Two sub-commands instead of one form, so the "old or new IGN?" question
-// comes first and only /uniongr changed-ign asks for the old IGN (Discord
+// comes first and only /uniongr switched-ign asks for the old IGN (Discord
 // can't show or hide a field based on another field's answer). Both share
 // every other field via addSubmissionOptions.
 const CLASS_CHOICES = [
@@ -24,7 +24,7 @@ const CLASS_CHOICES = [
 const GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL', 'BUBBLEGANG'];
 
 // Growth Rate + screenshot are always required. class/guild/lamp are
-// required on changed-ign, but optional on same-ign: left empty, they're
+// required on switched-ign, but optional on same-ign: left empty, they're
 // copied from that IGN's current entry (see processUniongrSubmission), so a
 // returning member only has to update their GR. Discord needs every
 // required option listed before the optional ones.
@@ -66,7 +66,7 @@ const commands = [
       addGrowthAndScreenshot(
         addProfileOptions(
           sub
-            .setName('changed-ign')
+            .setName('switched-ign')
             .setDescription('I Changed My IGN (needs admin approval)')
             .addStringOption((opt) => opt.setName('oldign').setDescription('Your OLD In-Game Name — Start Typing and Pick It').setRequired(true).setAutocomplete(true))
             .addStringOption((opt) => opt.setName('ign').setDescription('Your NEW In-Game Name').setRequired(true)),

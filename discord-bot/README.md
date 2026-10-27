@@ -61,7 +61,7 @@ console. Members submit with:
 
 ```
 /uniongr same-ign ign:<name> class:<pick from dropdown> guild:<pick from dropdown> lamp:<1-25> growthrate:<the Growth Rate number> screenshot:<attach the Artifacts-tab image>
-/uniongr changed-ign oldign:<pick your old IGN> ign:<new name> class:... (same fields as above)
+/uniongr switched-ign oldign:<pick your old IGN> ign:<new name> class:... (same fields as above)
 ```
 
 The bot posts a confirmation embed into the channel and replies privately
@@ -69,7 +69,7 @@ The bot posts a confirmation embed into the channel and replies privately
 app's Growth Rate page right away. Deleting that confirmation embed later
 removes the entry from the page too.
 
-Someone who changed their IGN uses `/uniongr changed-ign`, which also asks for
+Someone who changed their IGN uses `/uniongr switched-ign`, which also asks for
 the old IGN (it suggests every name on our lists as they type). That post is
 not saved straight away: it waits under **IGN change requests** on the Growth
 Rate page until an admin approves it, and approving renames the old IGN
