@@ -589,7 +589,6 @@ function populateTeamDetailsForm(teamNumber) {
   form.elements.warType.value = t.warType || '';
   form.elements.stance.value = t.stance || '';
   form.elements.area.value = t.area || '';
-  form.elements.leader.value = t.leader || '';
   form.elements.result.value = t.result || 'pending';
   form.elements.diamondReward.value = t.diamondReward || 0;
   form.elements.attendancePct.value = t.attendancePct ?? 50;
@@ -684,7 +683,6 @@ document.getElementById('teamDetailsForm').addEventListener('submit', async (e) 
         warType: form.elements.warType.value || null,
         stance: form.elements.stance.value || null,
         area: form.elements.area.value || null,
-        leader: form.elements.leader.value || null,
         result: form.elements.result.value,
         diamondReward: Number(form.elements.diamondReward.value) || 0,
         attendancePct: Number(form.elements.attendancePct.value),
