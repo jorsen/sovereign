@@ -5443,7 +5443,7 @@ function renderSalaryPayoutHistory() {
           <tr>
             <td>${n + 1}</td>
             <td>${escapeHtml(r.ign)}</td>
-            <td>${val(r.growthRate, (v) => v.toLocaleString())}</td>
+            <td class="member-only">${val(r.growthRate, (v) => v.toLocaleString())}</td>
             <td>${(r.attendance || 0).toLocaleString()}</td>
             <td>${val(r.multiplier, (v) => `${v.toFixed(2)}x`)}</td>
             <td>${val(r.baseShare, (v) => `${(v * 100).toFixed(2)}%`)}</td>
@@ -5507,13 +5507,13 @@ function renderSalaryPayoutHistory() {
         <div class="table-scroll">
           <table class="members-table">
             <thead><tr>
-              <th>${t('sovereign.salary.thId')}</th><th>${t('sovereign.common.ign')}</th><th>${t('sovereign.salary.thGrowthRate')}</th><th>${t('sovereign.salary.thAttendance')}</th>
+              <th>${t('sovereign.salary.thId')}</th><th>${t('sovereign.common.ign')}</th><th class="member-only">${t('sovereign.salary.thGrowthRate')}</th><th>${t('sovereign.salary.thAttendance')}</th>
               <th>${t('sovereign.salary.thMultiplier')}</th><th>${t('sovereign.salary.thBaseShare')}</th><th>${t('sovereign.salary.thBaseMult')}</th><th>${t('sovereign.salary.thNormShare')}</th>
               <th>${t('sovereign.salary.thDiamondInitial')}</th><th>${t('sovereign.salary.thDiamondFinal')}</th><th>${t('sovereign.salary.thCrowInitial')}</th><th>${t('sovereign.salary.thCrowFinal')}</th>
             </tr></thead>
             <tbody>${computationRows}</tbody>
             <tfoot><tr>
-              <td colspan="8" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td>
+              <td colspan="2"></td><td class="member-only"></td><td colspan="5" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td>
               <td><strong>${formatLootValue(sumRows('diamonds'))}</strong></td><td></td><td><strong>${formatLootValue(sumRows('crows'))}</strong></td>
             </tr></tfoot>
           </table>
@@ -6699,7 +6699,7 @@ function renderSalaryComputation() {
     <tr>
       <td>${i + 1}</td>
       <td>${escapeHtml(r.ign)}</td>
-      <td>${r.growthRate.toLocaleString()}</td>
+      <td class="member-only">${r.growthRate.toLocaleString()}</td>
       <td>${r.attendance.toLocaleString()}</td>
       <td>${r.multiplier.toFixed(2)}x</td>
       <td>${(r.baseShare * 100).toFixed(2)}%</td>
@@ -6724,7 +6724,7 @@ function renderSalaryComputation() {
   const totalsRow = document.getElementById('salaryComputationTotals');
   totalsRow.classList.toggle('hidden', rows.length === 0);
   totalsRow.innerHTML = rows.length
-    ? `<td colspan="8" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td><td><strong>${formatLootValue(totals.diamondFinal)}</strong></td><td></td><td><strong>${formatLootValue(totals.crowFinal)}</strong></td>`
+    ? `<td colspan="2"></td><td class="member-only"></td><td colspan="5" style="text-align:right;">${t('sovereign.salary.thTotal')}</td><td></td><td><strong>${formatLootValue(totals.diamondFinal)}</strong></td><td></td><td><strong>${formatLootValue(totals.crowFinal)}</strong></td>`
     : '';
 
   renderSalaryGuildTotals(rows);
