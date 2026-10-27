@@ -6,7 +6,6 @@ require('dotenv').config();
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '1547642467728236706';
-const SITE = process.env.SOVEREIGN_API_BASE || 'https://sovereign-nightcrows.vercel.app';
 
 if (!DISCORD_TOKEN) {
   console.error('DISCORD_TOKEN is required (see .env.example).');
@@ -55,8 +54,7 @@ const guide = {
           value:
             '• Updating your Growth Rate? Just run `/uniongr same-ign` again — it replaces your old entry.\n' +
             '• Made a mistake? Submit again with the right values.\n' +
-            '• The bot replies only to you (✅ or what went wrong). If `/uniongr` doesn\'t show up, ask an admin.\n' +
-            `• See the list: ${SITE}/#growth`,
+            '• The bot replies only to you (✅ or what went wrong). If `/uniongr` doesn\'t show up, ask an admin.',
         },
       ],
     },
