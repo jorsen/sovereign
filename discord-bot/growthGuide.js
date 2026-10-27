@@ -3,12 +3,16 @@
 // lib/discordInteractions.js and discord-bot/index.js (the copy kept at the bottom of the channel).
 const GROWTH_GUIDE_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID || '1547642467728236706';
 const GROWTH_GUIDE_TITLE = '📈 How to Submit Your Growth Rate';
+// Drawn by make-infographic.js, served from public/guide/ on the site. Bump
+// ?v= after re-drawing it -- Discord caches embed images by URL.
+const GROWTH_GUIDE_IMAGE = 'https://sovereign-nightcrows.vercel.app/guide/uniongr-guide.png?v=1';
 
 const GROWTH_GUIDE = {
   embeds: [
     {
       title: GROWTH_GUIDE_TITLE,
       color: 0x22c55e,
+      image: { url: GROWTH_GUIDE_IMAGE },
       description:
         'Submissions only count when they go through the **`/uniongr`** command — normal chat messages are not saved.\n\n' +
         '**Quick steps**\n' +
@@ -45,9 +49,6 @@ const GROWTH_GUIDE = {
             '• **Full screen, landscape** (wider than it is tall)\n' +
             '• Your **character** on screen **and** the **Character Details → Artifacts** tab open\n' +
             '• The **Growth Rate** number and **Volcano Lamp +level** clearly readable\n' +
-            '**How to take it**\n' +
-            '• **PC:** press **Print Screen** (or **Win + Shift + S** → full screen) and save the image\n' +
-            '• **Phone:** hold the phone **sideways**, press **Power + Volume Down**\n' +
             '**How to attach it**\n' +
             '• Click the **screenshot** field, then **drag the image in** or click it to choose the file\n' +
             '❌ **Rejected:** only the popup cropped out, a portrait (tall) image, blurry or cut-off numbers',
