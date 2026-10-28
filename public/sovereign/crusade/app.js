@@ -37,11 +37,18 @@ function crusadeFormatItemQty(amount) {
 // separately-maintained "Member List" anymore, since that table drifted out
 // of sync with who's actually in each guild (missing/renamed guilds).
 // Deduped by IGN, case-insensitive; whichever submission is seen first wins.
+// Whether Auto Pick / the class picker may put this member on that team:
+// inactive members never, DEF-only members only on a Defense team.
+function crusadeMemberDeployable(m, teamNumber) {
+  if (!m.active) return false;
+  return !m.defenseOnly || getTeamData(teamNumber)?.stance === 'Defense';
+}
+
 function deriveMembersFromGrowthSubmissions(submissions) {
   const byName = new Map();
   (submissions || []).forEach((s) => {
     const key = s.ign.trim().toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, className: s.class || null, lampLevel: s.lampLevel, growthRate: s.growthRate, active: s.active !== false });
+    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, className: s.class || null, lampLevel: s.lampLevel, growthRate: s.growthRate, active: s.active !== false, defenseOnly: !!s.defenseOnly });
   });
   return Array.from(byName.values());
 }
@@ -1421,7 +1428,7 @@ function renderTeamDetail(n) {
       select.value = '';
       if (!className) return;
       const best = sovereignState.memberList
-        .filter((m) => m.active && m.className === className && crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, n))
+        .filter((m) => crusadeMemberDeployable(m, n) && m.className === className && crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, n))
         .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name))[0];
       if (!best) {
         toast(`No available ${className} left — everyone with that class is already on a team or blocked by a lineup rule`);
@@ -1533,6 +1540,7 @@ async function addMemberToParty(name, teamNumber, partySlot) {
     return;
   }
   const member = sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name));
+  if (member?.defenseOnly && getTeamData(teamNumber)?.stance !== 'Defense' && !confirm(`${name} is DEF only, but Team ${teamNumber} isn't a Defense team. Add them anyway?`)) return;
   try {
     const created = await participantApi(`/api/crusades/${sovereignState.crusadeId}/participants`, {
       method: 'POST',
@@ -1686,7 +1694,7 @@ function renderCrusadeMemberPanel(teamNumber) {
     .filter((m) => crusadeTeamOfName(m.name) !== teamNumber)
     .filter((m) => !query || crusadeNameKey(m.name).includes(query))
     .filter((m) => !classFilter || m.className === classFilter)
-    .sort((a, b) => (crusadeTeamOfName(a.name) === null ? 0 : 1) - (crusadeTeamOfName(b.name) === null ? 0 : 1) || (a.active ? 0 : 1) - (b.active ? 0 : 1) || (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
+    .sort((a, b) => (crusadeTeamOfName(a.name) === null ? 0 : 1) - (crusadeTeamOfName(b.name) === null ? 0 : 1) || (crusadeMemberDeployable(a, teamNumber) ? 0 : 1) - (crusadeMemberDeployable(b, teamNumber) ? 0 : 1) || (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
   const available = sovereignState.memberList.filter((m) => crusadeTeamOfName(m.name) === null).length;
   document.getElementById('crusadeMemberPanelCount').textContent = `${available} available`;
   list.innerHTML = members.length
@@ -1705,7 +1713,7 @@ function renderCrusadeMemberPanel(teamNumber) {
         </div>
         <div class="crusade-member-chip-row crusade-member-chip-meta">
           ${m.className ? `<span class="crusade-member-chip-class">${escapeHtml(m.className)}</span>` : ''}
-          ${m.active ? '' : '<span class="crusade-member-chip-flag is-inactive" title="Marked inactive on the Growth Rate page — skipped by Auto Pick">Inactive</span>'}
+          ${!m.active ? '<span class="crusade-member-chip-flag is-inactive" title="Marked inactive on the Growth Rate page — skipped by Auto Pick">Inactive</span>' : m.defenseOnly ? '<span class="crusade-member-chip-flag is-defense" title="DEF only — deployed on Defense teams only; Auto Pick skips them on Attack teams">DEF only</span>' : ''}
           ${flag ? `<span class="crusade-member-chip-flag${issue ? ' is-blocking' : ''}">${flag.label}</span>` : ''}
           ${crusadeAbsenceTag(m.name)}
         </div>
@@ -2148,7 +2156,7 @@ function planCrusadeAutoPick(teamNumber, partyCount) {
     hasPriest.set(slot, members.some((x) => isDivinePriest(classOf(x.name))));
   });
   const pool = sovereignState.memberList
-    .filter((m) => m.active && crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, teamNumber))
+    .filter((m) => crusadeMemberDeployable(m, teamNumber) && crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, teamNumber))
     .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
   const priests = pool.filter((m) => isDivinePriest(m.className));
   const plan = [];
@@ -2964,11 +2972,17 @@ function formatGrowthTimestamp(iso) {
   return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-// Everyone is Active unless marked otherwise, so only "Inactive" is shown to
-// viewers. Admins also see a faint "Active" they can click to switch it.
+// Member status: Active (default), DEF only, or Inactive. Admins get a
+// dropdown to change it; viewers just see a tag when it isn't Active.
 function growthStatusChip(s) {
-  if (s.active !== false) return `<button type="button" class="crusade-status-chip is-active admin-only" data-toggle-active="${s.id}" title="Active — click to mark inactive">Active</button>`;
-  return `<button type="button" class="crusade-status-chip is-inactive admin-disable" data-toggle-active="${s.id}" title="Inactive — click to mark active again">Inactive</button>`;
+  const status = s.active === false ? 'inactive' : s.defenseOnly ? 'defense' : 'active';
+  const tag = status === 'inactive' ? '<span class="crusade-status-chip is-inactive">Inactive</span>' : status === 'defense' ? '<span class="crusade-status-chip is-defense">DEF only</span>' : '';
+  const select = `<select class="crusade-status-select is-${status} admin-only" data-member-status="${s.id}" title="Member status">
+      <option value="active"${status === 'active' ? ' selected' : ''}>Active</option>
+      <option value="defense"${status === 'defense' ? ' selected' : ''}>DEF only</option>
+      <option value="inactive"${status === 'inactive' ? ' selected' : ''}>Inactive</option>
+    </select>`;
+  return `<span class="viewer-only-status">${tag}</span>${select}`;
 }
 
 function renderGrowthSubmissions() {
@@ -3031,25 +3045,26 @@ function renderGrowthSubmissions() {
   // actions. (The 📈 button is just the visible hint for this.)
   body.querySelectorAll('tr[data-growth-id]').forEach((tr) => {
     tr.addEventListener('click', (e) => {
-      if (e.target.closest('[data-view-growth-image], [data-edit-growth], [data-delete-growth], [data-toggle-active], a, input')) return;
+      if (e.target.closest('[data-view-growth-image], [data-edit-growth], [data-delete-growth], [data-member-status], a, input, select')) return;
       const s = submissions.find((x) => x.id === tr.getAttribute('data-growth-id'));
       if (s) openGrowthHistoryModal(s);
     });
   });
 
-  body.querySelectorAll('[data-toggle-active]').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const sub = submissions.find((x) => x.id === btn.getAttribute('data-toggle-active'));
+  body.querySelectorAll('[data-member-status]').forEach((select) => {
+    select.addEventListener('click', (e) => e.stopPropagation());
+    select.addEventListener('change', async () => {
+      const sub = submissions.find((x) => x.id === select.getAttribute('data-member-status'));
       if (!sub) return;
       try {
-        const updated = await api(`/api/growth-submissions/${sub.id}/active`, { method: 'PUT', body: JSON.stringify({ active: !sub.active }) });
+        const updated = await api(`/api/growth-submissions/${sub.id}/status`, { method: 'PUT', body: JSON.stringify({ status: select.value }) });
         const idx = sovereignState.growthSubmissions.findIndex((x) => x.id === sub.id);
-        if (idx !== -1) sovereignState.growthSubmissions[idx] = { ...sovereignState.growthSubmissions[idx], active: updated.active };
+        if (idx !== -1) sovereignState.growthSubmissions[idx] = { ...sovereignState.growthSubmissions[idx], active: updated.active, defenseOnly: updated.defenseOnly };
         renderGrowthSubmissions();
-        toast(`${sub.ign} marked ${updated.active ? 'active' : 'inactive'}`);
+        toast(`${sub.ign}: ${select.options[select.selectedIndex].text}`);
       } catch (err) {
         toast(err.message);
+        renderGrowthSubmissions();
       }
     });
   });
