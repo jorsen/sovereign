@@ -41,7 +41,7 @@ function deriveMembersFromGrowthSubmissions(submissions) {
   const byName = new Map();
   (submissions || []).forEach((s) => {
     const key = s.ign.trim().toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, className: s.class || null, lampLevel: s.lampLevel, growthRate: s.growthRate });
+    if (!byName.has(key)) byName.set(key, { name: s.ign, guildName: s.guildName, className: s.class || null, lampLevel: s.lampLevel, growthRate: s.growthRate, active: s.active !== false });
   });
   return Array.from(byName.values());
 }
@@ -1421,7 +1421,7 @@ function renderTeamDetail(n) {
       select.value = '';
       if (!className) return;
       const best = sovereignState.memberList
-        .filter((m) => m.className === className && crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, n))
+        .filter((m) => m.active && m.className === className && crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, n))
         .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name))[0];
       if (!best) {
         toast(`No available ${className} left — everyone with that class is already on a team or blocked by a lineup rule`);
@@ -1686,7 +1686,7 @@ function renderCrusadeMemberPanel(teamNumber) {
     .filter((m) => crusadeTeamOfName(m.name) !== teamNumber)
     .filter((m) => !query || crusadeNameKey(m.name).includes(query))
     .filter((m) => !classFilter || m.className === classFilter)
-    .sort((a, b) => (crusadeTeamOfName(a.name) === null ? 0 : 1) - (crusadeTeamOfName(b.name) === null ? 0 : 1) || (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
+    .sort((a, b) => (crusadeTeamOfName(a.name) === null ? 0 : 1) - (crusadeTeamOfName(b.name) === null ? 0 : 1) || (a.active ? 0 : 1) - (b.active ? 0 : 1) || (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
   const available = sovereignState.memberList.filter((m) => crusadeTeamOfName(m.name) === null).length;
   document.getElementById('crusadeMemberPanelCount').textContent = `${available} available`;
   list.innerHTML = members.length
@@ -1705,6 +1705,7 @@ function renderCrusadeMemberPanel(teamNumber) {
         </div>
         <div class="crusade-member-chip-row crusade-member-chip-meta">
           ${m.className ? `<span class="crusade-member-chip-class">${escapeHtml(m.className)}</span>` : ''}
+          ${m.active ? '' : '<span class="crusade-member-chip-flag is-inactive" title="Marked inactive on the Growth Rate page — skipped by Auto Pick">Inactive</span>'}
           ${flag ? `<span class="crusade-member-chip-flag${issue ? ' is-blocking' : ''}">${flag.label}</span>` : ''}
           ${crusadeAbsenceTag(m.name)}
         </div>
@@ -2147,7 +2148,7 @@ function planCrusadeAutoPick(teamNumber, partyCount) {
     hasPriest.set(slot, members.some((x) => isDivinePriest(classOf(x.name))));
   });
   const pool = sovereignState.memberList
-    .filter((m) => crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, teamNumber))
+    .filter((m) => m.active && crusadeTeamOfName(m.name) === null && !crusadeStandingIssue(m.name, teamNumber))
     .sort((a, b) => (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
   const priests = pool.filter((m) => isDivinePriest(m.className));
   const plan = [];
@@ -2963,6 +2964,13 @@ function formatGrowthTimestamp(iso) {
   return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+// Everyone is Active unless marked otherwise, so only "Inactive" is shown to
+// viewers. Admins also see a faint "Active" they can click to switch it.
+function growthStatusChip(s) {
+  if (s.active !== false) return `<button type="button" class="crusade-status-chip is-active admin-only" data-toggle-active="${s.id}" title="Active — click to mark inactive">Active</button>`;
+  return `<button type="button" class="crusade-status-chip is-inactive admin-disable" data-toggle-active="${s.id}" title="Inactive — click to mark active again">Inactive</button>`;
+}
+
 function renderGrowthSubmissions() {
   const all = sovereignState.growthSubmissions || [];
   const search = document.getElementById('growthSearchInput').value.trim().toLowerCase();
@@ -2985,7 +2993,7 @@ function renderGrowthSubmissions() {
       (s, i) => `
     <tr class="crusade-growth-row" data-growth-id="${s.id}" title="Click to see ${escapeHtml(s.ign)}'s Growth Rate history">
       <td>${i + 1}</td>
-      <td style="font-weight:600;">${escapeHtml(s.ign)} <button type="button" class="icon-btn crusade-growth-history-btn" data-growth-history="${s.id}" title="Growth Rate history">📈</button></td>
+      <td style="font-weight:600;">${escapeHtml(s.ign)} ${growthStatusChip(s)} <button type="button" class="icon-btn crusade-growth-history-btn" data-growth-history="${s.id}" title="Growth Rate history">📈</button></td>
       <td style="font-weight:600;">${s.growthRate !== null && s.growthRate !== undefined ? s.growthRate.toLocaleString() : '–'}</td>
       <td>${escapeHtml(s.class)}</td>
       <td>${crusadeGuildBadge(s.guildName)}</td>
@@ -3023,9 +3031,26 @@ function renderGrowthSubmissions() {
   // actions. (The 📈 button is just the visible hint for this.)
   body.querySelectorAll('tr[data-growth-id]').forEach((tr) => {
     tr.addEventListener('click', (e) => {
-      if (e.target.closest('[data-view-growth-image], [data-edit-growth], [data-delete-growth], a, input')) return;
+      if (e.target.closest('[data-view-growth-image], [data-edit-growth], [data-delete-growth], [data-toggle-active], a, input')) return;
       const s = submissions.find((x) => x.id === tr.getAttribute('data-growth-id'));
       if (s) openGrowthHistoryModal(s);
+    });
+  });
+
+  body.querySelectorAll('[data-toggle-active]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const sub = submissions.find((x) => x.id === btn.getAttribute('data-toggle-active'));
+      if (!sub) return;
+      try {
+        const updated = await api(`/api/growth-submissions/${sub.id}/active`, { method: 'PUT', body: JSON.stringify({ active: !sub.active }) });
+        const idx = sovereignState.growthSubmissions.findIndex((x) => x.id === sub.id);
+        if (idx !== -1) sovereignState.growthSubmissions[idx] = { ...sovereignState.growthSubmissions[idx], active: updated.active };
+        renderGrowthSubmissions();
+        toast(`${sub.ign} marked ${updated.active ? 'active' : 'inactive'}`);
+      } catch (err) {
+        toast(err.message);
+      }
     });
   });
 

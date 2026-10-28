@@ -2561,3 +2561,12 @@ body.view-only .crusade-roster-row .crusade-roster-name-click { pointer-events: 
 .crusade-absence-chip { flex: none; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; color: var(--text-muted); border: 1px solid var(--border, #334155); cursor: help; }
 .crusade-absence-chip.has-absences { color: #f97316; border-color: #f97316; }
 .crusade-absence-chip.has-nobids { color: #eab308; border-color: #eab308; }
+/* Member status (Growth Rate page + crusade Members panel). Everyone is
+   active by default, so only Inactive stands out; admins also get a faint
+   clickable "Active" to switch it. */
+.crusade-status-chip { font: inherit; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; cursor: pointer; vertical-align: middle; background: transparent; }
+.crusade-status-chip.is-active { color: var(--text-muted); border: 1px dashed var(--border); opacity: 0.7; }
+.crusade-status-chip.is-active:hover { opacity: 1; color: var(--bad); border-color: var(--bad); }
+.crusade-status-chip.is-inactive { color: #94a3b8; border: 1px solid #94a3b8; background: rgba(148, 163, 184, 0.12); }
+body.view-only .crusade-status-chip.is-inactive { opacity: 1; }
+.crusade-member-chip-flag.is-inactive { color: #94a3b8; border-color: #94a3b8; }
