@@ -130,6 +130,27 @@
       </section>
 
       <section class="panel">
+        <h2 style="margin:0 0 4px;">Crusade-wide Management Fee</h2>
+        <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;">Set it once here and it's taken off every winning team's reward — so 10% here is 10% of all the diamonds this crusade earns, however many teams there are. New teams then skip the per-team default fees, so it isn't taken twice.</p>
+        <ul id="crusadeWideFeeList" style="list-style:none; padding:0; margin:0 0 12px; display:flex; flex-direction:column; gap:8px;"></ul>
+        <p id="crusadeWideFeeEmptyState" class="empty-state hidden">No crusade-wide fee yet.</p>
+        <form id="addCrusadeWideFeeForm" class="admin-only" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+          <label style="flex:1; min-width:140px;"><span data-i18n="sovereign.common.ign">IGN</span>
+            <input type="text" name="name" maxlength="40" placeholder="Search the member list…" list="sovereignMemberSuggestions" autocomplete="off" required>
+          </label>
+          <label style="flex:1; min-width:120px;"><span data-i18n="sovereign.common.guild">Guild</span>
+            <select name="guildName" id="crusadeWideFeeGuildSelect">
+              <option value="">—</option>
+            </select>
+          </label>
+          <label style="flex:1; min-width:120px;"><span data-i18n="sovereign.team.percentLabel">Percent %</span>
+            <input type="number" name="percent" min="0" max="100" step="0.1" placeholder="e.g. 10" required>
+          </label>
+          <button type="submit" class="btn primary small" data-i18n="sovereign.team.addFee">+ Add Fee</button>
+        </form>
+      </section>
+
+      <section class="panel">
         <div class="view-header space-between" style="margin:0;">
           <div>
             <h2 style="margin:0;" data-i18n="sovereign.detail.salaryHeading">Crusade Salary</h2>

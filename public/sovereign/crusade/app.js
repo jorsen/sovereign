@@ -527,6 +527,7 @@ async function loadCrusadeDetail(id) {
   sovereignState.crusade = crusade;
   sovereignState.participants = crusade.participants;
   sovereignState.teams = crusade.teams;
+  sovereignState.crusadeFees = crusade.crusadeFees || [];
   sovereignState.guilds = guilds;
   sovereignState.memberList = deriveMembersFromGrowthSubmissions(growthSubmissions);
   sovereignState.defaultFees = defaultFees;
@@ -543,6 +544,7 @@ async function loadCrusadeDetail(id) {
   } else {
     document.title = `Sovereign — ${crusade.name}`;
     renderTeamList();
+    renderCrusadeWideFees();
   }
 }
 
@@ -616,7 +618,7 @@ document.querySelector('#teamDetailsForm select[name="stance"]').addEventListene
 
 function populateCrusadeGuildSelect() {
   const options = '<option value="">—</option>' + sovereignState.guilds.map((g) => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
-  ['crusadeParticipantGuildSelect', 'crusadeFeeGuildSelect', 'crusadeDefaultFeeGuildSelect'].forEach((id) => {
+  ['crusadeParticipantGuildSelect', 'crusadeFeeGuildSelect', 'crusadeDefaultFeeGuildSelect', 'crusadeWideFeeGuildSelect'].forEach((id) => {
     const select = document.getElementById(id);
     const current = select.value;
     select.innerHTML = options;
@@ -894,6 +896,17 @@ function computeCrusadeGuildSalaryDetail() {
         entry.onlyLostTeams = false;
       });
     }
+  });
+
+  // Crusade-wide fees: the % counts once (10% of the whole crusade, not
+  // 10% × number of teams), the amount is that % of every winning team.
+  (sovereignState.crusadeFees || []).forEach((fee) => {
+    const amount = allKnownTeamNumbers().reduce((sum, n) => sum + crusadeFeeAmount(fee, getTeamData(n)), 0);
+    if (amount <= 0) return;
+    const entry = ensureEntry(fee.guildName || 'Unassigned', fee.name.trim().toLowerCase(), fee.name);
+    entry.feePercent += Number(fee.percent) || 0;
+    entry.feeAmount += amount;
+    entry.onlyLostTeams = false;
   });
 
   // Pass 2: Defense-win bonus, credited by name to whoever bid gold on the
@@ -1428,7 +1441,7 @@ function renderTeamDetail(n) {
   renderCrusadeMemberPanel(n);
 
   const feeCreditsByGuild = new Map();
-  (team.fees || []).forEach((fee) => {
+  [...(team.fees || []), ...(sovereignState.crusadeFees || [])].forEach((fee) => {
     const guildKey = fee.guildName || 'Unassigned';
     feeCreditsByGuild.set(guildKey, (feeCreditsByGuild.get(guildKey) || 0) + crusadeFeeAmount(fee, team));
   });
@@ -2303,7 +2316,8 @@ function crusadeWasLost(team) {
 // minus every one of its fees' amounts.
 function totalTeamFeeAmount(team) {
   if (crusadeWasLost(team)) return 0;
-  return (team.fees || []).reduce((sum, f) => sum + team.diamondReward * (f.percent / 100), 0);
+  // Crusade-wide fees (set once on the crusade page) come off every team too.
+  return [...(team.fees || []), ...(sovereignState.crusadeFees || [])].reduce((sum, f) => sum + team.diamondReward * (f.percent / 100), 0);
 }
 
 // Winning on Defense splits a team's (post-fee) reward 60/40 instead of
@@ -2516,9 +2530,20 @@ function renderCrusadeFeeList(n) {
   const list = document.getElementById('crusadeFeeList');
   const team = getTeamData(n);
   const fees = team.fees || [];
-  document.getElementById('crusadeFeeListEmptyState').classList.toggle('hidden', fees.length !== 0);
+  const wideFees = sovereignState.crusadeFees || [];
+  document.getElementById('crusadeFeeListEmptyState').classList.toggle('hidden', fees.length + wideFees.length !== 0);
 
-  list.innerHTML = fees
+  const wideRows = wideFees
+    .map(
+      (fee) => `
+    <li style="display:flex; gap:8px; align-items:center;" title="Set once for the whole crusade on the crusade page">
+      <span style="flex:1; font-weight:600;">${escapeHtml(fee.name)} <span class="crusade-loot-chip">Crusade-wide</span></span>
+      ${crusadeGuildBadge(fee.guildName)}
+      <span style="color:var(--text-muted);">${fee.percent}% → ${crusadeFormatDiamonds(crusadeFeeAmount(fee, team))}</span>
+    </li>`
+    )
+    .join('');
+  list.innerHTML = wideRows + fees
     .map(
       (fee) => `
     <li style="display:flex; gap:8px; align-items:center;" data-fee-id="${fee.id}">
@@ -2596,6 +2621,70 @@ document.getElementById('addCrusadeFeeForm').addEventListener('submit', async (e
   } catch (err) {
     toast(err.message);
   }
+});
+
+// Crusade-wide fees (crusade page): each takes its % off every winning team,
+// so the amount shown is that % of the whole crusade's diamonds.
+function renderCrusadeWideFees() {
+  const fees = sovereignState.crusadeFees || [];
+  document.getElementById('crusadeWideFeeEmptyState').classList.toggle('hidden', fees.length !== 0);
+  const list = document.getElementById('crusadeWideFeeList');
+  list.innerHTML = fees
+    .map((fee) => {
+      const amount = allKnownTeamNumbers().reduce((sum, n) => sum + crusadeFeeAmount(fee, getTeamData(n)), 0);
+      return `
+    <li style="display:flex; gap:8px; align-items:center;">
+      <span style="flex:1; font-weight:600;">${escapeHtml(fee.name)}</span>
+      ${crusadeGuildBadge(fee.guildName)}
+      <span style="color:var(--text-muted);">${fee.percent}% of all teams → ${crusadeFormatDiamonds(amount)}</span>
+      <button type="button" class="icon-btn admin-only" data-delete-wide-fee="${fee.id}" title="Remove fee">✕</button>
+    </li>`;
+    })
+    .join('');
+  list.querySelectorAll('[data-delete-wide-fee]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const fee = fees.find((f) => f.id === btn.getAttribute('data-delete-wide-fee'));
+      if (!fee || !confirm(`Remove the ${fee.percent}% crusade-wide fee for "${fee.name}"?`)) return;
+      try {
+        await api(`/api/crusades/${sovereignState.crusadeId}/fees/${fee.id}`, { method: 'DELETE' });
+        sovereignState.crusadeFees = sovereignState.crusadeFees.filter((f) => f.id !== fee.id);
+        renderTeamList();
+        renderCrusadeWideFees();
+        toast('Fee removed');
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+  });
+}
+
+document.getElementById('addCrusadeWideFeeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  try {
+    const fee = await api(`/api/crusades/${sovereignState.crusadeId}/fees`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: form.elements.name.value,
+        guildName: form.elements.guildName.value || null,
+        percent: Number(form.elements.percent.value) || 0,
+      }),
+    });
+    sovereignState.crusadeFees = [...(sovereignState.crusadeFees || []), fee];
+    renderTeamList();
+    renderCrusadeWideFees();
+    form.reset();
+    toast(`${fee.name}'s crusade-wide fee added`);
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+document.querySelector('#addCrusadeWideFeeForm input[name="name"]').addEventListener('input', (e) => {
+  const guildSelect = document.getElementById('crusadeWideFeeGuildSelect');
+  if (guildSelect.value) return;
+  const match = sovereignState.memberList.find((m) => m.name.trim().toLowerCase() === e.target.value.trim().toLowerCase());
+  if (match && match.guildName) guildSelect.value = match.guildName;
 });
 
 // Copies the standing default fees onto THIS team -- for teams that already
