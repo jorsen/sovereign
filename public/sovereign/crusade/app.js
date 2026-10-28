@@ -364,7 +364,9 @@ document.getElementById('addCrusadeForm').addEventListener('submit', async (e) =
     const crusade = await api('/api/crusades', {
       method: 'POST',
       body: JSON.stringify({
-        name: fd.get('name'),
+        // No name field on the New Crusade form -- crusades are told apart by
+        // their date; it can still be renamed later under Crusade Info.
+        name: 'Crusade',
         eventDate: fd.get('eventDate') || null,
       }),
     });
