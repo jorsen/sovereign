@@ -885,7 +885,7 @@ function computeCrusadeGuildSalaryDetail() {
     // isn't on any roster) would still show up as a spurious 0-diamond row,
     // or even a whole empty guild card, for a fight that earned nothing.
     if (!isLostTeam) {
-      (team.fees || []).forEach((fee) => {
+      teamFeesInEffect(team).forEach((fee) => {
         const entry = ensureEntry(fee.guildName || 'Unassigned', fee.name.trim().toLowerCase(), fee.name);
         entry.feePercent += Number(fee.percent) || 0;
         entry.feeAmount += crusadeFeeAmount(fee, team);
@@ -1441,7 +1441,7 @@ function renderTeamDetail(n) {
   renderCrusadeMemberPanel(n);
 
   const feeCreditsByGuild = new Map();
-  [...(team.fees || []), ...(sovereignState.crusadeFees || [])].forEach((fee) => {
+  [...teamFeesInEffect(team), ...(sovereignState.crusadeFees || [])].forEach((fee) => {
     const guildKey = fee.guildName || 'Unassigned';
     feeCreditsByGuild.set(guildKey, (feeCreditsByGuild.get(guildKey) || 0) + crusadeFeeAmount(fee, team));
   });
@@ -2314,10 +2314,16 @@ function crusadeWasLost(team) {
 // top (e.g. a guild leader's cut) before anything else is computed — so the
 // pool that actually gets split by attendance/bid is that team's reward
 // minus every one of its fees' amounts.
+// Old per-team fees only count on a crusade with no crusade-wide fee -- once
+// one is set it replaces them, so the fee is never taken twice.
+function teamFeesInEffect(team) {
+  return (sovereignState.crusadeFees || []).length ? [] : team.fees || [];
+}
+
 function totalTeamFeeAmount(team) {
   if (crusadeWasLost(team)) return 0;
   // Crusade-wide fees (set once on the crusade page) come off every team too.
-  return [...(team.fees || []), ...(sovereignState.crusadeFees || [])].reduce((sum, f) => sum + team.diamondReward * (f.percent / 100), 0);
+  return [...teamFeesInEffect(team), ...(sovereignState.crusadeFees || [])].reduce((sum, f) => sum + team.diamondReward * (f.percent / 100), 0);
 }
 
 // Winning on Defense splits a team's (post-fee) reward 60/40 instead of
@@ -2529,7 +2535,7 @@ function crusadeFeeAmount(fee, team) {
 function renderCrusadeFeeList(n) {
   const list = document.getElementById('crusadeFeeList');
   const team = getTeamData(n);
-  const fees = team.fees || [];
+  const fees = teamFeesInEffect(team);
   // Management fees are set once per crusade now (crusade page); only a team
   // still carrying old per-team fees shows this panel, to see/remove them.
   document.getElementById('crusadeTeamFeesPanel').classList.toggle('hidden', fees.length === 0);
