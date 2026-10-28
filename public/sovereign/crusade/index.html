@@ -104,7 +104,7 @@
         <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.detail.clickTeamHint">Click a team to see its roster.</p>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button id="printAllRostersBtn" type="button" class="btn small" data-i18n="sovereign.detail.printAllRosters" title="Print every team's roster for this crusade on one page">🖨 Print All Rosters</button>
-          <button id="applyCrusadeDefaultFeesAllTeamsBtn" type="button" class="btn small admin-only" data-i18n="sovereign.detail.applyDefaultsAll">Apply Default Fees to All Teams</button>
+          <button id="applyCrusadeDefaultFeesAllTeamsBtn" type="button" class="btn small admin-only hidden" data-i18n="sovereign.detail.applyDefaultsAll">Apply Default Fees to All Teams</button>
           <button id="addCrusadeParticipantBtn" type="button" class="btn small admin-only" data-i18n="sovereign.common.addParticipant">+ Add Participant</button>
           <button id="addCrusadeBulkBtn" type="button" class="btn small admin-only" data-i18n="sovereign.common.addMultiple">+ Add Multiple</button>
           <button id="addCrusadeTeamBtn" type="button" class="btn primary admin-only" data-i18n="sovereign.detail.newTeam">+ New Team</button>
@@ -131,7 +131,7 @@
 
       <section class="panel">
         <h2 style="margin:0 0 4px;">Crusade-wide Management Fee</h2>
-        <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;">Set it once here and it's taken off every winning team's reward — so 10% here is 10% of all the diamonds this crusade earns, however many teams there are. New teams then skip the per-team default fees, so it isn't taken twice.</p>
+        <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;">Set it once here and it's taken off every winning team's reward — so 10% here is 10% of all the diamonds this crusade earns, however many teams there are. </p>
         <ul id="crusadeWideFeeList" style="list-style:none; padding:0; margin:0 0 12px; display:flex; flex-direction:column; gap:8px;"></ul>
         <p id="crusadeWideFeeEmptyState" class="empty-state hidden">No crusade-wide fee yet.</p>
         <form id="addCrusadeWideFeeForm" class="admin-only" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
@@ -341,18 +341,18 @@
         </form>
       </section>
 
-      <section class="panel">
+      <section id="crusadeTeamFeesPanel" class="panel hidden">
         <div class="view-header space-between" style="margin-bottom:6px;">
           <h2 style="margin:0;" data-i18n="sovereign.team.feesHeading">Management Fees</h2>
           <div style="display:flex; gap:8px;">
-            <button id="applyCrusadeDefaultFeesBtn" type="button" class="btn small admin-only" data-i18n="sovereign.team.applyDefaults">Apply Defaults</button>
-            <button id="manageCrusadeDefaultFeesBtn" type="button" class="btn small admin-only" data-i18n="sovereign.team.manageDefaultFees">Manage Default Fees</button>
+            <button id="applyCrusadeDefaultFeesBtn" type="button" class="btn small admin-only hidden" data-i18n="sovereign.team.applyDefaults">Apply Defaults</button>
+            <button id="manageCrusadeDefaultFeesBtn" type="button" class="btn small admin-only hidden" data-i18n="sovereign.team.manageDefaultFees">Manage Default Fees</button>
           </div>
         </div>
-        <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;" data-i18n="sovereign.team.feesHint">Each fee takes a percentage of this team's diamond reward off the top, before the rest is split by attendance/bid.</p>
+        <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;">Old per-team fees on this team — they still count. Management fees are now set once for the whole crusade on the crusade page; remove these with ✕ if that fee replaces them.</p>
         <ul id="crusadeFeeList" style="list-style:none; padding:0; margin:0 0 12px; display:flex; flex-direction:column; gap:8px;"></ul>
         <p id="crusadeFeeListEmptyState" class="empty-state hidden" data-i18n="sovereign.team.feesEmpty">No management fees added yet.</p>
-        <form id="addCrusadeFeeForm" class="admin-only" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+        <form id="addCrusadeFeeForm" class="admin-only hidden" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
           <label style="flex:1; min-width:140px;"><span data-i18n="sovereign.common.ign">IGN</span>
             <input type="text" name="name" maxlength="40" placeholder="Search the member list…" list="sovereignMemberSuggestions" autocomplete="off" required>
           </label>

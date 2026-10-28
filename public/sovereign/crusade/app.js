@@ -2530,20 +2530,12 @@ function renderCrusadeFeeList(n) {
   const list = document.getElementById('crusadeFeeList');
   const team = getTeamData(n);
   const fees = team.fees || [];
-  const wideFees = sovereignState.crusadeFees || [];
-  document.getElementById('crusadeFeeListEmptyState').classList.toggle('hidden', fees.length + wideFees.length !== 0);
+  // Management fees are set once per crusade now (crusade page); only a team
+  // still carrying old per-team fees shows this panel, to see/remove them.
+  document.getElementById('crusadeTeamFeesPanel').classList.toggle('hidden', fees.length === 0);
+  document.getElementById('crusadeFeeListEmptyState').classList.toggle('hidden', fees.length !== 0);
 
-  const wideRows = wideFees
-    .map(
-      (fee) => `
-    <li style="display:flex; gap:8px; align-items:center;" title="Set once for the whole crusade on the crusade page">
-      <span style="flex:1; font-weight:600;">${escapeHtml(fee.name)} <span class="crusade-loot-chip">Crusade-wide</span></span>
-      ${crusadeGuildBadge(fee.guildName)}
-      <span style="color:var(--text-muted);">${fee.percent}% → ${crusadeFormatDiamonds(crusadeFeeAmount(fee, team))}</span>
-    </li>`
-    )
-    .join('');
-  list.innerHTML = wideRows + fees
+  list.innerHTML = fees
     .map(
       (fee) => `
     <li style="display:flex; gap:8px; align-items:center;" data-fee-id="${fee.id}">
