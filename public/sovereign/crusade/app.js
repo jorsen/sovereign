@@ -1462,7 +1462,7 @@ function renderTeamDetail(n) {
 
 // Lineup rules (computed server-side from earlier crusades, see
 // computeCrusadeMemberStanding): "no bid twice" keeps someone off Attack
-// teams, "Defense no-show twice" bans them for the rest of the month. Returns
+// teams, absent in their last 2 crusades bans them for the rest of the month. Returns
 // the reason this name can't go on this team, or null. The team's stance is
 // the Team Details dropdown's current pick for the open team.
 function crusadeStandingIssue(name, teamNumber) {
