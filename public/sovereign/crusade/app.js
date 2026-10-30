@@ -2738,7 +2738,10 @@ function renderMercenaryPage() {
   document.getElementById('mercenaryPageDate').textContent = c?.eventDate ? formatLongDate(String(c.eventDate).slice(0, 10)) : '';
   const mercs = sovereignState.mercenaries || [];
   const memberOf = (name) => sovereignState.memberList.find((x) => crusadeNameKey(x.name) === crusadeNameKey(name));
-  const partyCount = Math.max(MERCENARY_MIN_PARTIES, mercPartyTarget.get(sovereignState.crusadeId) || 0, ...mercs.map((m) => m.partySlot || 1));
+  // 5 parties to start; after + Add Party / Remove Party, whatever count
+  // was chosen -- never fewer than the highest party someone is in, or 1.
+  const target = mercPartyTarget.has(sovereignState.crusadeId) ? mercPartyTarget.get(sovereignState.crusadeId) : MERCENARY_MIN_PARTIES;
+  const partyCount = Math.max(1, target, ...mercs.map((m) => m.partySlot || 1));
   const grid = document.getElementById('mercenaryPartyGrid');
   grid.innerHTML = Array.from({ length: partyCount }, (_, i) => i + 1)
     .map((slot) => {
