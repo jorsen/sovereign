@@ -179,6 +179,7 @@ function route() {
   }
   const teamMatch = hash.match(/^crusade\/([^/]+)\/team\/(\d+)$/);
   const guildSalaryMatch = hash.match(/^crusade\/([^/]+)\/guild-salary$/);
+  const mercenaryMatch = hash.match(/^crusade\/([^/]+)\/mercenaries$/);
   const crusadeMatch = hash.match(/^crusade\/([^/]+)$/);
 
   if (hash === 'raffle') {
@@ -230,6 +231,10 @@ function route() {
     sovereignState.crusadeId = crusadeIdFromHashSegment(teamMatch[1]);
     sovereignState.activeTeam = Number(teamMatch[2]);
     sovereignState.mode = 'team';
+  } else if (mercenaryMatch) {
+    sovereignState.crusadeId = crusadeIdFromHashSegment(mercenaryMatch[1]);
+    sovereignState.activeTeam = null;
+    sovereignState.mode = 'mercenaries';
   } else if (guildSalaryMatch) {
     sovereignState.crusadeId = crusadeIdFromHashSegment(guildSalaryMatch[1]);
     sovereignState.activeTeam = null;
@@ -244,7 +249,7 @@ function route() {
     loadCrusadeList().catch((err) => toast(err.message));
     return;
   }
-  showPanel(sovereignState.mode === 'overview' ? 'detail' : sovereignState.mode === 'guildSalary' ? 'guildSalary' : 'team');
+  showPanel(sovereignState.mode === 'overview' ? 'detail' : sovereignState.mode === 'guildSalary' ? 'guildSalary' : sovereignState.mode === 'mercenaries' ? 'mercenaries' : 'team');
   loadCrusadeDetail(sovereignState.crusadeId).catch((err) => toast(err.message));
 }
 
@@ -253,6 +258,7 @@ function showPanel(name) {
   document.getElementById('sovereignDetailPanel').classList.toggle('hidden', name !== 'detail');
   document.getElementById('sovereignGuildSalaryPanel').classList.toggle('hidden', name !== 'guildSalary');
   document.getElementById('sovereignTeamPanel').classList.toggle('hidden', name !== 'team');
+  document.getElementById('sovereignMercenaryPanel').classList.toggle('hidden', name !== 'mercenaries');
   document.getElementById('sovereignRafflePanel').classList.toggle('hidden', name !== 'raffle');
   document.getElementById('sovereignGrowthPanel').classList.toggle('hidden', name !== 'growth');
   // BF4 Boss and Balthazard reuse the same World Boss Attendance panel/markup
@@ -266,7 +272,7 @@ function showPanel(name) {
   document.querySelectorAll('#pageNav .nav-link').forEach((a) => a.classList.toggle('active', a.getAttribute('data-panel') === name));
   // Crusade-only accounts get edit controls on the crusade screens, and are
   // view-only everywhere else (the server enforces the same split).
-  if (isCrusadeEditor()) document.body.classList.toggle('view-only', !['list', 'detail', 'guildSalary', 'team'].includes(name));
+  if (isCrusadeEditor()) document.body.classList.toggle('view-only', !['list', 'detail', 'guildSalary', 'team', 'mercenaries'].includes(name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
   if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'balthazard', 'points', 'salary', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
 }
@@ -555,6 +561,9 @@ async function loadCrusadeDetail(id) {
   if (sovereignState.mode === 'team') {
     populateTeamDetailsForm(sovereignState.activeTeam);
     renderTeamDetail(sovereignState.activeTeam); // sets its own title
+  } else if (sovereignState.mode === 'mercenaries') {
+    document.title = `Sovereign — ${crusade.name} — Mercenaries`;
+    renderMercenaryPage();
   } else if (sovereignState.mode === 'guildSalary') {
     document.title = `Sovereign — ${crusade.name} — Crusade Salary`;
     renderCrusadeGuildSalary();
@@ -2642,62 +2651,211 @@ document.getElementById('addCrusadeFeeForm').addEventListener('submit', async (e
   }
 });
 
-// Mercenaries (crusade page): IGN / class / guild / GR from the Growth Rate
-// list, highest GR first.
+// Mercenaries summary on the crusade page; the set itself is edited on its
+// own page (#crusade/<slug>/mercenaries), laid out like a team.
 function renderCrusadeMercenaries() {
-  const mercs = (sovereignState.mercenaries || [])
-    .map((m) => ({ ...m, member: sovereignState.memberList.find((x) => crusadeNameKey(x.name) === crusadeNameKey(m.name)) }))
-    .sort((a, b) => (b.member?.growthRate || 0) - (a.member?.growthRate || 0) || a.name.localeCompare(b.name));
+  const mercs = sovereignState.mercenaries || [];
   document.getElementById('crusadeMercenaryCount').textContent = mercs.length ? `(${mercs.length})` : '';
-  document.getElementById('crusadeMercenaryEmptyState').classList.toggle('hidden', mercs.length !== 0);
-  const body = document.getElementById('crusadeMercenaryBody');
-  body.innerHTML = mercs
-    .map(
-      (m, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td style="font-weight:600;">${escapeHtml(m.name)}</td>
-      <td>${escapeHtml(m.member?.className || '–')}</td>
-      <td>${crusadeGuildBadge(m.member?.guildName || m.guildName)}</td>
-      <td>${m.member?.growthRate ? Number(m.member.growthRate).toLocaleString() : '–'}</td>
-      <td class="admin-only"><button type="button" class="icon-btn" data-remove-mercenary="${m.id}" title="Remove from Mercenaries">✕</button></td>
-    </tr>`
-    )
+  document.getElementById('crusadeMercenarySummary').textContent = mercs.length
+    ? mercs.map((m) => m.name).join(', ')
+    : "A separate set for this crusade, kept out of every team's line-up.";
+}
+
+document.getElementById('viewMercenariesLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  window.location.hash = `crusade/${crusadeSlugSegment(sovereignState.crusade)}/mercenaries`;
+});
+document.getElementById('sovereignMercenaryBackLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  window.location.hash = `crusade/${crusadeSlugSegment(sovereignState.crusade)}`;
+});
+
+const MERCENARY_MIN_PARTIES = 5;
+const mercDrag = { mercId: null, memberName: null };
+
+function renderMercenaryPage() {
+  const c = sovereignState.crusade;
+  document.getElementById('mercenaryPageDate').textContent = c?.eventDate ? formatLongDate(String(c.eventDate).slice(0, 10)) : '';
+  const mercs = sovereignState.mercenaries || [];
+  const memberOf = (name) => sovereignState.memberList.find((x) => crusadeNameKey(x.name) === crusadeNameKey(name));
+  const partyCount = Math.max(MERCENARY_MIN_PARTIES, ...mercs.map((m) => m.partySlot || 1));
+  const grid = document.getElementById('mercenaryPartyGrid');
+  grid.innerHTML = Array.from({ length: partyCount }, (_, i) => i + 1)
+    .map((slot) => {
+      const members = mercs
+        .filter((m) => (m.partySlot || 1) === slot)
+        .map((m) => ({ ...m, member: memberOf(m.name) }))
+        .sort((x, y) => (y.member?.growthRate || 0) - (x.member?.growthRate || 0) || x.name.localeCompare(y.name));
+      const rows = members
+        .map(
+          (m, i) => `
+        <tr class="crusade-roster-row" draggable="true" data-drag-merc="${m.id}">
+          <td>${i + 1}</td>
+          <td style="font-weight:600;">${escapeHtml(m.name)}</td>
+          <td>${escapeHtml(m.member?.className || '–')}</td>
+          <td>${crusadeGuildBadge(m.member?.guildName || m.guildName)}</td>
+          <td>${m.member?.growthRate ? Number(m.member.growthRate).toLocaleString() : '–'}</td>
+          <td class="admin-only"><button type="button" class="icon-btn" data-remove-merc="${m.id}" title="Remove from Mercenaries">✕</button></td>
+        </tr>`
+        )
+        .join('');
+      return `
+      <div class="crusade-party-card" data-merc-drop-slot="${slot}">
+        <div class="crusade-party-card-header"><h3>Party ${slot} — ${members.length}/${CRUSADE_PARTY_MAX_MEMBERS}</h3></div>
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead><tr><th>#</th><th>${t('sovereign.common.ign')}</th><th>Class</th><th>${t('sovereign.common.guild')}</th><th>Growth Rate</th><th class="admin-only"></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    })
     .join('');
-  body.querySelectorAll('[data-remove-mercenary]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const merc = sovereignState.mercenaries.find((m) => m.id === btn.getAttribute('data-remove-mercenary'));
-      if (!merc || !confirm(`Remove ${merc.name} from Mercenaries? They can be lined up on a team again.`)) return;
-      try {
-        await api(`/api/crusades/${sovereignState.crusadeId}/mercenaries/${merc.id}`, { method: 'DELETE' });
-        sovereignState.mercenaries = sovereignState.mercenaries.filter((m) => m.id !== merc.id);
-        renderCrusadeMercenaries();
-        toast(`${merc.name} removed from Mercenaries`);
-      } catch (err) {
-        toast(err.message);
-      }
+
+  grid.querySelectorAll('[data-remove-merc]').forEach((btn) => {
+    btn.addEventListener('click', () => removeMercenary(btn.getAttribute('data-remove-merc')));
+  });
+  grid.querySelectorAll('[data-drag-merc]').forEach((row) => {
+    row.addEventListener('dragstart', (e) => {
+      mercDrag.mercId = row.getAttribute('data-drag-merc');
+      mercDrag.memberName = null;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', mercDrag.mercId);
+      row.classList.add('crusade-roster-row-dragging');
+      document.getElementById('mercenaryMemberPanel').classList.add('crusade-member-panel-droppable');
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('crusade-roster-row-dragging');
+      mercDrag.mercId = null;
+      document.getElementById('mercenaryMemberPanel').classList.remove('crusade-member-panel-droppable', 'crusade-member-panel-drop-active');
+    });
+  });
+  grid.querySelectorAll('[data-merc-drop-slot]').forEach((card) => {
+    card.addEventListener('dragover', (e) => {
+      if (!mercDrag.mercId && !mercDrag.memberName) return;
+      e.preventDefault();
+      card.classList.add('crusade-party-dropzone-active');
+    });
+    card.addEventListener('dragleave', () => card.classList.remove('crusade-party-dropzone-active'));
+    card.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      card.classList.remove('crusade-party-dropzone-active');
+      const slot = Number(card.getAttribute('data-merc-drop-slot'));
+      if (mercDrag.memberName) await addMercenary(mercDrag.memberName, slot);
+      else if (mercDrag.mercId) await moveMercenary(mercDrag.mercId, slot);
+    });
+  });
+  renderMercenaryMemberPanel();
+}
+
+// Same chips as a team's Members panel: everyone not on a team of this
+// crusade and not already a mercenary, highest Growth Rate first.
+function renderMercenaryMemberPanel() {
+  const query = crusadeNameKey(document.getElementById('mercenaryMemberPanelSearch').value);
+  const classSelect = document.getElementById('mercenaryMemberPanelClass');
+  const picked = classSelect.value;
+  const classes = Array.from(new Set(sovereignState.memberList.map((m) => m.className).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  classSelect.innerHTML = '<option value="">All classes</option>' + classes.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  classSelect.value = classes.includes(picked) ? picked : '';
+  const pool = sovereignState.memberList.filter((m) => crusadeTeamOfName(m.name) === null && !crusadeIsMercenary(m.name));
+  document.getElementById('mercenaryMemberPanelCount').textContent = `${pool.length} available`;
+  const members = pool
+    .filter((m) => !query || crusadeNameKey(m.name).includes(query))
+    .filter((m) => !classSelect.value || m.className === classSelect.value)
+    .sort((a, b) => (a.active ? 0 : 1) - (b.active ? 0 : 1) || (b.growthRate || 0) - (a.growthRate || 0) || a.name.localeCompare(b.name));
+  const list = document.getElementById('mercenaryMemberPanelList');
+  list.innerHTML = members.length
+    ? members
+        .map((m) => {
+          const color = m.guildName ? crusadeGuildColor(m.guildName) : null;
+          return `
+      <li class="crusade-member-chip admin-disable" draggable="true" data-merc-drag-member="${escapeHtml(m.name)}" title="Drag onto a party">
+        <div class="crusade-member-chip-row">
+          <span class="crusade-member-chip-dot" style="background:${color || 'var(--text-muted)'}"></span>
+          <span class="crusade-member-chip-name">${escapeHtml(m.name)}</span>
+          <span class="crusade-member-chip-gr">${m.growthRate ? Number(m.growthRate).toLocaleString() : ''}</span>
+        </div>
+        <div class="crusade-member-chip-row crusade-member-chip-meta">
+          ${m.className ? `<span class="crusade-member-chip-class">${escapeHtml(m.className)}</span>` : ''}
+          ${!m.active ? '<span class="crusade-member-chip-flag is-inactive">Inactive</span>' : m.defenseOnly ? '<span class="crusade-member-chip-flag is-defense">DEF only</span>' : ''}
+          ${crusadeAbsenceTag(m.name)}
+        </div>
+      </li>`;
+        })
+        .join('')
+    : `<li class="crusade-member-panel-empty">${query || classSelect.value ? 'No matching members' : 'Everyone is already on a team or a mercenary'}</li>`;
+  list.querySelectorAll('[data-merc-drag-member]').forEach((chip) => {
+    chip.addEventListener('dragstart', (e) => {
+      mercDrag.memberName = chip.getAttribute('data-merc-drag-member');
+      mercDrag.mercId = null;
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('text/plain', mercDrag.memberName);
+      chip.classList.add('is-dragging');
+    });
+    chip.addEventListener('dragend', () => {
+      chip.classList.remove('is-dragging');
+      mercDrag.memberName = null;
     });
   });
 }
 
-document.getElementById('addCrusadeMercenaryForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const name = form.elements.name.value.trim();
+async function addMercenary(name, partySlot) {
   const member = sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name));
   try {
     const merc = await api(`/api/crusades/${sovereignState.crusadeId}/mercenaries`, {
       method: 'POST',
-      body: JSON.stringify({ name: member?.name || name, guildName: member?.guildName || null }),
+      body: JSON.stringify({ name: member?.name || name, guildName: member?.guildName || null, partySlot }),
     });
     sovereignState.mercenaries = [...(sovereignState.mercenaries || []), merc];
-    renderCrusadeMercenaries();
-    form.reset();
-    toast(`${merc.name} added to Mercenaries`);
+    renderMercenaryPage();
   } catch (err) {
     toast(err.message);
   }
-});
+}
+
+async function moveMercenary(mercId, partySlot) {
+  const merc = sovereignState.mercenaries.find((m) => m.id === mercId);
+  if (!merc || (merc.partySlot || 1) === partySlot) return;
+  try {
+    const updated = await api(`/api/crusades/${sovereignState.crusadeId}/mercenaries/${mercId}`, { method: 'PUT', body: JSON.stringify({ partySlot }) });
+    sovereignState.mercenaries = sovereignState.mercenaries.map((m) => (m.id === mercId ? updated : m));
+    renderMercenaryPage();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function removeMercenary(mercId) {
+  const merc = sovereignState.mercenaries.find((m) => m.id === mercId);
+  if (!merc) return;
+  try {
+    await api(`/api/crusades/${sovereignState.crusadeId}/mercenaries/${mercId}`, { method: 'DELETE' });
+    sovereignState.mercenaries = sovereignState.mercenaries.filter((m) => m.id !== mercId);
+    renderMercenaryPage();
+    toast(`${merc.name} removed from Mercenaries`);
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+// Dropping a mercenary row back on the Members panel removes them.
+(() => {
+  const panel = document.getElementById('mercenaryMemberPanel');
+  panel.addEventListener('dragover', (e) => {
+    if (!mercDrag.mercId) return;
+    e.preventDefault();
+    panel.classList.add('crusade-member-panel-drop-active');
+  });
+  panel.addEventListener('dragleave', () => panel.classList.remove('crusade-member-panel-drop-active'));
+  panel.addEventListener('drop', async (e) => {
+    if (!mercDrag.mercId) return;
+    e.preventDefault();
+    panel.classList.remove('crusade-member-panel-drop-active');
+    await removeMercenary(mercDrag.mercId);
+  });
+  document.getElementById('mercenaryMemberPanelSearch').addEventListener('input', renderMercenaryMemberPanel);
+  document.getElementById('mercenaryMemberPanelClass').addEventListener('change', renderMercenaryMemberPanel);
+})();
 
 // Crusade-wide fees (crusade page): each takes its % off every winning team,
 // so the amount shown is that % of the whole crusade's diamonds.
