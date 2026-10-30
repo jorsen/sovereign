@@ -2696,13 +2696,25 @@ document.getElementById('sovereignMercenaryBackLink').addEventListener('click', 
 
 const MERCENARY_MIN_PARTIES = 5;
 const mercDrag = { mercId: null, memberName: null };
+// How many party cards + Add Party asked for, per crusade. A party only
+// needs saving once someone's in it (their party_slot), so an empty one
+// just lives here until then.
+const mercPartyTarget = new Map();
+
+document.getElementById('addMercenaryPartyBtn').addEventListener('click', () => {
+  const shown = document.querySelectorAll('#mercenaryPartyGrid [data-merc-drop-slot]').length;
+  mercPartyTarget.set(sovereignState.crusadeId, shown + 1);
+  renderMercenaryPage();
+  const cards = document.querySelectorAll('#mercenaryPartyGrid [data-merc-drop-slot]');
+  cards[cards.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
 
 function renderMercenaryPage() {
   const c = sovereignState.crusade;
   document.getElementById('mercenaryPageDate').textContent = c?.eventDate ? formatLongDate(String(c.eventDate).slice(0, 10)) : '';
   const mercs = sovereignState.mercenaries || [];
   const memberOf = (name) => sovereignState.memberList.find((x) => crusadeNameKey(x.name) === crusadeNameKey(name));
-  const partyCount = Math.max(MERCENARY_MIN_PARTIES, ...mercs.map((m) => m.partySlot || 1));
+  const partyCount = Math.max(MERCENARY_MIN_PARTIES, mercPartyTarget.get(sovereignState.crusadeId) || 0, ...mercs.map((m) => m.partySlot || 1));
   const grid = document.getElementById('mercenaryPartyGrid');
   grid.innerHTML = Array.from({ length: partyCount }, (_, i) => i + 1)
     .map((slot) => {
