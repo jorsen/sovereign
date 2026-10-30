@@ -618,6 +618,7 @@ function populateTeamDetailsForm(teamNumber) {
   form.elements.warType.value = t.warType || '';
   form.elements.stance.value = t.stance || '';
   form.elements.area.value = t.area || '';
+  form.elements.areaNumber.value = t.areaNumber ?? '';
   form.elements.result.value = t.result || 'pending';
   form.elements.diamondReward.value = t.diamondReward || 0;
   form.elements.attendancePct.value = t.attendancePct ?? 50;
@@ -712,6 +713,7 @@ document.getElementById('teamDetailsForm').addEventListener('submit', async (e) 
         warType: form.elements.warType.value || null,
         stance: form.elements.stance.value || null,
         area: form.elements.area.value || null,
+        areaNumber: form.elements.areaNumber.value === '' ? null : Number(form.elements.areaNumber.value),
         result: form.elements.result.value,
         diamondReward: Number(form.elements.diamondReward.value) || 0,
         attendancePct: Number(form.elements.attendancePct.value),
@@ -810,7 +812,7 @@ function renderTeamList() {
         <td><a href="#crusade/${crusadeSlugSegment(sovereignState.crusade)}/team/${n}" style="font-weight:600;">${t('sovereign.common.team')} ${n}</a></td>
         <td>${crusadeStatusBadge(team.result)}</td>
         <td>${team.stance ? t(`sovereign.stance.${team.stance.toLowerCase()}`) : '–'}</td>
-        <td>${team.area ? escapeHtml(team.area) : '–'}</td>
+        <td>${team.area || team.areaNumber != null ? escapeHtml([team.areaNumber, team.area].filter((x) => x != null && x !== '').join(' ')) : '–'}</td>
         <td>${count}</td>
         <td>${crusadeFormatDiamonds(diamonds)}</td>
       </tr>`;
