@@ -1399,6 +1399,7 @@ function renderTeamDetail(n) {
               ${memberClasses.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${availableByClass.get(c) || 0})</option>`).join('')}
             </select>
             <button type="button" class="icon-btn admin-only" data-add-to-party-slot="${slot}" title="Add to Party ${slot}" ${full ? 'disabled' : ''}>+</button>
+            <button type="button" class="icon-btn" data-copy-party-slot="${slot}" title="Copy Party ${slot} (IGN, class)">📋</button>
           </div>
         </div>
         <div class="table-scroll">
@@ -1457,6 +1458,14 @@ function renderTeamDetail(n) {
       const full = sovereignState.participants.filter((x) => x.partyNumber === n && x.partySlot === slot).length >= CRUSADE_PARTY_MAX_MEMBERS;
       if (full) await addMemberWithBump(best, n, slot);
       else await addMemberToParty(best.name, n, slot);
+    });
+  });
+
+  body.querySelectorAll('[data-copy-party-slot]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const slot = Number(btn.getAttribute('data-copy-party-slot'));
+      const people = sovereignState.participants.filter((p) => p.partyNumber === n && (p.partySlot || 1) === slot);
+      copyPartySet(people.map((p) => p.name), `Team ${n} Party ${slot}`);
     });
   });
 
@@ -1796,6 +1805,21 @@ document.getElementById('crusadeMemberPanelClass').addEventListener('change', ()
 // Copies a name (e.g. a roster IGN to paste into the game) and says so.
 // Falls back to a hidden textarea where the async Clipboard API isn't
 // available (plain http, older browsers).
+// Copies one party: a header line, then IGN + class per member (tab-
+// separated, highest Growth Rate first) -- for Discord or a spreadsheet.
+function copyPartySet(names, label) {
+  if (!names.length) {
+    toast(`${label} is empty`);
+    return;
+  }
+  const memberOf = (name) => sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name));
+  const lines = names
+    .slice()
+    .sort((a, b) => (memberOf(b)?.growthRate || 0) - (memberOf(a)?.growthRate || 0) || a.localeCompare(b))
+    .map((name) => [name, memberOf(name)?.className || ''].join('\t'));
+  copyTextToClipboard([label, ...lines].join('\n'), `Copied ${label} (${lines.length})`);
+}
+
 async function copyTextToClipboard(text, message) {
   try {
     if (navigator.clipboard && window.isSecureContext) {
@@ -2737,7 +2761,13 @@ function renderMercenaryPage() {
         .join('');
       return `
       <div class="crusade-party-card" data-merc-drop-slot="${slot}">
-        <div class="crusade-party-card-header"><h3>Party ${slot} — ${members.length}/${CRUSADE_PARTY_MAX_MEMBERS}</h3></div>
+        <div class="crusade-party-card-header">
+          <h3>Party ${slot} — ${members.length}/${CRUSADE_PARTY_MAX_MEMBERS}</h3>
+          <div class="crusade-party-card-actions">
+            <button type="button" class="icon-btn" data-copy-merc-party="${slot}" title="Copy Party ${slot} (IGN, class)">📋</button>
+            <button type="button" class="icon-btn admin-only" data-remove-merc-party="${slot}" title="Remove Party ${slot}">🗑</button>
+          </div>
+        </div>
         <div class="table-scroll">
           <table class="members-table">
             <thead><tr><th>#</th><th>${t('sovereign.common.ign')}</th><th>Class</th><th>${t('sovereign.common.guild')}</th><th>Growth Rate</th><th class="admin-only"></th></tr></thead>
@@ -2747,6 +2777,16 @@ function renderMercenaryPage() {
       </div>`;
     })
     .join('');
+
+  grid.querySelectorAll('[data-copy-merc-party]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const slot = Number(btn.getAttribute('data-copy-merc-party'));
+      copyPartySet(mercs.filter((m) => (m.partySlot || 1) === slot).map((m) => m.name), `Mercenaries Party ${slot}`);
+    });
+  });
+  grid.querySelectorAll('[data-remove-merc-party]').forEach((btn) => {
+    btn.addEventListener('click', () => removeMercenaryParty(Number(btn.getAttribute('data-remove-merc-party')), partyCount));
+  });
 
   grid.querySelectorAll('[data-remove-merc]').forEach((btn) => {
     btn.addEventListener('click', () => removeMercenary(btn.getAttribute('data-remove-merc')));
@@ -2858,6 +2898,30 @@ async function moveMercenary(mercId, partySlot) {
     renderMercenaryPage();
   } catch (err) {
     toast(err.message);
+  }
+}
+
+// Removes a whole party: its mercenaries are taken off (after a confirm),
+// and every later party moves up one so the numbering has no gap.
+async function removeMercenaryParty(slot, partyCount) {
+  const inParty = sovereignState.mercenaries.filter((m) => (m.partySlot || 1) === slot);
+  if (inParty.length && !confirm(`Remove Party ${slot} and its ${inParty.length} mercenar${inParty.length === 1 ? 'y' : 'ies'} (${inParty.map((m) => m.name).join(', ')})?`)) return;
+  try {
+    for (const m of inParty) {
+      await api(`/api/crusades/${sovereignState.crusadeId}/mercenaries/${m.id}`, { method: 'DELETE' });
+    }
+    let mercs = sovereignState.mercenaries.filter((m) => (m.partySlot || 1) !== slot);
+    for (const m of mercs.filter((x) => (x.partySlot || 1) > slot).sort((a, b) => a.partySlot - b.partySlot)) {
+      const updated = await api(`/api/crusades/${sovereignState.crusadeId}/mercenaries/${m.id}`, { method: 'PUT', body: JSON.stringify({ partySlot: m.partySlot - 1 }) });
+      mercs = mercs.map((x) => (x.id === m.id ? updated : x));
+    }
+    sovereignState.mercenaries = mercs;
+    mercPartyTarget.set(sovereignState.crusadeId, partyCount - 1);
+    renderMercenaryPage();
+    toast(`Party ${slot} removed`);
+  } catch (err) {
+    toast(err.message);
+    await loadCrusadeDetail(sovereignState.crusadeId);
   }
 }
 
