@@ -1796,7 +1796,7 @@ document.getElementById('crusadeMemberPanelClass').addEventListener('change', ()
 // Copies a name (e.g. a roster IGN to paste into the game) and says so.
 // Falls back to a hidden textarea where the async Clipboard API isn't
 // available (plain http, older browsers).
-async function copyTextToClipboard(text) {
+async function copyTextToClipboard(text, message) {
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
@@ -1811,7 +1811,7 @@ async function copyTextToClipboard(text) {
       document.execCommand('copy');
       ta.remove();
     }
-    toast(`Copied "${text}"`);
+    toast(message || `Copied "${text}"`);
   } catch (err) {
     toast('Could not copy — select the name and copy it manually');
   }
@@ -2138,6 +2138,30 @@ function printAllCrusadeRosters() {
 }
 
 document.getElementById('printAllRostersBtn').addEventListener('click', printAllCrusadeRosters);
+
+// Copy Roster: one line per person -- IGN, class, team -- tab-separated so
+// it pastes into Discord as a list or into a spreadsheet as 3 columns.
+// Teams in order (party, then Growth Rate inside each), mercenaries last.
+document.getElementById('copyCrusadeRosterBtn').addEventListener('click', () => {
+  const memberOf = (name) => sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name));
+  const gr = (name) => memberOf(name)?.growthRate || 0;
+  const lines = [];
+  visibleTeamNumbers().forEach((n) => {
+    sovereignState.participants
+      .filter((p) => p.partyNumber === n)
+      .sort((a, b) => (a.partySlot || 1) - (b.partySlot || 1) || gr(b.name) - gr(a.name))
+      .forEach((p) => lines.push([p.name, memberOf(p.name)?.className || '', `Team ${n}`].join('\t')));
+  });
+  (sovereignState.mercenaries || [])
+    .slice()
+    .sort((a, b) => (a.partySlot || 1) - (b.partySlot || 1) || gr(b.name) - gr(a.name))
+    .forEach((m) => lines.push([m.name, memberOf(m.name)?.className || '', 'Mercenary'].join('\t')));
+  if (!lines.length) {
+    toast('Nobody is lined up on this crusade yet');
+    return;
+  }
+  copyTextToClipboard(['IGN\tClass\tTeam', ...lines].join('\n'), `Copied ${lines.length} ${lines.length === 1 ? 'person' : 'people'} (IGN, class, team)`);
+});
 document.getElementById('printTeamRosterBtn').addEventListener('click', () => printCrusadeTeamRoster(sovereignState.activeTeam));
 
 document.getElementById('clearTeamRosterBtn').addEventListener('click', async () => {
