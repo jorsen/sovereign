@@ -2094,10 +2094,11 @@ function crusadeTeamPrintSheet(teamNumber, useForm) {
 // Prints the given teams' sheets on ONE landscape page -- stacked, then
 // shrunk to fit the page if they're taller than it -- straight to the
 // browser's print preview (rendered in a hidden frame, no new tab).
-function printCrusadeRosterSheets(teamNumbers, useForm) {
+function printCrusadeRosterSheets(teamNumbers, useForm, extraSheets = [], titleOverride = null) {
   const esc = escapeHtml;
   const crusadeName = sovereignState.crusade?.name || 'Crusade';
-  const title = teamNumbers.length === 1 ? `${crusadeName} — Team ${teamNumbers[0]} Roster` : `${crusadeName} — All Rosters`;
+  const title = titleOverride || (teamNumbers.length === 1 && !extraSheets.length ? `${crusadeName} — Team ${teamNumbers[0]} Roster` : `${crusadeName} — All Rosters`);
+  const sheetCount = teamNumbers.length + extraSheets.length;
   const html = `<!doctype html><html><head><meta charset="utf-8">
 <title>${esc(title)}</title>
 <style>
@@ -2125,8 +2126,8 @@ function printCrusadeRosterSheets(teamNumbers, useForm) {
   .box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #555; border-radius: 2px; background: #fff; vertical-align: middle; position: relative; }
   .box.on::after { content: "✓"; position: absolute; left: 1px; top: -3px; font-size: 13px; font-weight: 700; color: #15803d; }
   @media print { body { padding: 0; } @page { size: landscape; margin: 8mm; } }
-</style></head><body class="${teamNumbers.length > 1 ? 'multi' : ''}">
-${teamNumbers.map((n) => crusadeTeamPrintSheet(n, useForm && n === sovereignState.activeTeam)).join('\n')}
+</style></head><body class="${sheetCount > 1 ? 'multi' : ''}">
+${[...teamNumbers.map((n) => crusadeTeamPrintSheet(n, useForm && n === sovereignState.activeTeam)), ...extraSheets].join('\n')}
 </body></html>`;
   document.getElementById('crusadePrintFrame')?.remove();
   const frame = document.createElement('iframe');
@@ -2158,12 +2159,60 @@ function printCrusadeTeamRoster(teamNumber) {
 // Every team of the open crusade (the crusade's date lineup), in team order.
 function printAllCrusadeRosters() {
   const numbers = Array.from(new Set([...sovereignState.teams.map((t) => t.teamNumber), ...sovereignState.participants.map((x) => x.partyNumber)])).sort((a, b) => a - b);
-  if (!numbers.length) {
+  const mercs = (sovereignState.mercenaries || []).length ? [crusadeMercenaryPrintSheet()] : [];
+  if (!numbers.length && !mercs.length) {
     toast('This crusade has no teams to print yet');
     return;
   }
-  printCrusadeRosterSheets(numbers, false);
+  printCrusadeRosterSheets(numbers, false, mercs);
 }
+
+// The Mercenaries set as a print sheet, same look as a team's: a banner,
+// then each party (Name / Guild / Class / Growth Rate), highest GR first.
+function crusadeMercenaryPrintSheet() {
+  const esc = escapeHtml;
+  const theme = CRUSADE_PRINT_TEAM_THEMES[CRUSADE_PRINT_TEAM_THEMES.length - 1];
+  const mercs = sovereignState.mercenaries || [];
+  const memberOf = (name) => sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name));
+  const used = Array.from(new Set(mercs.map((m) => m.partySlot || 1))).sort((a, b) => a - b);
+  const slots = used.length ? used : [1];
+  const c = sovereignState.crusade;
+  const partyTable = (slot) => {
+    const rows = mercs
+      .filter((m) => (m.partySlot || 1) === slot)
+      .map((m) => ({ ...m, member: memberOf(m.name) }))
+      .sort((a, b) => (b.member?.growthRate || 0) - (a.member?.growthRate || 0) || a.name.localeCompare(b.name));
+    const cells = Array.from({ length: CRUSADE_PARTY_MAX_MEMBERS }, (_, i) => {
+      const m = rows[i];
+      if (!m) return '<tr><td class="name"></td><td></td><td></td><td class="gold"></td></tr>';
+      const guild = m.member?.guildName || m.guildName;
+      const className = m.member?.className || '';
+      return `<tr>
+        <td class="name${i === 0 ? ' lead' : ''}">${esc(m.name)}</td>
+        <td>${guild ? `<span class="pill" style="background:${crusadeGuildColor(guild) || '#64748b'}">${esc(guild)}</span>` : ''}</td>
+        <td>${className ? `<span class="pill" style="background:${crusadePrintClassColor(className)}">${esc(className)}</span>` : ''}</td>
+        <td class="gold">${m.member?.growthRate ? Number(m.member.growthRate).toLocaleString() : ''}</td>
+      </tr>`;
+    }).join('');
+    return `<table class="party">
+      <thead><tr><th colspan="4" class="party-title">Party ${slot}</th></tr>
+      <tr><th>Name</th><th>Guild</th><th>Class</th><th>Growth Rate</th></tr></thead>
+      <tbody>${cells}</tbody></table>`;
+  };
+  const date = c?.eventDate ? formatLongDate(String(c.eventDate).slice(0, 10)) : '';
+  return `<section class="sheet" style="--dark:${theme.dark}; --mid:${theme.mid}; --light:${theme.light}; --row:${theme.row}; --line:${theme.line}; --stance:${theme.dark};">
+  <div class="banner"><div>${esc(date || '—')}</div><div class="stance">Mercenaries</div><div>${mercs.length} ${mercs.length === 1 ? 'member' : 'members'}</div></div>
+  <div class="grid">${slots.map(partyTable).join('')}</div>
+</section>`;
+}
+
+document.getElementById('printMercenariesBtn').addEventListener('click', () => {
+  if (!(sovereignState.mercenaries || []).length) {
+    toast('No mercenaries to print yet');
+    return;
+  }
+  printCrusadeRosterSheets([], false, [crusadeMercenaryPrintSheet()], `${sovereignState.crusade?.name || 'Crusade'} — Mercenaries`);
+});
 
 document.getElementById('printAllRostersBtn').addEventListener('click', printAllCrusadeRosters);
 
