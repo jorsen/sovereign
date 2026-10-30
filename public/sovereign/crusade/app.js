@@ -812,7 +812,8 @@ function renderTeamList() {
         <td><a href="#crusade/${crusadeSlugSegment(sovereignState.crusade)}/team/${n}" style="font-weight:600;">${t('sovereign.common.team')} ${n}</a></td>
         <td>${crusadeStatusBadge(team.result)}</td>
         <td>${team.stance ? t(`sovereign.stance.${team.stance.toLowerCase()}`) : '–'}</td>
-        <td>${team.area || team.areaNumber != null ? escapeHtml([team.areaNumber, team.area].filter((x) => x != null && x !== '').join(' ')) : '–'}</td>
+        <td>${team.areaNumber != null ? team.areaNumber : '–'}</td>
+        <td>${team.area ? escapeHtml(team.area) : '–'}</td>
         <td>${count}</td>
         <td>${crusadeFormatDiamonds(diamonds)}</td>
       </tr>`;
