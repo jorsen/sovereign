@@ -130,6 +130,26 @@
       </section>
 
       <section class="panel">
+        <div class="view-header space-between" style="margin:0 0 4px;">
+          <h2 style="margin:0;">Mercenaries <span id="crusadeMercenaryCount" style="color:var(--text-muted); font-size:14px; font-weight:600;"></span></h2>
+        </div>
+        <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;">A separate set for this crusade, apart from the teams. Anyone listed here is left out of team line-ups — hidden from the Members panel, skipped by Auto Pick, and can't be added to a team until removed from here.</p>
+        <div class="table-scroll">
+          <table class="members-table">
+            <thead><tr><th style="width:6%;">#</th><th data-i18n="sovereign.common.ign">IGN</th><th>Class</th><th data-i18n="sovereign.common.guild">Guild</th><th>Growth Rate</th><th class="admin-only"></th></tr></thead>
+            <tbody id="crusadeMercenaryBody"></tbody>
+          </table>
+        </div>
+        <p id="crusadeMercenaryEmptyState" class="empty-state hidden">No mercenaries yet.</p>
+        <form id="addCrusadeMercenaryForm" class="admin-only" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px;">
+          <label style="flex:1; min-width:180px;"><span data-i18n="sovereign.common.ign">IGN</span>
+            <input type="text" name="name" maxlength="40" placeholder="Search the member list…" list="sovereignMemberSuggestions" autocomplete="off" required>
+          </label>
+          <button type="submit" class="btn primary small">+ Add Mercenary</button>
+        </form>
+      </section>
+
+      <section class="panel">
         <h2 style="margin:0 0 4px;">Crusade-wide Management Fee</h2>
         <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;">Set it once here and it's taken off every winning team's reward — so 10% here is 10% of all the diamonds this crusade earns, however many teams there are. </p>
         <ul id="crusadeWideFeeList" style="list-style:none; padding:0; margin:0 0 12px; display:flex; flex-direction:column; gap:8px;"></ul>
