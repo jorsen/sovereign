@@ -2239,6 +2239,47 @@ document.getElementById('copyCrusadeRosterBtn').addEventListener('click', () => 
   }
   copyTextToClipboard(['IGN\tClass\tTeam', ...lines].join('\n'), `Copied ${lines.length} ${lines.length === 1 ? 'person' : 'people'} (IGN, class, team)`);
 });
+// Every team, grouped for pasting: a team heading (stance, area), then each
+// party with "IGN - Class" lines (highest GR first), mercenaries last.
+document.getElementById('copyAllTeamsBtn').addEventListener('click', () => {
+  const memberOf = (name) => sovereignState.memberList.find((m) => crusadeNameKey(m.name) === crusadeNameKey(name));
+  const gr = (name) => memberOf(name)?.growthRate || 0;
+  const line = (name) => {
+    const cls = memberOf(name)?.className;
+    return cls ? `${name} - ${cls}` : name;
+  };
+  const partyBlocks = (people) => {
+    const slots = Array.from(new Set(people.map((p) => p.partySlot || 1))).sort((a, b) => a - b);
+    return slots.map((slot) => [
+      `Party ${slot}`,
+      ...people
+        .filter((p) => (p.partySlot || 1) === slot)
+        .sort((a, b) => gr(b.name) - gr(a.name) || a.name.localeCompare(b.name))
+        .map((p) => line(p.name)),
+    ].join('\n'));
+  };
+  const blocks = [];
+  let count = 0;
+  visibleTeamNumbers().forEach((n) => {
+    const people = sovereignState.participants.filter((p) => p.partyNumber === n);
+    if (!people.length) return;
+    count += people.length;
+    const team = sovereignState.teams.find((t) => t.teamNumber === n);
+    const area = [team?.areaNumber, team?.area].filter((x) => x != null && x !== '').join(' ');
+    const heading = [`Team ${n}`, [team?.stance, area].filter(Boolean).join(' · ')].filter(Boolean).join(' — ');
+    blocks.push([`**${heading}** (${people.length})`, ...partyBlocks(people)].join('\n\n'));
+  });
+  const mercs = sovereignState.mercenaries || [];
+  if (mercs.length) {
+    count += mercs.length;
+    blocks.push([`**Mercenaries** (${mercs.length})`, ...partyBlocks(mercs)].join('\n\n'));
+  }
+  if (!count) {
+    toast('Nobody is lined up on this crusade yet');
+    return;
+  }
+  copyTextToClipboard(blocks.join('\n\n'), `Copied all teams (${count} ${count === 1 ? 'person' : 'people'})`);
+});
 document.getElementById('printTeamRosterBtn').addEventListener('click', () => printCrusadeTeamRoster(sovereignState.activeTeam));
 
 document.getElementById('clearTeamRosterBtn').addEventListener('click', async () => {
