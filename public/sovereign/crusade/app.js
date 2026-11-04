@@ -2280,6 +2280,42 @@ document.getElementById('copyAllTeamsBtn').addEventListener('click', () => {
   }
   copyTextToClipboard(blocks.join('\n\n'), `Copied all teams (${count} ${count === 1 ? 'person' : 'people'})`);
 });
+document.getElementById('copyLineupBtn').addEventListener('click', async () => {
+  if (sovereignState.participants.length || (sovereignState.mercenaries || []).length) {
+    toast('This crusade already has people lined up — clear the teams first to copy a line-up into it');
+    return;
+  }
+  if (!sovereignState.crusades) sovereignState.crusades = await api('/api/crusades');
+  const others = sovereignState.crusades
+    .filter((c) => c.id !== sovereignState.crusadeId)
+    .sort((a, b) => String(b.eventDate || '').localeCompare(String(a.eventDate || '')));
+  if (!others.length) {
+    toast('There is no other crusade to copy from');
+    return;
+  }
+  document.getElementById('copyLineupSource').innerHTML = others
+    .map((c) => `<option value="${c.id}">${escapeHtml(c.eventDate ? formatLongDate(String(c.eventDate).slice(0, 10)) : c.name)}</option>`)
+    .join('');
+  document.getElementById('copyLineupModal').classList.remove('hidden');
+});
+document.getElementById('copyLineupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  try {
+    const r = await api(`/api/crusades/${sovereignState.crusadeId}/copy-lineup`, {
+      method: 'POST',
+      body: JSON.stringify({ fromCrusadeId: document.getElementById('copyLineupSource').value }),
+    });
+    document.getElementById('copyLineupModal').classList.add('hidden');
+    await loadCrusadeDetail(sovereignState.crusadeId);
+    toast(`Copied ${r.copied} people into ${r.teams} team${r.teams === 1 ? '' : 's'}${r.skipped.length ? ` — skipped ${r.skipped.join(', ')} (no longer active on Growth Rate)` : ''}`);
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
 document.getElementById('printTeamRosterBtn').addEventListener('click', () => printCrusadeTeamRoster(sovereignState.activeTeam));
 
 document.getElementById('clearTeamRosterBtn').addEventListener('click', async () => {

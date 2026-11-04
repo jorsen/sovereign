@@ -104,6 +104,7 @@
         <p style="color:var(--text-muted); font-size:13px; margin:0; flex:1;" data-i18n="sovereign.detail.clickTeamHint">Click a team to see its roster.</p>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button id="copyCrusadeRosterBtn" type="button" class="btn small" title="Copy everyone's IGN, class and team number">📋 Copy Roster</button>
+          <button id="copyLineupBtn" type="button" class="btn small admin-only" title="Fill this crusade with the teams and parties of an earlier crusade">⧉ Copy Line-up From…</button>
           <button id="copyAllTeamsBtn" type="button" class="btn small" title="Copy every team and party, grouped, ready to paste in Discord">📋 Copy All Teams</button>
           <button id="printAllRostersBtn" type="button" class="btn small" data-i18n="sovereign.detail.printAllRosters" title="Print every team's roster for this crusade on one page">🖨 Print All Rosters</button>
           <button id="applyCrusadeDefaultFeesAllTeamsBtn" type="button" class="btn small admin-only hidden" data-i18n="sovereign.detail.applyDefaultsAll">Apply Default Fees to All Teams</button>
@@ -945,6 +946,20 @@
       <p style="color:var(--text-muted); font-size:13px; margin-top:-8px;" data-i18n="sovereign.growth.duplicatesHint">Names that look like the same person once spacing, punctuation, and case are ignored. Merging keeps the highest Growth Rate entry and renames that person's attendance history to match it.</p>
       <div id="growthMergeGroups"></div>
       <p id="growthMergeEmptyState" class="empty-state hidden" data-i18n="sovereign.growth.duplicatesEmpty">No likely duplicates found.</p>
+    </div>
+  </div>
+
+  <div id="copyLineupModal" class="modal-overlay hidden">
+    <div class="modal">
+      <button class="modal-close" data-close="copyLineupModal" aria-label="Close">×</button>
+      <h2 style="margin-top:0;">Copy Line-up From…</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-top:-8px;">Brings over every team (war type, stance, area), who is in which team and party, and the mercenaries. Bids, attendance, results and rewards are not copied. Anyone no longer active on the Growth Rate list is skipped.</p>
+      <form id="copyLineupForm">
+        <label>Crusade
+          <select id="copyLineupSource" required></select>
+        </label>
+        <button type="submit" class="btn primary">Copy Line-up</button>
+      </form>
     </div>
   </div>
 
