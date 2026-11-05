@@ -5417,7 +5417,10 @@ function renderWorldBossDayDetail(byDate) {
       const id = btn.getAttribute('data-copy-world-boss-attendees');
       const ev = (sovereignState.worldBossEvents || []).find((x) => x.id === id);
       if (!ev) return;
-      // grouped by guild (biggest first, no guild last), names A-Z within each
+      // grouped by guild (biggest first, no guild last), highest Growth Rate
+      // first within each
+      const grOf = new Map((sovereignState.growthSubmissions || []).map((s) => [String(s.ign || '').trim().toLowerCase(), Number(s.growthRate) || 0]));
+      const gr = (name) => grOf.get(String(name).trim().toLowerCase()) || 0;
       const byGuild = new Map();
       ev.attendees.forEach((a) => {
         const g = a.guildName || 'No Guild';
@@ -5428,7 +5431,7 @@ function renderWorldBossDayDetail(byDate) {
         ([ga, a], [gb, b]) => (ga === 'No Guild') - (gb === 'No Guild') || b.length - a.length || ga.localeCompare(gb)
       );
       const names = groups
-        .map(([g, list]) => [`${g} (${list.length})`, ...list.sort((a, b) => a.localeCompare(b)).map((n, i) => `${i + 1}. ${n}`)].join('\n'))
+        .map(([g, list]) => [`${g} (${list.length})`, ...list.sort((a, b) => gr(b) - gr(a) || a.localeCompare(b)).map((n, i) => `${i + 1}. ${n}`)].join('\n'))
         .join('\n\n');
       const text = `${ev.bossName} — ${formatWorldBossEventDateTime(ev.eventDate)}\nAttendees (${ev.attendees.length}):\n\n${names}`;
       try {
