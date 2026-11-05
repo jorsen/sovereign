@@ -5060,32 +5060,36 @@ async function applyFifoSalesToItem(itemKey, onlyMonth) {
     });
   }
 
-  // Skip writing an event whose computed result exactly matches what's
-  // already stored -- this runs opportunistically on every page load (see
-  // reconcileFifoSales), not just right after a sale changes, so most runs
-  // should find nothing to do and shouldn't spam a no-op PUT (and its
-  // activity-log entry) for it.
-  const results = await Promise.all(
-    Array.from(updatesByEvent.entries()).map(([eventId, updates]) => {
-      const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
-      if (!ev) return null;
-      const changed = updates.some((u) => {
-        const l = ev.lootItems.find((x) => x.id === u.itemId);
-        return !l || l.sold !== u.sold || Number(l.soldQuantity) !== Number(u.soldQuantity) || l.diamondsValue !== u.diamondsValue || l.crowsValue !== u.crowsValue;
-      });
-      if (!changed) return null;
-      const updatedLootItems = ev.lootItems.map((l) => {
-        const match = updates.find((u) => u.itemId === l.id);
-        if (!match) return { itemName: l.itemName, quantity: l.quantity, crowsValue: l.crowsValue, diamondsValue: l.diamondsValue, sold: l.sold, soldQuantity: l.soldQuantity };
-        return { itemName: l.itemName, quantity: l.quantity, crowsValue: match.crowsValue, diamondsValue: match.diamondsValue, sold: match.sold, soldQuantity: match.soldQuantity };
-      });
-      return api(`/api/world-boss-attendance/${eventId}`, { method: 'PUT', body: JSON.stringify({ lootItems: updatedLootItems }) }).then((updated) => ({ eventId, updated }));
-    })
-  );
-  results.forEach((r) => {
-    if (!r) return;
-    const idx = sovereignState.worldBossEvents.findIndex((e) => e.id === r.eventId);
-    if (idx !== -1) sovereignState.worldBossEvents[idx] = r.updated;
+  // Only drops whose result differs from what's stored get sent -- this runs
+  // on every page load (see reconcileFifoSales), so most runs send nothing.
+  // Prices are compared to the cent, so a split like 23.5090909… doesn't
+  // count as a change every time. Everything changed goes in one request
+  // that updates the drops in place.
+  const differs = (a, b) => (a === null || a === undefined || b === null || b === undefined ? (a ?? null) !== (b ?? null) : Math.abs(Number(a) - Number(b)) >= 0.005);
+  const changed = [];
+  updatesByEvent.forEach((updates, eventId) => {
+    const ev = sovereignState.worldBossEvents.find((e) => e.id === eventId);
+    if (!ev) return;
+    updates.forEach((u) => {
+      const l = ev.lootItems.find((x) => x.id === u.itemId);
+      if (!l) return;
+      if (l.sold !== u.sold || Number(l.soldQuantity) !== Number(u.soldQuantity) || differs(l.diamondsValue, u.diamondsValue) || differs(l.crowsValue, u.crowsValue)) changed.push({ l, u });
+    });
+  });
+  if (!changed.length) return;
+  // a logged-out visitor can't save; they just see the corrected numbers
+  if (appSession.username) await api('/api/world-boss-attendance/loot-items/sales', {
+    method: 'PUT',
+    body: JSON.stringify({
+      itemName: changed[0].l.itemName,
+      items: changed.map(({ u }) => ({ id: u.itemId, sold: u.sold, soldQuantity: u.soldQuantity, diamondsValue: u.diamondsValue, crowsValue: u.crowsValue })),
+    }),
+  });
+  changed.forEach(({ l, u }) => {
+    l.sold = u.sold;
+    l.soldQuantity = u.soldQuantity;
+    l.diamondsValue = u.diamondsValue;
+    l.crowsValue = u.crowsValue;
   });
 }
 
