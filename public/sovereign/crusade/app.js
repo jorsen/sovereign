@@ -5417,8 +5417,20 @@ function renderWorldBossDayDetail(byDate) {
       const id = btn.getAttribute('data-copy-world-boss-attendees');
       const ev = (sovereignState.worldBossEvents || []).find((x) => x.id === id);
       if (!ev) return;
-      const names = ev.attendees.map((a, i) => `${i + 1}. ${a.name}`).join('\n');
-      const text = `${ev.bossName} — ${formatWorldBossEventDateTime(ev.eventDate)}\nAttendees (${ev.attendees.length}):\n${names}`;
+      // grouped by guild (biggest first, no guild last), names A-Z within each
+      const byGuild = new Map();
+      ev.attendees.forEach((a) => {
+        const g = a.guildName || 'No Guild';
+        if (!byGuild.has(g)) byGuild.set(g, []);
+        byGuild.get(g).push(a.name);
+      });
+      const groups = Array.from(byGuild.entries()).sort(
+        ([ga, a], [gb, b]) => (ga === 'No Guild') - (gb === 'No Guild') || b.length - a.length || ga.localeCompare(gb)
+      );
+      const names = groups
+        .map(([g, list]) => [`${g} (${list.length})`, ...list.sort((a, b) => a.localeCompare(b)).map((n, i) => `${i + 1}. ${n}`)].join('\n'))
+        .join('\n\n');
+      const text = `${ev.bossName} — ${formatWorldBossEventDateTime(ev.eventDate)}\nAttendees (${ev.attendees.length}):\n\n${names}`;
       try {
         await navigator.clipboard.writeText(text);
         toast('Attendee list copied');
