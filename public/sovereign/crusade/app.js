@@ -6603,6 +6603,9 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
   // Salary!B5: the guilds' rates weighted by their share of the split.
   salaryGrid[4][1] = formula(`SUMPRODUCT(${GUILDS}$D$2:$D$${guildLast},${GUILDS}$H$2:$H$${guildLast})`, weightedTaxPercent, '0.00');
   const salarySheet = styleExcelSheet(XLSX, sheetFromCells(salaryGrid, [6, 22, 14, 12, 11, 13, 9, 12, 8, 11, 11, 12, 12, 15, 15, 13, 13, 14]), { autofilter: true });
+  // Growth Rate (column D) stays in the file -- the GR Multiplier and GR
+  // Rank formulas read it -- but is hidden from view.
+  salarySheet['!cols'][3] = { ...salarySheet['!cols'][3], hidden: true };
 
   // ---- Payouts: per guild, with each guild's tax and total cost (see
   // buildPayoutsByGuildSheet) ----
