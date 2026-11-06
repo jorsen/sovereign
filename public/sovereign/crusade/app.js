@@ -3940,13 +3940,15 @@ function getScheduleEvents() {
 let worldBossEditingId = null;
 
 async function loadWorldBossAttendance() {
-  const [events, growthSubmissions, guilds, lootItemSources, saleBatches] = await Promise.all([
+  const [events, growthSubmissions, guilds, lootItemSources, saleBatches, monthlyLootStatus] = await Promise.all([
     api('/api/world-boss-attendance'),
     api('/api/growth-submissions'),
     api('/api/crusade-guilds'),
     api('/api/loot-item-sources'),
     api('/api/loot-sale-batches'),
+    api('/api/monthly-loot-status').catch(() => []),
   ]);
+  sovereignState.monthlyLootStatus = monthlyLootStatus;
   sovereignState.worldBossEvents = events;
   sovereignState.growthSubmissions = growthSubmissions;
   sovereignState.guilds = guilds;
@@ -4414,6 +4416,36 @@ function renderWorldBossLog() {
 // quantity/Crows/Diamonds across every kill that dropped it), not one row
 // per drop, so the same item from five different kills doesn't show up as
 // five separate lines.
+// The viewed month's loot status: On Going (default) until its diamonds are
+// sent, then Sent. Editors pick it from a dropdown; viewers see a tag.
+function monthlyLootStatusOf(schedule, month) {
+  return (sovereignState.monthlyLootStatus || []).find((s) => s.schedule === schedule && s.month === month)?.status || 'ongoing';
+}
+function renderMonthlyLootStatus() {
+  const status = monthlyLootStatusOf(worldBossActiveSchedule, worldBossViewedMonthKey());
+  const label = status === 'sent' ? 'Sent' : 'On Going';
+  const el = document.getElementById('worldBossMonthlyLootStatus');
+  el.innerHTML = `<span class="viewer-only-status"><span class="crusade-status-chip is-${status}">${label}</span></span>
+    <select class="crusade-status-select is-${status} admin-only" id="worldBossMonthlyLootStatusSelect" title="Have this month's diamonds been sent?">
+      <option value="ongoing"${status === 'ongoing' ? ' selected' : ''}>On Going</option>
+      <option value="sent"${status === 'sent' ? ' selected' : ''}>Sent</option>
+    </select>`;
+  el.querySelector('select').addEventListener('change', async (e) => {
+    const next = e.target.value;
+    try {
+      const saved = await api('/api/monthly-loot-status', {
+        method: 'PUT',
+        body: JSON.stringify({ schedule: worldBossActiveSchedule, month: worldBossViewedMonthKey(), status: next }),
+      });
+      sovereignState.monthlyLootStatus = [...(sovereignState.monthlyLootStatus || []).filter((s) => !(s.schedule === saved.schedule && s.month === saved.month)), saved];
+      toast(next === 'sent' ? 'Marked this month\'s diamonds as Sent' : 'Marked this month as On Going');
+    } catch (err) {
+      toast(err.message);
+    }
+    renderMonthlyLootStatus();
+  });
+}
+
 function renderWorldBossMonthlyLoot() {
   const year = worldBossCalendarMonth.getFullYear();
   const month = worldBossCalendarMonth.getMonth();
@@ -4421,6 +4453,7 @@ function renderWorldBossMonthlyLoot() {
     month: 'long',
     year: 'numeric',
   });
+  renderMonthlyLootStatus();
 
   const monthEvents = getScheduleEvents()
     .filter((ev) => {

@@ -2567,6 +2567,8 @@ body.view-only .crusade-roster-row .crusade-roster-name-click { pointer-events: 
 .crusade-status-chip { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; vertical-align: middle; }
 .crusade-status-chip.is-inactive, .crusade-member-chip-flag.is-inactive { color: #94a3b8; border: 1px solid #94a3b8; background: rgba(148, 163, 184, 0.12); }
 .crusade-status-chip.is-defense, .crusade-member-chip-flag.is-defense { color: #38bdf8; border: 1px solid #38bdf8; background: rgba(56, 189, 248, 0.12); }
+.crusade-status-chip.is-sent, .crusade-status-select.is-sent { color: #4ade80; border: 1px solid #4ade80; background: rgba(74, 222, 128, 0.12); }
+.crusade-status-chip.is-ongoing, .crusade-status-select.is-ongoing { color: #fbbf24; border: 1px solid #fbbf24; background: rgba(251, 191, 36, 0.12); }
 .viewer-only-status { display: none; }
 body.view-only .viewer-only-status { display: inline; }
 .crusade-status-select { font: inherit; font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 6px; vertical-align: middle; cursor: pointer; background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); }
