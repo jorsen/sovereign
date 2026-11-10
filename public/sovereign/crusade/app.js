@@ -89,7 +89,7 @@ function crusadeItemLabel(name) {
   return key ? t(key) : name;
 }
 
-// pending/win/lose/draw -> a small colored pill, reused on the Team List
+// pending/win/lose/lose_bid/draw -> a small colored pill, reused on the Team List
 // overview (one per row) and each team's own page (next to its heading), so
 // the outcome is visible at a glance without opening Team Details.
 function crusadeStatusLabel(result) {
@@ -723,6 +723,8 @@ document.getElementById('teamDetailsForm').addEventListener('submit', async (e) 
     // its full detail (items/fees/lastTeam) rather than patching in place.
     const crusade = await api(`/api/crusades/${sovereignState.crusadeId}`);
     sovereignState.teams = crusade.teams;
+    // Lose in Bidding marks everyone on the team present server-side
+    if (updated.result === 'lose_bid') sovereignState.participants = crusade.participants;
     renderTeamDetail(teamNumber); // diamond math depends on reward/attendance %, so recompute
     toast('Team details saved');
   } catch (err) {
@@ -2534,11 +2536,12 @@ document.getElementById('crusadeParticipantForm').addEventListener('submit', asy
 
 // ---------- Diamond distribution (per team) ----------
 
-// A lost team pays out nothing at all — diamonds, items, and management fees
+// A lost team (lost the war, or lost the bid so the war never happened)
+// pays out nothing at all — diamonds, items, and management fees
 // all drop to 0 regardless of what's entered, rather than splitting a
 // reward that was never actually earned.
 function crusadeWasLost(team) {
-  return !!(team && team.result === 'lose');
+  return !!(team && (team.result === 'lose' || team.result === 'lose_bid'));
 }
 
 // Management fees take a percentage of a team's *own* diamond reward off the
