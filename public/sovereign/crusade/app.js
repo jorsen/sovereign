@@ -725,7 +725,7 @@ document.getElementById('teamDetailsForm').addEventListener('submit', async (e) 
     sovereignState.teams = crusade.teams;
     // Lose in Bidding marks everyone present, No Bidding Required / Lose in
     // Fight tick everyone's Max Bid -- both server-side, so pick that up
-    if (['lose_bid', 'no_fight', 'lose_fight', 'no_bid_required', 'no_bid_lose'].includes(updated.result)) sovereignState.participants = crusade.participants;
+    if (['lose_bid', 'no_fight', 'easy_win', 'lose_fight', 'no_bid_required', 'no_bid_lose'].includes(updated.result)) sovereignState.participants = crusade.participants;
     renderTeamDetail(teamNumber); // diamond math depends on reward/attendance %, so recompute
     toast('Team details saved');
   } catch (err) {
