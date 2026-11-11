@@ -821,7 +821,52 @@ function renderTeamList() {
       </tr>`;
     })
     .join('');
+  renderCrusadeRosterSearch();
 }
+
+// Search box above the Team List: finds people across every team and party
+// of this crusade by name, guild or class (case-insensitive substring), and
+// links each hit to its team page.
+function renderCrusadeRosterSearch() {
+  const input = document.getElementById('crusadeRosterSearch');
+  const box = document.getElementById('crusadeRosterSearchResults');
+  if (!input || !box) return;
+  const q = input.value.trim().toLowerCase();
+  if (!q) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+  const hits = sovereignState.participants
+    .map((p) => ({ p, className: classOfMember(p.name) }))
+    .filter(({ p, className }) => [p.name, p.guildName, className].some((v) => String(v || '').toLowerCase().includes(q)))
+    .sort((a, b) => a.p.partyNumber - b.p.partyNumber || (a.p.partySlot || 1) - (b.p.partySlot || 1) || a.p.name.localeCompare(b.p.name));
+  box.classList.remove('hidden');
+  if (!hits.length) {
+    box.innerHTML = `<p class="empty-state" style="margin:0;">No one matching "${escapeHtml(input.value.trim())}" on any team.</p>`;
+    return;
+  }
+  const slug = crusadeSlugSegment(sovereignState.crusade);
+  box.innerHTML = `
+    <div style="color:var(--text-muted); font-size:13px; margin-bottom:4px;">${hits.length} match${hits.length === 1 ? '' : 'es'}</div>
+    <div class="table-scroll">
+      <table class="members-table">
+        <thead><tr><th>Name</th><th>Team</th><th>Party</th><th>Class</th><th>Guild</th><th>Entered</th></tr></thead>
+        <tbody>${hits
+          .map(({ p, className }) => `
+          <tr>
+            <td style="font-weight:600;">${escapeHtml(p.name)}</td>
+            <td><a href="#crusade/${slug}/team/${p.partyNumber}">${t('sovereign.common.team')} ${p.partyNumber}</a></td>
+            <td>${p.partySlot || 1}</td>
+            <td>${className ? escapeHtml(className) : '–'}</td>
+            <td>${crusadeGuildBadge(p.guildName)}</td>
+            <td>${p.attended ? '✅' : '–'}</td>
+          </tr>`)
+          .join('')}</tbody>
+      </table>
+    </div>`;
+}
+document.getElementById('crusadeRosterSearch').addEventListener('input', renderCrusadeRosterSearch);
 
 // Every team number known on this crusade, whether it already has a saved
 // Team Details row or is still just a baseline/participant-only number.
