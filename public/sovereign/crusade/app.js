@@ -89,7 +89,7 @@ function crusadeItemLabel(name) {
   return key ? t(key) : name;
 }
 
-// pending/win/lose/lose_bid/lose_fight/no_bid_required/no_bid_lose/draw -> a small colored pill, reused on the Team List
+// pending/win/easy_win/lose/lose_bid/lose_fight/no_bid_required/no_bid_lose/no_fight/draw -> a small colored pill, reused on the Team List
 // overview (one per row) and each team's own page (next to its heading), so
 // the outcome is visible at a glance without opening Team Details.
 function crusadeStatusLabel(result) {
@@ -725,7 +725,7 @@ document.getElementById('teamDetailsForm').addEventListener('submit', async (e) 
     sovereignState.teams = crusade.teams;
     // Lose in Bidding marks everyone present, No Bidding Required / Lose in
     // Fight tick everyone's Max Bid -- both server-side, so pick that up
-    if (['lose_bid', 'lose_fight', 'no_bid_required', 'no_bid_lose'].includes(updated.result)) sovereignState.participants = crusade.participants;
+    if (['lose_bid', 'no_fight', 'lose_fight', 'no_bid_required', 'no_bid_lose'].includes(updated.result)) sovereignState.participants = crusade.participants;
     renderTeamDetail(teamNumber); // diamond math depends on reward/attendance %, so recompute
     toast('Team details saved');
   } catch (err) {
@@ -2647,7 +2647,7 @@ function totalTeamFeeAmount(team) {
 // computeTeamBonusShares). Any other stance/result keeps the full reward for
 // that team's roster, same as before.
 function isTeamDefenseWin(team) {
-  return !!(team && team.stance === 'Defense' && team.result === 'win');
+  return !!(team && team.stance === 'Defense' && ['win', 'easy_win'].includes(team.result));
 }
 
 // Defending doesn't involve gold bids at all -- there's no attack roll to

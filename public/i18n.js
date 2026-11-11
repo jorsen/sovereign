@@ -510,6 +510,8 @@ const TRANSLATIONS = {
 
     'sovereign.result.pending': 'Pending',
     'sovereign.result.win': 'Win',
+    'sovereign.result.easy_win': 'Easy Win',
+    'sovereign.result.no_fight': 'No Fight',
     'sovereign.result.lose': 'Lose',
     'sovereign.result.lose_bid': 'Lose in Bidding',
     'sovereign.result.lose_fight': 'Lose in Fight',
@@ -894,6 +896,8 @@ const TRANSLATIONS = {
 
     'sovereign.result.pending': '待定',
     'sovereign.result.win': '胜利',
+    'sovereign.result.easy_win': '轻松胜利',
+    'sovereign.result.no_fight': '未战斗',
     'sovereign.result.lose': '失败',
     'sovereign.result.lose_bid': '竞拍失败',
     'sovereign.result.lose_fight': '战斗失败',
@@ -1249,6 +1253,8 @@ const TRANSLATIONS = {
 
     'sovereign.result.pending': '대기중',
     'sovereign.result.win': '승리',
+    'sovereign.result.easy_win': '손쉬운 승리',
+    'sovereign.result.no_fight': '전투 없음',
     'sovereign.result.lose': '패배',
     'sovereign.result.lose_bid': '입찰 패배',
     'sovereign.result.lose_fight': '전투 패배',
@@ -1604,6 +1610,8 @@ const TRANSLATIONS = {
 
     'sovereign.result.pending': 'รอดำเนินการ',
     'sovereign.result.win': 'ชนะ',
+    'sovereign.result.easy_win': 'ชนะง่าย',
+    'sovereign.result.no_fight': 'ไม่มีการต่อสู้',
     'sovereign.result.lose': 'แพ้',
     'sovereign.result.lose_bid': 'แพ้การประมูล',
     'sovereign.result.lose_fight': 'แพ้การต่อสู้',
@@ -1764,6 +1772,8 @@ const TRANSLATIONS = {
 
     'sovereign.result.pending': '保留中',
     'sovereign.result.win': '勝利',
+    'sovereign.result.easy_win': '楽勝',
+    'sovereign.result.no_fight': '戦闘なし',
     'sovereign.result.lose': '敗北',
     'sovereign.result.lose_bid': '入札敗北',
     'sovereign.result.lose_fight': '戦闘敗北',

@@ -1518,6 +1518,8 @@ select:focus, input:focus, textarea:focus {
 .crusade-status-badge.lose_fight { color: var(--bad); border-color: var(--bad); background: rgba(239,68,68,0.12); }
 .crusade-status-badge.no_bid_required { color: var(--good); border-color: var(--good); border-style: dashed; background: rgba(74,222,128,0.08); }
 .crusade-status-badge.no_bid_lose { color: var(--bad); border-color: var(--bad); border-style: dotted; background: rgba(239,68,68,0.08); }
+.crusade-status-badge.easy_win { color: var(--good); border-color: var(--good); background: rgba(74,222,128,0.2); }
+.crusade-status-badge.no_fight { color: var(--text-muted); border-style: dashed; }
 .crusade-status-badge.lose_bid { color: var(--bad); border-color: var(--bad); border-style: dashed; background: rgba(239,68,68,0.08); }
 .crusade-status-badge.draw { color: var(--gold); border-color: var(--gold); background: rgba(212,175,55,0.12); }
 .crusade-status-badge.pending { color: var(--text-muted); }
