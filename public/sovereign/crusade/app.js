@@ -89,7 +89,7 @@ function crusadeItemLabel(name) {
   return key ? t(key) : name;
 }
 
-// pending/win/lose/lose_bid/lose_fight/no_bid_required/draw -> a small colored pill, reused on the Team List
+// pending/win/lose/lose_bid/lose_fight/no_bid_required/no_bid_lose/draw -> a small colored pill, reused on the Team List
 // overview (one per row) and each team's own page (next to its heading), so
 // the outcome is visible at a glance without opening Team Details.
 function crusadeStatusLabel(result) {
@@ -725,7 +725,7 @@ document.getElementById('teamDetailsForm').addEventListener('submit', async (e) 
     sovereignState.teams = crusade.teams;
     // Lose in Bidding marks everyone present, No Bidding Required / Lose in
     // Fight tick everyone's Max Bid -- both server-side, so pick that up
-    if (['lose_bid', 'lose_fight', 'no_bid_required'].includes(updated.result)) sovereignState.participants = crusade.participants;
+    if (['lose_bid', 'lose_fight', 'no_bid_required', 'no_bid_lose'].includes(updated.result)) sovereignState.participants = crusade.participants;
     renderTeamDetail(teamNumber); // diamond math depends on reward/attendance %, so recompute
     toast('Team details saved');
   } catch (err) {
@@ -2616,7 +2616,7 @@ document.getElementById('crusadeParticipantForm').addEventListener('submit', asy
 // all drop to 0 regardless of what's entered, rather than splitting a
 // reward that was never actually earned.
 function crusadeWasLost(team) {
-  return !!(team && ['lose', 'lose_bid', 'lose_fight'].includes(team.result));
+  return !!(team && ['lose', 'lose_bid', 'lose_fight', 'no_bid_lose'].includes(team.result));
 }
 
 // Management fees take a percentage of a team's *own* diamond reward off the
