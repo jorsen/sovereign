@@ -1452,6 +1452,7 @@ function renderTeamDetail(n) {
             </select>
             <button type="button" class="icon-btn admin-only" data-add-to-party-slot="${slot}" title="Add to Party ${slot}" ${full ? 'disabled' : ''}>+</button>
             <button type="button" class="icon-btn" data-copy-party-slot="${slot}" title="Copy Party ${slot} (IGN, class)">📋</button>
+            <button type="button" class="icon-btn admin-only" data-clear-enter-party-slot="${slot}" title="Clear Enter for everyone in Party ${slot}">⊘</button>
           </div>
         </div>
         <div class="table-scroll">
@@ -1518,6 +1519,34 @@ function renderTeamDetail(n) {
       const slot = Number(btn.getAttribute('data-copy-party-slot'));
       const people = sovereignState.participants.filter((p) => p.partyNumber === n && (p.partySlot || 1) === slot);
       copyPartySet(people.map((p) => p.name), `Team ${n} Party ${slot}`);
+    });
+  });
+
+  // Unticks Enter for everyone in one party at once (e.g. after a mass
+  // mis-click, or resetting a party before the war is decided).
+  body.querySelectorAll('[data-clear-enter-party-slot]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const slot = Number(btn.getAttribute('data-clear-enter-party-slot'));
+      const entered = sovereignState.participants.filter((p) => p.partyNumber === n && (p.partySlot || 1) === slot && p.attended);
+      if (!entered.length) {
+        toast(`No one in Party ${slot} is marked Enter`);
+        return;
+      }
+      if (!confirm(`Clear Enter for ${entered.length} member${entered.length === 1 ? '' : 's'} in Team ${n} Party ${slot}?`)) return;
+      btn.disabled = true;
+      const results = await Promise.allSettled(
+        entered.map((p) => api(`/api/crusades/${sovereignState.crusadeId}/participants/${p.id}`, { method: 'PUT', body: JSON.stringify({ attended: false }) }))
+      );
+      let cleared = 0;
+      results.forEach((r) => {
+        if (r.status !== 'fulfilled') return;
+        const idx = sovereignState.participants.findIndex((x) => x.id === r.value.id);
+        if (idx !== -1) sovereignState.participants[idx] = r.value;
+        cleared++;
+      });
+      refreshAfterRosterChange();
+      const failed = results.find((r) => r.status === 'rejected');
+      toast(failed ? `Cleared ${cleared} of ${entered.length} — ${failed.reason.message}` : `Cleared Enter for Party ${slot}`);
     });
   });
 
