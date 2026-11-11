@@ -1584,14 +1584,20 @@ function crusadeStandingIssue(name, teamNumber) {
   }
   return null;
 }
-// Roster picker chips for this month's misses only -- "Absent 2/5" (lined up
-// but didn't enter, decided wars only) and "No bid 1/3" (0 gold bid on an
-// Attack team). Members who bid and attended get no chip at all.
+// Roster picker chips for this month: "Joined 3" (crusades lined up for,
+// always shown), plus misses only -- "Absent 2/5" (lined up but didn't
+// enter, decided wars only) and "No bid 1/3" (0 gold bid on an Attack team).
 function crusadeAbsenceTag(name) {
   const st = sovereignState.memberStanding?.get(String(name || '').trim().toLowerCase());
-  if (!st) return '';
+  // How many crusades this month (before this one) they were lined up for --
+  // shown for everyone, 0 included, so newcomers stand out too.
+  const joined = st?.joined || 0;
+  const joinedTitle = joined
+    ? `Lined up in ${joined} crusade${joined === 1 ? '' : 's'} earlier this month: ${st.joinedIn.join(', ')}${joined > st.joinedIn.length ? ', …' : ''}`
+    : 'Not lined up in any crusade earlier this month';
+  let html = `<span class="crusade-absence-chip is-joined" title="${escapeHtml(joinedTitle)}">Joined ${joined}</span>`;
+  if (!st) return html;
   const more = (n, list) => (n > list.length ? ', …' : '');
-  let html = '';
   if (st.absences) {
     const title = `Didn't attend ${st.absences} of ${st.played} crusades this month: ${st.absentIn.join(', ')}${more(st.absences, st.absentIn)}`;
     html += `<span class="crusade-absence-chip has-absences" title="${escapeHtml(title)}">Absent ${st.absences}/${st.played}</span>`;
