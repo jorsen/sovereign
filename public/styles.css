@@ -2479,7 +2479,8 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color:
 .crusade-lineup { display: flex; gap: 16px; align-items: flex-start; }
 .crusade-lineup-parties { flex: 1 1 auto; min-width: 0; }
 .crusade-member-panel {
-  flex: 0 0 260px; position: sticky; top: 12px; max-height: calc(100vh - 24px);
+  /* Stick below the sticky .topbar (~105px tall) so the search box stays visible while scrolling. */
+  flex: 0 0 260px; position: sticky; top: 120px; max-height: calc(100vh - 132px);
   display: flex; flex-direction: column; gap: 8px;
   padding: 12px; border-left: 2px solid var(--border); background: var(--surface-2); border-radius: 10px;
 }
