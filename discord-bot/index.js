@@ -50,13 +50,38 @@ function isValidLampLevel(n) {
 // rendering as a literal empty header.
 const DIVIDER_FIELD = { name: '​', value: '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬' };
 
-// Submissions only come through the /uniongr slash command -- interactions
-// always carry their option values regardless of message content, so no
-// MessageContent privileged intent is needed here.
+// Boss-attendance channel: members post their screenshots there with the
+// boss name ("Kafka", "ducas 88/96") and the app reads the names and starts
+// an attendee thread on that post.
+const ATTENDANCE_CHANNEL_ID = process.env.ATTENDANCE_CHANNEL_ID || '1573000319837806622';
+
+// MessageContent (privileged -- enable "Message Content Intent" under Bot in
+// the Developer Portal) is needed to see the text and screenshots of the
+// attendance posts; /uniongr itself doesn't need it.
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   partials: [Partials.Message, Partials.Channel],
 });
+
+// Hands a screenshot post in the attendance channel to the app, which checks
+// it for a boss name, reads the screenshots and posts the thread -- the
+// reading (OCR, Growth Rate matching) lives in the app, not this bot.
+async function forwardAttendancePost(message) {
+  const imageUrls = [...message.attachments.values()].filter((a) => (a.contentType || '').startsWith('image/')).map((a) => a.url);
+  if (!imageUrls.length || message.hasThread) return;
+  const res = await fetch(`${API_BASE}/api/attendance/bot/scan-message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-bot-secret': BOT_SECRET },
+    body: JSON.stringify({
+      channelId: message.channelId,
+      messageId: message.id,
+      content: message.content,
+      imageUrls: imageUrls.slice(0, 10),
+      authorName: message.member?.displayName || message.author.globalName || message.author.username,
+    }),
+  });
+  if (!res.ok) console.error('Attendance scan request failed:', res.status, await res.text().catch(() => ''));
+}
 
 // Vercel's serverless functions hard-cap the request body around 4.5MB --
 // staying comfortably under that (base64 alone inflates size by ~1/3) means
@@ -253,7 +278,12 @@ function scheduleRestick(channel) {
 }
 
 client.on('messageCreate', async (message) => {
-  if (message.channelId !== CHANNEL_ID || message.author.bot) return;
+  if (message.author.bot) return;
+  if (message.channelId === ATTENDANCE_CHANNEL_ID) {
+    await forwardAttendancePost(message).catch((err) => console.error('Failed to forward an attendance post:', err));
+    return;
+  }
+  if (message.channelId !== CHANNEL_ID) return;
   const reply = await message
     .reply({ content: `${message.author} please use the **/uniongr** command here — type \`/uniongr\` and pick it from the list. How it works:`, ...GROWTH_GUIDE })
     .catch((err) => {
@@ -280,7 +310,7 @@ client.on('messageDelete', async (message) => {
 });
 
 client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag} — watching channel ${CHANNEL_ID}`);
+  console.log(`Logged in as ${client.user.tag} — watching channels ${CHANNEL_ID} (growth rate) and ${ATTENDANCE_CHANNEL_ID} (attendance)`);
 });
 
 client.login(DISCORD_TOKEN);

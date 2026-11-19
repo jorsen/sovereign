@@ -4013,7 +4013,7 @@ document.getElementById('growthAddForm').addEventListener('submit', async (e) =>
 });
 
 // ---------- World Boss Attendance (standalone, independent of any crusade) ----------
-// Kept in sync with the WORLD_BOSS_NAMES list in lib/app.js.
+// Kept in sync with the WORLD_BOSS_NAMES list in lib/bosses.js.
 const WORLD_BOSS_NAMES = [
   'Ruined Knight',
   'Kafka',
