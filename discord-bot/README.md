@@ -145,8 +145,8 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
 - **Speed**: names are read first; a screenshot with 2+ nameplates skips the
   loot-list check (a whole-screen OCR). A nameplate read clearly at once
   isn't read again with more settings, sizes or zooms -- those are only for
-  unclear ones. All screenshots are attached to the post (the first 4 as the
-  gallery) and the footer says how many were read.
+  unclear ones. All screenshots are shown on the post and the footer says how
+  many were read.
 
 **Big fights**: attach up to 10 screenshots of the same kill from different
 angles; every one is read and all names merge into one list.
@@ -163,8 +163,18 @@ days of World Boss / Balthazard kills): regulars need a slightly less
 clear reading to be guessed, members with no recent attendance a clearer
 one. Exact reads are never affected.
 
-**Correcting a wrong scan**: run `/attendance` again for that kill (same boss
-+ its loot list) with **rescan: True**. Instead of adding to the record, it
+**Correcting a wrong scan**: press the **🔄 Rescan** button under the post.
+It reads the post's own screenshots again -- nothing to re-upload -- with
+the deep scan (every nameplate gets every reading setting, size and zoom,
+not just the unclear ones), replaces the saved record the same way
+`rescan: True` does, and edits the post in place ("rescanned by <name>" in
+the footer). The button shows "Rescanning…" and can't be pressed again
+while it runs; if the rescan fails, only the presser sees the error and the
+post stays as it was. The attendee added for "who ran it" stays the original
+poster. Posts made before the button existed don't have it.
+
+Or run `/attendance` again for that kill (same boss + its loot list) with
+**rescan: True**. Instead of adding to the record, it
 replaces the saved attendees with the new scan (bonus points, if the kill
 has any, are recomputed for the new names) and replaces the loot -- unless
 some of it already has a price or sale entered on the site, in which case
@@ -174,7 +184,8 @@ Single wrong names can also just be edited on the site.
 
 The result is one post: **Boss**, **Time of Death** (Discord shows it in
 each member's own language and timezone), **Attendees List** (numbered) and
-**Loots**, with the screenshots attached (up to 4, as a gallery). Names are
+**Loots**, with all the screenshots (up to 10) shown as galleries of 4 +
+4 + 2. Names are
 listed plainly -- guesses (closest Growth Rate name to a blurry reading)
 included, without marks -- and readings that match no member aren't listed.
 Only loot items missing from the site's item list get a ❓ (not saved). The
