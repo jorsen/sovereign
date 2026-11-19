@@ -149,9 +149,11 @@ Single wrong names can also just be edited on the site.
 
 The result is one post: **Boss**, **Time of Death** (Discord shows it in
 each member's own language and timezone), **Attendees List** (numbered) and
-**Loots**, with the screenshots attached (up to 4, as a gallery). A one-line
-footer explains ⚠️ / ❓ marks only when they appear, and notes anything not
-saved. The bot reacts ✅ when done (⚠️ if saving to the site failed, ❌ if
+**Loots**, with the screenshots attached (up to 4, as a gallery). Names are
+listed plainly -- guesses (closest Growth Rate name to a blurry reading)
+included, without marks -- and readings that match no member aren't listed.
+Only loot items missing from the site's item list get a ❓ (not saved). The
+footer notes anything not saved. The bot reacts ✅ when done (⚠️ if saving to the site failed, ❌ if
 it stopped with an error).
 
 Reading is free and local: `lib/attendanceOcr.js` keeps only pixels in
