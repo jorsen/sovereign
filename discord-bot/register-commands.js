@@ -23,6 +23,15 @@ const CLASS_CHOICES = [
 ];
 const GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL', 'BUBBLEGANG'];
 
+// /attendance descriptions in the growth guide's other languages, keyed by
+// Discord locale codes.
+const ATTENDANCE_TEXT = {
+  command: { 'zh-CN': '从 Boss 截图读取出席者名字', ja: 'ボスのスクショから出席者の名前を読み取る', th: 'อ่านชื่อผู้เข้าร่วมจากภาพหน้าจอบอส', vi: 'Đọc tên người tham gia từ ảnh chụp boss' },
+  boss: { 'zh-CN': 'Boss 名称（例如 Kafka）', ja: 'ボス名（例：Kafka）', th: 'ชื่อบอส (เช่น Kafka)', vi: 'Tên boss (ví dụ: Kafka)' },
+  screenshot: { 'zh-CN': '能看到名字的截图', ja: '名前が写っているスクショ', th: 'ภาพหน้าจอที่เห็นชื่อ', vi: 'Ảnh chụp có hiện tên' },
+  another: { 'zh-CN': '另一张截图（可选）', ja: '追加のスクショ（任意）', th: 'ภาพหน้าจอเพิ่มเติม (ไม่บังคับ)', vi: 'Ảnh chụp khác (không bắt buộc)' },
+};
+
 // Growth Rate + screenshot are always required. class/guild/lamp are
 // required on switched-ign, but optional on same-ign: left empty, they're
 // copied from that IGN's current entry (see processUniongrSubmission), so a
@@ -79,14 +88,17 @@ const commands = [
   // screenshots (lib/attendanceOcr.js) and posts the list. Only answers in
   // the attendance channel. Screenshot option names are kept in sync with
   // ATTENDANCE_SCREENSHOT_OPTIONS in lib/discordInteractions.js.
+  // Descriptions are localized into the growth guide's other languages --
+  // Discord shows each member the one matching their client language.
   new SlashCommandBuilder()
     .setName('attendance')
     .setDescription('Read attendee names from boss screenshots')
-    .addStringOption((opt) => opt.setName('boss').setDescription('Boss Name (e.g. Chantarat)').setRequired(true).setMaxLength(60))
-    .addAttachmentOption((opt) => opt.setName('screenshot').setDescription('Screenshot Showing the Name Tags').setRequired(true))
-    .addAttachmentOption((opt) => opt.setName('screenshot2').setDescription('Another Screenshot (Optional)').setRequired(false))
-    .addAttachmentOption((opt) => opt.setName('screenshot3').setDescription('Another Screenshot (Optional)').setRequired(false))
-    .addAttachmentOption((opt) => opt.setName('screenshot4').setDescription('Another Screenshot (Optional)').setRequired(false))
+    .setDescriptionLocalizations(ATTENDANCE_TEXT.command)
+    .addStringOption((opt) => opt.setName('boss').setDescription('Boss Name (e.g. Kafka)').setDescriptionLocalizations(ATTENDANCE_TEXT.boss).setRequired(true).setMaxLength(60))
+    .addAttachmentOption((opt) => opt.setName('screenshot').setDescription('Screenshot Showing the Name Tags').setDescriptionLocalizations(ATTENDANCE_TEXT.screenshot).setRequired(true))
+    .addAttachmentOption((opt) => opt.setName('screenshot2').setDescription('Another Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot3').setDescription('Another Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot4').setDescription('Another Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
     .toJSON(),
 ];
 
