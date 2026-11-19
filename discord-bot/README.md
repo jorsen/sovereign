@@ -133,10 +133,20 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   on that kill's record (found by boss + kill time, within 30 minutes; a
   new pending record if there's none yet). If no time was typed, the
   attendance uses the loot list's kill time, so both land on one record.
-  A record that already has loot is left alone, so posting the same loot
-  screenshot twice never counts it twice. Items not in the site's list are
-  shown with ❓ and not saved. Overlapping screenshots of one scrolled list
-  (attached in the same /attendance) are merged without double-counting.
+  Loot rows of one boss within 30 minutes are one kill (Ducas at 11:00 and
+  Dergio at 11:01). Items the record doesn't have yet are added; items it
+  already has (by name) are skipped, so posting the same loot list twice
+  never counts it twice. Item names are compared ignoring spaces, and cut-off
+  names the trainer confirmed before (`attendance_ocr_loot`, judged like the
+  name trainer: still on the record = right) are reused. Items not in the
+  site's list are shown with ❓ and not saved; scraps under 5 letters are
+  dropped. Overlapping screenshots of one scrolled list (attached in the same
+  /attendance) are merged without double-counting.
+- **Speed**: names are read first; a screenshot with 2+ nameplates skips the
+  loot-list check (a whole-screen OCR). A nameplate read clearly at once
+  isn't read again with more settings, sizes or zooms -- those are only for
+  unclear ones. All screenshots are attached to the post (the first 4 as the
+  gallery) and the footer says how many were read.
 
 **Big fights**: attach up to 10 screenshots of the same kill from different
 angles; every one is read and all names merge into one list.
