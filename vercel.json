@@ -5,7 +5,8 @@
       "src": "api/index.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["public/**", "ocr-data/**", "node_modules/tesseract.js/**", "node_modules/tesseract.js-core/**"]
+        "includeFiles": ["public/**", "ocr-data/**", "node_modules/tesseract.js/**", "node_modules/tesseract.js-core/**"],
+        "maxDuration": 300
       }
     }
   ],

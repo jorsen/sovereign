@@ -104,7 +104,7 @@ Growth Rate page's own Edit button (admin-only) instead of touching Discord.
 
 ## /attendance (boss attendance)
 
-`/attendance boss:<pick> screenshot:<image> [screenshot2..4]`
+`/attendance boss:<pick> screenshot:<image> [screenshot2..10]`
 reads every **blue** (party), **green** (guild) and **light green**
 (alliance) nameplate off the screenshots, saves the attendees on the site's
 World Boss (or Balthazard) page, and posts the result in the attendance
@@ -137,6 +137,21 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   screenshot twice never counts it twice. Items not in the site's list are
   shown with ❓ and not saved. Overlapping screenshots of one scrolled list
   (attached in the same /attendance) are merged without double-counting.
+
+**Big fights**: attach up to 10 screenshots of the same kill from different
+angles; every one is read and all names merge into one list.
+
+**Trainer** (gets better with use): every name saved from a misread
+nameplate is remembered in `attendance_ocr_matches` -- what was read
+("RADiRIP") and who it was saved as (BÁDtRiP). Whether it was right is
+judged from the record as it is now: still in the attendees = confirmed,
+removed by an admin or a rescan = wrong. Confirmed misreadings (4+
+characters) are then matched instantly and similar ones more easily;
+wrong ones are never matched to that member again. So fixing records on
+the site is what trains it. It also weighs attendance history (last 30
+days of World Boss / Balthazard kills): regulars need a slightly less
+clear reading to be guessed, members with no recent attendance a clearer
+one. Exact reads are never affected.
 
 **Correcting a wrong scan**: run `/attendance` again for that kill (same boss
 + its loot list) with **rescan: True**. Instead of adding to the record, it

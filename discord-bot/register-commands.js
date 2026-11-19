@@ -112,6 +112,13 @@ const commands = [
     .addAttachmentOption((opt) => opt.setName('screenshot2').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
     .addAttachmentOption((opt) => opt.setName('screenshot3').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
     .addAttachmentOption((opt) => opt.setName('screenshot4').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    // Big fights: more angles of the same kill, all merged into one list.
+    .addAttachmentOption((opt) => opt.setName('screenshot5').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot6').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot7').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot8').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot9').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot10').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
     // True = replace this kill's saved names (and loot, unless it already has
     // prices/sales) with this scan, to correct a wrong one. Default: add.
     .addBooleanOption((opt) => opt.setName('rescan').setDescription("True = Replace This Kill's Saved Names & Loot With This Scan (to Fix a Wrong Scan)").setDescriptionLocalizations(ATTENDANCE_TEXT.rescan).setRequired(false))
