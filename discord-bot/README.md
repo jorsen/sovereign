@@ -139,7 +139,9 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   never counts it twice. Item names are compared ignoring spaces, and cut-off
   names the trainer confirmed before (`attendance_ocr_loot`, judged like the
   name trainer: still on the record = right) are reused. Items not in the
-  site's list are shown with ❓ and not saved; scraps under 5 letters are
+  site's list are shown with ❓ and not saved; a long row garbled all
+  through ("EaeencelniEurses") still counts as the item it is far closest to
+  (55%+ alike and 15+ points ahead of any other item). Scraps under 5 letters are
   dropped. Overlapping screenshots of one scrolled list (attached in the same
   /attendance) are merged without double-counting.
 - **Speed**: names are read first; a screenshot with 2+ nameplates skips the
