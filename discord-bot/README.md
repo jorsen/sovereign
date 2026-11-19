@@ -138,6 +138,15 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   shown with ❓ and not saved. Overlapping screenshots of one scrolled list
   (attached in the same /attendance) are merged without double-counting.
 
+**Correcting a wrong scan**: run `/attendance` again for that kill (same boss
++ its loot list) with **rescan: True**. Instead of adding to the record, it
+replaces the saved attendees with the new scan (bonus points, if the kill
+has any, are recomputed for the new names) and replaces the loot -- unless
+some of it already has a price or sale entered on the site, in which case
+the loot is kept and the post says to fix it there. Without rescan, a
+second /attendance only adds names (a second screenshot of the same fight).
+Single wrong names can also just be edited on the site.
+
 The result is one post: **Boss**, **Time of Death** (Discord shows it in
 each member's own language and timezone), **Attendees List** (numbered) and
 **Loots**, with the screenshots attached (up to 4, as a gallery). A one-line
