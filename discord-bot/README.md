@@ -155,8 +155,11 @@ angles; every one is read and all names merge into one list.
 nameplate is remembered in `attendance_ocr_matches` -- what was read
 ("RADiRIP") and who it was saved as (BÁDtRiP). Whether it was right is
 judged from the record as it is now: still in the attendees = confirmed,
-removed by an admin or a rescan = wrong. Confirmed misreadings (4+
-characters) are then matched instantly and similar ones more easily;
+removed by an admin or a rescan = wrong. A misreading counts as confirmed
+only once it held up on 2+ different kills (one kill isn't proof: an
+unfixed wrong guess is "on the record" too, and rescanning that kill must
+not confirm the mistake with itself). Confirmed misreadings (4+
+characters) are then matched instantly and very close ones more easily;
 wrong ones are never matched to that member again. So fixing records on
 the site is what trains it. It also weighs attendance history (last 30
 days of World Boss / Balthazard kills): regulars need a slightly less
