@@ -2,6 +2,9 @@
 // registers /uniongr with Discord. Run with: node register-commands.js
 require('dotenv').config();
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
+// Same boss list as the site's Log Attendance dropdown. (This script is run
+// from a checkout of the whole repo, so ../lib is always there.)
+const { SCANNABLE_BOSSES } = require('../lib/bosses');
 
 // Two sub-commands instead of one form, so the "old or new IGN?" question
 // comes first and only /uniongr switched-ign asks for the old IGN (Discord
@@ -27,7 +30,7 @@ const GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL', 'BUBB
 // Discord locale codes.
 const ATTENDANCE_TEXT = {
   command: { 'zh-CN': '从 Boss 截图读取出席者名字', ja: 'ボスのスクショから出席者の名前を読み取る', th: 'อ่านชื่อผู้เข้าร่วมจากภาพหน้าจอบอส', vi: 'Đọc tên người tham gia từ ảnh chụp boss' },
-  boss: { 'zh-CN': 'Boss 名称——输入后从列表中选择', ja: 'ボス名 — 入力して一覧から選択', th: 'ชื่อบอส — พิมพ์แล้วเลือกจากรายการ', vi: 'Tên boss — gõ rồi chọn trong danh sách' },
+  boss: { 'zh-CN': '选择 Boss', ja: 'ボスを選択', th: 'เลือกบอส', vi: 'Chọn boss' },
   time: { 'zh-CN': '击杀时间，菲律宾时间（例如 21:30 或 9:30pm）——留空 = 现在', ja: '討伐時刻・フィリピン時間（例：21:30、9:30pm）— 空欄 = 今', th: 'เวลาที่ล่า เวลาฟิลิปปินส์ (เช่น 21:30 หรือ 9:30pm) — เว้นว่าง = ตอนนี้', vi: 'Giờ hạ boss, giờ Philippines (vd: 21:30 hoặc 9:30pm) — để trống = bây giờ' },
   date: { 'zh-CN': '击杀日期（例如 11/20）——留空 = 今天', ja: '討伐日（例：11/20）— 空欄 = 今日', th: 'วันที่ล่า (เช่น 11/20) — เว้นว่าง = วันนี้', vi: 'Ngày hạ boss (vd: 11/20) — để trống = hôm nay' },
   screenshot: { 'zh-CN': '能看到名字的截图', ja: '名前が写っているスクショ', th: 'ภาพหน้าจอที่เห็นชื่อ', vi: 'Ảnh chụp có hiện tên' },
@@ -96,7 +99,16 @@ const commands = [
     .setName('attendance')
     .setDescription('Read attendee names from boss screenshots')
     .setDescriptionLocalizations(ATTENDANCE_TEXT.command)
-    .addStringOption((opt) => opt.setName('boss').setDescription('Boss Name — Start Typing and Pick It').setDescriptionLocalizations(ATTENDANCE_TEXT.boss).setRequired(true).setMaxLength(60).setAutocomplete(true))
+    // A fixed dropdown of the site's own boss list (lib/bosses.js), so only a
+    // real boss can be picked -- no typing, no typos.
+    .addStringOption((opt) =>
+      opt
+        .setName('boss')
+        .setDescription('Pick the Boss')
+        .setDescriptionLocalizations(ATTENDANCE_TEXT.boss)
+        .setRequired(true)
+        .addChoices(...SCANNABLE_BOSSES.map((b) => ({ name: b.boss, value: b.boss })))
+    )
     .addAttachmentOption((opt) => opt.setName('screenshot').setDescription('Screenshot Showing the Name Tags').setDescriptionLocalizations(ATTENDANCE_TEXT.screenshot).setRequired(true))
     .addAttachmentOption((opt) => opt.setName('screenshot2').setDescription('Another Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
     .addAttachmentOption((opt) => opt.setName('screenshot3').setDescription('Another Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))

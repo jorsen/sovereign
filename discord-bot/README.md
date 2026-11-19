@@ -110,9 +110,9 @@ reads every **blue** (party), **green** (guild) and **light green**
 World Boss (or Balthazard) page, and posts the result in the attendance
 channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
 
-- **boss** suggests the boss list (`lib/bosses.js`) as you type; typos are
-  corrected ("kafak" → Kafka), and a name that isn't one of our bosses is
-  refused, since a record needs a real boss.
+- **boss** is a dropdown of the site's boss list (`lib/bosses.js`), so only
+  a real boss can be picked. After adding a boss there, run
+  `node register-commands.js` again so the dropdown picks it up.
 - **time / date** default to now, on Philippines time (UTC+8), the clock the
   site's records use. Fill them in only when logging a kill later
   (`time:21:30` or `9:30pm`, `date:11/20`).
