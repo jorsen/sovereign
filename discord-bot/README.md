@@ -102,17 +102,31 @@ Deleting the bot's confirmation embed removes that entry from the Growth
 Rate page automatically. To fix a typo on an existing submission, use the
 Growth Rate page's own Edit button (admin-only) instead of touching Discord.
 
-## /attendance (boss attendance, name reading only)
+## /attendance (boss attendance)
 
-`/attendance boss:<name> screenshot:<image> [screenshot2..4]` reads every
-**blue** (party), **green** (guild) and **light green** (alliance) nameplate
-off the screenshots and posts the result in the attendance channel
-(`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`). Nothing is
-saved to the website yet.
+`/attendance boss:<name> screenshot:<image> [screenshot2..4] [time] [date]`
+reads every **blue** (party), **green** (guild) and **light green**
+(alliance) nameplate off the screenshots, saves the attendees on the site's
+World Boss (or Balthazard) page, and posts the result in the attendance
+channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
 
-The post itself shows only the boss and the attendee count (no screenshot,
-so the thread doesn't repeat the image at its top); the
-bot then starts a thread on that post and lists the attendees there
+- **boss** suggests the boss list (`lib/bosses.js`) as you type; typos are
+  corrected ("kafak" → Kafka), and a name that isn't one of our bosses is
+  refused, since a record needs a real boss.
+- **time / date** default to now, on Philippines time (UTC+8), the clock the
+  site's records use. Fill them in only when logging a kill later
+  (`time:21:30` or `9:30pm`, `date:11/20`).
+- **Saved** (`lib/attendanceRecords.js`): every name matched to the Growth
+  Rate list, ⚠️ guesses included; ❓ names (not on the list) are not saved.
+  New records start as result "pending" -- set Win/Lose on the site. A
+  second /attendance for the same boss within 30 minutes is treated as
+  another screenshot of the same kill and adds its names to that record.
+  Each save shows on the site's Activity Log as "<name> (Discord)".
+
+The post itself shows the boss, the date/time (Discord shows it in each
+member's own language and timezone), the attendee count and whether it was
+saved, with no screenshot (so the thread doesn't repeat the image at its
+top); the bot then starts a thread on that post and lists the attendees there
 (numbered, with the ⚠️ / ❓ marks below). The bot needs Create Public
 Threads and Send Messages in Threads in the channel. If the thread can't be
 created, the list is put in the post itself instead.
