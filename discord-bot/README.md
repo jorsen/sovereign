@@ -104,7 +104,7 @@ Growth Rate page's own Edit button (admin-only) instead of touching Discord.
 
 ## /attendance (boss attendance)
 
-`/attendance boss:<name> screenshot:<image> [screenshot2..4] [time] [date]`
+`/attendance boss:<pick> screenshot:<image> [screenshot2..4]`
 reads every **blue** (party), **green** (guild) and **light green**
 (alliance) nameplate off the screenshots, saves the attendees on the site's
 World Boss (or Balthazard) page, and posts the result in the attendance
@@ -113,15 +113,30 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
 - **boss** is a dropdown of the site's boss list (`lib/bosses.js`), so only
   a real boss can be picked. After adding a boss there, run
   `node register-commands.js` again so the dropdown picks it up.
-- **time / date** default to now, on Philippines time (UTC+8), the clock the
-  site's records use. Fill them in only when logging a kill later
-  (`time:21:30` or `9:30pm`, `date:11/20`).
+- **Date and time are automatic**: when the screenshots were uploaded (the
+  earliest one, read from the attachments' Discord IDs), on Philippines
+  time (UTC+8), the clock the site's records use. When a loot list is
+  attached, its exact kill time ("11.20.2026 00:55") is used instead.
 - **Saved** (`lib/attendanceRecords.js`): every name matched to the Growth
   Rate list, ⚠️ guesses included; ❓ names (not on the list) are not saved.
   New records start as result "pending" -- set Win/Lose on the site. A
   second /attendance for the same boss within 30 minutes is treated as
   another screenshot of the same kill and adds its names to that record.
   Each save shows on the site's Activity Log as "<name> (Discord)".
+- **Loot**: a screenshot of the in-game loot distribution list can be
+  attached too (any screenshot slot, with or without battle screenshots).
+  `lib/lootOcr.js` recognizes it by its "11.20.2026 00:55" rows and reads
+  each row's item, boss, guild, kill time and the quantity badge on the
+  icon; `lib/lootMatch.js` completes cut-off names ("al of Advancement" →
+  Higher Seal of Advancement) from the item names already on the site,
+  using which items that boss has dropped before to break ties. Totals go
+  on that kill's record (found by boss + kill time, within 30 minutes; a
+  new pending record if there's none yet). If no time was typed, the
+  attendance uses the loot list's kill time, so both land on one record.
+  A record that already has loot is left alone, so posting the same loot
+  screenshot twice never counts it twice. Items not in the site's list are
+  shown with ❓ and not saved. Overlapping screenshots of one scrolled list
+  (attached in the same /attendance) are merged without double-counting.
 
 The post itself shows the boss, the date/time (Discord shows it in each
 member's own language and timezone), the attendee count and whether it was

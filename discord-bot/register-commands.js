@@ -31,10 +31,8 @@ const GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL', 'BUBB
 const ATTENDANCE_TEXT = {
   command: { 'zh-CN': '从 Boss 截图读取出席者名字', ja: 'ボスのスクショから出席者の名前を読み取る', th: 'อ่านชื่อผู้เข้าร่วมจากภาพหน้าจอบอส', vi: 'Đọc tên người tham gia từ ảnh chụp boss' },
   boss: { 'zh-CN': '选择 Boss', ja: 'ボスを選択', th: 'เลือกบอส', vi: 'Chọn boss' },
-  time: { 'zh-CN': '击杀时间，菲律宾时间（例如 21:30 或 9:30pm）——留空 = 现在', ja: '討伐時刻・フィリピン時間（例：21:30、9:30pm）— 空欄 = 今', th: 'เวลาที่ล่า เวลาฟิลิปปินส์ (เช่น 21:30 หรือ 9:30pm) — เว้นว่าง = ตอนนี้', vi: 'Giờ hạ boss, giờ Philippines (vd: 21:30 hoặc 9:30pm) — để trống = bây giờ' },
-  date: { 'zh-CN': '击杀日期（例如 11/20）——留空 = 今天', ja: '討伐日（例：11/20）— 空欄 = 今日', th: 'วันที่ล่า (เช่น 11/20) — เว้นว่าง = วันนี้', vi: 'Ngày hạ boss (vd: 11/20) — để trống = hôm nay' },
-  screenshot: { 'zh-CN': '能看到名字的截图', ja: '名前が写っているスクショ', th: 'ภาพหน้าจอที่เห็นชื่อ', vi: 'Ảnh chụp có hiện tên' },
-  another: { 'zh-CN': '另一张截图（可选）', ja: '追加のスクショ（任意）', th: 'ภาพหน้าจอเพิ่มเติม (ไม่บังคับ)', vi: 'Ảnh chụp khác (không bắt buộc)' },
+  screenshot: { 'zh-CN': '战斗截图（能看到名字）或战利品列表截图', ja: '戦闘のスクショ（名前が見える）または戦利品リストのスクショ', th: 'ภาพการต่อสู้ (เห็นชื่อ) หรือภาพรายการของดรอป', vi: 'Ảnh trận đánh (thấy tên) hoặc ảnh danh sách vật phẩm rơi' },
+  another: { 'zh-CN': '另一张战斗或战利品列表截图（可选）', ja: '追加の戦闘または戦利品リストのスクショ（任意）', th: 'ภาพการต่อสู้หรือรายการของดรอปเพิ่มเติม (ไม่บังคับ)', vi: 'Ảnh trận đánh hoặc danh sách vật phẩm khác (không bắt buộc)' },
 };
 
 // Growth Rate + screenshot are always required. class/guild/lamp are
@@ -109,13 +107,10 @@ const commands = [
         .setRequired(true)
         .addChoices(...SCANNABLE_BOSSES.map((b) => ({ name: b.boss, value: b.boss })))
     )
-    .addAttachmentOption((opt) => opt.setName('screenshot').setDescription('Screenshot Showing the Name Tags').setDescriptionLocalizations(ATTENDANCE_TEXT.screenshot).setRequired(true))
-    .addAttachmentOption((opt) => opt.setName('screenshot2').setDescription('Another Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
-    .addAttachmentOption((opt) => opt.setName('screenshot3').setDescription('Another Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
-    .addAttachmentOption((opt) => opt.setName('screenshot4').setDescription('Another Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
-    // Both default to now (Philippines time); only for logging a kill later.
-    .addStringOption((opt) => opt.setName('time').setDescription('Kill Time, PH Time (e.g. 21:30 or 9:30pm) — Empty = Now').setDescriptionLocalizations(ATTENDANCE_TEXT.time).setRequired(false).setMaxLength(10))
-    .addStringOption((opt) => opt.setName('date').setDescription('Kill Date (e.g. 11/20) — Empty = Today').setDescriptionLocalizations(ATTENDANCE_TEXT.date).setRequired(false).setMaxLength(10))
+    .addAttachmentOption((opt) => opt.setName('screenshot').setDescription('Battle Screenshot (Name Tags) or Loot List Screenshot').setDescriptionLocalizations(ATTENDANCE_TEXT.screenshot).setRequired(true))
+    .addAttachmentOption((opt) => opt.setName('screenshot2').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot3').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot4').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
     .toJSON(),
 ];
 
