@@ -101,3 +101,54 @@ Cheapest options for a small guild bot:
 Deleting the bot's confirmation embed removes that entry from the Growth
 Rate page automatically. To fix a typo on an existing submission, use the
 Growth Rate page's own Edit button (admin-only) instead of touching Discord.
+
+## /attendance (boss attendance, name reading only)
+
+`/attendance boss:<name> screenshot:<image> [screenshot2..4]` reads every
+**blue** (party), **green** (guild) and **light green** (alliance) nameplate
+off the screenshots and posts the result in the attendance channel
+(`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`). Nothing is
+saved to the website yet.
+
+The post itself shows the boss, the attendee count and the screenshot; the
+bot then starts a thread on that post and lists the attendees there
+(numbered, with the ⚠️ / ❓ marks below). The bot needs Create Public
+Threads and Send Messages in Threads in the channel. If the thread can't be
+created, the list is put in the post itself instead.
+
+Reading is free and local: `lib/attendanceOcr.js` keeps only pixels in
+those three exact name colors, cuts out each nameplate, and reads it with
+Tesseract OCR (`tesseract.js`). The English/Korean/Traditional Chinese
+language data lives in `ocr-data/` so nothing is downloaded at runtime.
+In-game chat uses the same green as guild names, so lines that start at the
+left screen edge are skipped.
+
+Each reading is then matched against the IGNs on the Growth Rate page
+(`lib/rosterMatch.js`), so small misreads are posted with the exact spelling
+the site has (IicyFraith -> JuicyFruit). Guesses that aren't a clear match
+are marked ⚠️ with what OCR actually read, and names not on the Growth Rate
+list at all are marked ❓.
+
+Each nameplate is read several ways (plain and thickened strokes, line and
+word mode, Korean and Chinese readers), and the matching uses whichever
+reading fits a Growth Rate name. Extra readings only count for close
+matches, so they can't pull in a member who wasn't there. Text size is
+measured from the screenshot itself, so cropped, phone and 4K screenshots
+all work; JPEGs get a wider color tolerance.
+
+OCR is not perfect: names partly covered by spell effects or another
+nameplate, and some Korean/Chinese characters, can come out wrong. Those
+are marked ⚠️ in the post so someone can check the spelling.
+
+Like `/uniongr`, the command is handled by the Vercel app
+(`lib/discordInteractions.js`). After deploying, run
+`node register-commands.js` here once so Discord learns the new command.
+
+To test the reader on local screenshots without Discord:
+
+```
+npm run read-names -- path/to/screenshot.png
+```
+
+Set `ATTENDANCE_OCR_DEBUG=1` to also print every text line it found and how
+each OCR reader read it.

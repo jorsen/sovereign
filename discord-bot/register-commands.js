@@ -75,6 +75,19 @@ const commands = [
       )
     )
     .toJSON(),
+  // Boss attendance: reads the blue/green/light-green nameplates off the
+  // screenshots (lib/attendanceOcr.js) and posts the list. Only answers in
+  // the attendance channel. Screenshot option names are kept in sync with
+  // ATTENDANCE_SCREENSHOT_OPTIONS in lib/discordInteractions.js.
+  new SlashCommandBuilder()
+    .setName('attendance')
+    .setDescription('Read attendee names from boss screenshots')
+    .addStringOption((opt) => opt.setName('boss').setDescription('Boss Name (e.g. Chantarat)').setRequired(true).setMaxLength(60))
+    .addAttachmentOption((opt) => opt.setName('screenshot').setDescription('Screenshot Showing the Name Tags').setRequired(true))
+    .addAttachmentOption((opt) => opt.setName('screenshot2').setDescription('Another Screenshot (Optional)').setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot3').setDescription('Another Screenshot (Optional)').setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot4').setDescription('Another Screenshot (Optional)').setRequired(false))
+    .toJSON(),
 ];
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
@@ -93,12 +106,12 @@ const rest = new REST().setToken(DISCORD_TOKEN);
     // Guild-scoped commands show up instantly -- use this while testing, or
     // permanently if the bot only ever lives in one server.
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-    console.log(`Registered /uniongr for guild ${GUILD_ID} (instant).`);
+    console.log(`Registered /uniongr and /attendance for guild ${GUILD_ID} (instant).`);
   } else {
     // Global commands can take up to an hour to appear everywhere the bot
     // is installed.
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log('Registered /uniongr globally (can take up to an hour to show up).');
+    console.log('Registered /uniongr and /attendance globally (can take up to an hour to show up).');
   }
 })().catch((err) => {
   console.error(err);
