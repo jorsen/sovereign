@@ -144,6 +144,13 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   (55%+ alike and 15+ points ahead of any other item). Scraps under 5 letters are
   dropped. Overlapping screenshots of one scrolled list (attached in the same
   /attendance) are merged without double-counting.
+- **Loot icons**: a cut-off name can fit several items ("Enhancement Scroll":
+  Brilliant Armor, Pitch Black Accessory, ...). Each row's icon is kept as a
+  tiny 6x6 color picture (`attendance_ocr_icons`), learned from rows whose
+  name was read in full, and from admins' fixes: when the bot had to guess
+  (by what that boss dropped before) and an admin changed the item on the
+  site, the icon is learned as the corrected item. A guess nobody changed
+  teaches nothing. Once an item's icon is known, the icon decides.
 - **Speed**: names are read first; a screenshot with 2+ nameplates skips the
   loot-list check (a whole-screen OCR). A nameplate read clearly at once
   isn't read again with more settings, sizes or zooms -- those are only for
