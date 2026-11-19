@@ -29,7 +29,7 @@ const GUILD_CHOICES = ['Helloシ', '貓貓客棧', '巫女組', 'CAPITAL', 'BUBB
 // /attendance descriptions in the growth guide's other languages, keyed by
 // Discord locale codes.
 const ATTENDANCE_TEXT = {
-  command: { 'zh-CN': '从 Boss 截图读取出席者名字', ja: 'ボスのスクショから出席者の名前を読み取る', th: 'อ่านชื่อผู้เข้าร่วมจากภาพหน้าจอบอส', vi: 'Đọc tên người tham gia từ ảnh chụp boss' },
+  command: { 'zh-CN': '记录 Boss 击杀：战斗截图 + 战利品列表截图（必需）', ja: 'ボス討伐を記録：戦闘のスクショ＋戦利品リストのスクショ（必須）', th: 'บันทึกการล่าบอส: ภาพการต่อสู้ + ภาพรายการของดรอป (จำเป็น)', vi: 'Ghi trận boss: ảnh trận đánh + ảnh danh sách vật phẩm rơi (bắt buộc)' },
   boss: { 'zh-CN': '选择 Boss', ja: 'ボスを選択', th: 'เลือกบอส', vi: 'Chọn boss' },
   screenshot: { 'zh-CN': '战斗截图（能看到名字）或战利品列表截图', ja: '戦闘のスクショ（名前が見える）または戦利品リストのスクショ', th: 'ภาพการต่อสู้ (เห็นชื่อ) หรือภาพรายการของดรอป', vi: 'Ảnh trận đánh (thấy tên) hoặc ảnh danh sách vật phẩm rơi' },
   another: { 'zh-CN': '另一张战斗或战利品列表截图（可选）', ja: '追加の戦闘または戦利品リストのスクショ（任意）', th: 'ภาพการต่อสู้หรือรายการของดรอปเพิ่มเติม (ไม่บังคับ)', vi: 'Ảnh trận đánh hoặc danh sách vật phẩm khác (không bắt buộc)' },
@@ -95,7 +95,7 @@ const commands = [
   // Discord shows each member the one matching their client language.
   new SlashCommandBuilder()
     .setName('attendance')
-    .setDescription('Read attendee names from boss screenshots')
+    .setDescription('Log a boss kill: battle screenshots + the loot list screenshot (required)')
     .setDescriptionLocalizations(ATTENDANCE_TEXT.command)
     // A fixed dropdown of the site's own boss list (lib/bosses.js), so only a
     // real boss can be picked -- no typing, no typos.

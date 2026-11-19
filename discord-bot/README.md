@@ -113,10 +113,10 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
 - **boss** is a dropdown of the site's boss list (`lib/bosses.js`), so only
   a real boss can be picked. After adding a boss there, run
   `node register-commands.js` again so the dropdown picks it up.
-- **Date and time are automatic**: when the screenshots were uploaded (the
-  earliest one, read from the attachments' Discord IDs), on Philippines
-  time (UTC+8), the clock the site's records use. When a loot list is
-  attached, its exact kill time ("11.20.2026 00:55") is used instead.
+- **Time of Death comes from the loot list** ("11.20.2026 00:55", already
+  Philippines time, the clock the site's records use), so a loot list
+  screenshot is required: without one, or with a loot list for a different
+  boss than the one picked, the bot refuses and saves nothing.
 - **Saved** (`lib/attendanceRecords.js`): every name matched to the Growth
   Rate list, ⚠️ guesses included; ❓ names (not on the list) are not saved.
   New records start as result "pending" -- set Win/Lose on the site. A
