@@ -187,8 +187,11 @@ not just the unclear ones), replaces the saved record the same way
 `rescan: True` does, and edits the post in place ("rescanned by <name>" in
 the footer). The button shows "Rescanning…" and can't be pressed again
 while it runs; if the rescan fails, only the presser sees the error and the
-post stays as it was. The attendee added for "who ran it" stays the original
-poster. Posts made before the button existed don't have it.
+post stays as it was. Posts made before the button existed don't have it.
+
+Only names read off the screenshots are listed: whoever runs /attendance is
+not added automatically (`ADD_SUBMITTER` in `lib/discordInteractions.js`,
+off for now).
 
 Or run `/attendance` again for that kill (same boss + its loot list) with
 **rescan: True**. Instead of adding to the record, it
@@ -214,7 +217,8 @@ those three exact name colors, cuts out each nameplate, and reads it with
 Tesseract OCR (`tesseract.js`). The English/Korean/Traditional Chinese
 language data lives in `ocr-data/` so nothing is downloaded at runtime.
 In-game chat uses the same green as guild names, so lines that start at the
-left screen edge are skipped.
+left screen edge are skipped. A faded guild green (a soft capture, a short
+green name inside a green skill effect) is caught by its hue too.
 
 Each reading is then matched against the IGNs on the Growth Rate page
 (`lib/rosterMatch.js`), so small misreads are posted with the exact spelling
