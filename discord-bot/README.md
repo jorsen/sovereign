@@ -110,7 +110,8 @@ off the screenshots and posts the result in the attendance channel
 (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`). Nothing is
 saved to the website yet.
 
-The post itself shows the boss, the attendee count and the screenshot; the
+The post itself shows only the boss and the attendee count (no screenshot,
+so the thread doesn't repeat the image at its top); the
 bot then starts a thread on that post and lists the attendees there
 (numbered, with the ⚠️ / ❓ marks below). The bot needs Create Public
 Threads and Send Messages in Threads in the channel. If the thread can't be
