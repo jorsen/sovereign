@@ -173,7 +173,12 @@ wrong ones are never matched to that member again. So fixing records on
 the site is what trains it. It also weighs attendance history (last 30
 days of World Boss / Balthazard kills): regulars need a slightly less
 clear reading to be guessed, members with no recent attendance a clearer
-one. Exact reads are never affected.
+one. Exact reads are never affected. A reading is only blocked for a
+member after it was wrong on 2+ different kills too (a rescan of blurry
+copies once dropped a real attendee and would otherwise block her name).
+Decorated names (คnNikaツ, 자본丶Suszane) are also matched on their Latin
+part ("Nika"), and a dash-framed number inside junk ("ee一41一") still
+finds the number name.
 
 **Correcting a wrong scan**: press the **🔄 Rescan** button under the post.
 It reads the post's own screenshots again -- nothing to re-upload -- with
