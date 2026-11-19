@@ -138,13 +138,12 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   shown with ❓ and not saved. Overlapping screenshots of one scrolled list
   (attached in the same /attendance) are merged without double-counting.
 
-The post itself shows the boss, the date/time (Discord shows it in each
-member's own language and timezone), the attendee count and whether it was
-saved, with no screenshot (so the thread doesn't repeat the image at its
-top); the bot then starts a thread on that post and lists the attendees there
-(numbered, with the ⚠️ / ❓ marks below). The bot needs Create Public
-Threads and Send Messages in Threads in the channel. If the thread can't be
-created, the list is put in the post itself instead.
+The result is one post: **Boss**, **Time of Death** (Discord shows it in
+each member's own language and timezone), **Attendees List** (numbered) and
+**Loots**, with the screenshots attached (up to 4, as a gallery). A one-line
+footer explains ⚠️ / ❓ marks only when they appear, and notes anything not
+saved. The bot reacts ✅ when done (⚠️ if saving to the site failed, ❌ if
+it stopped with an error).
 
 Reading is free and local: `lib/attendanceOcr.js` keeps only pixels in
 those three exact name colors, cuts out each nameplate, and reads it with
