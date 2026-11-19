@@ -220,6 +220,16 @@ In-game chat uses the same green as guild names, so lines that start at the
 left screen edge are skipped. A faded guild green (a soft capture, a short
 green name inside a green skill effect) is caught by its hue too.
 
+Chinese names (殺豬小隊ฅ金元寶ฅ, 鬱金香都沒妳的浴巾香) get a third, Chinese-only
+reader on unclear nameplates -- paired with English, the Chinese reader
+turns small Han text into Latin junk. Each reading of a small Han name gets
+a few characters wrong, but different ones, so a member whose Han
+characters are 75%+ covered by 2+ readings (and clearly more than anyone
+else) is matched. Han/Hangul characters count double for the short-name
+rules. Nameplates at the very top of a cropped screenshot, at the left
+screen edge (a lone row, not stacked chat rows), number names whose digits
+touch (一41一), and the duller name colors of small screenshots are found too.
+
 Each reading is then matched against the IGNs on the Growth Rate page
 (`lib/rosterMatch.js`), so small misreads are posted with the exact spelling
 the site has (IicyFraith -> JuicyFruit). Guesses that aren't a clear match
