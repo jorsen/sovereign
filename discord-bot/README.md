@@ -223,11 +223,17 @@ it stopped with an error).
 
 Reading is free and local: `lib/attendanceOcr.js` keeps only pixels in
 those three exact name colors, cuts out each nameplate, and reads it with
-Tesseract OCR (`tesseract.js`). The English/Korean/Traditional Chinese
+Tesseract OCR (`tesseract.js`). The English/Korean/Traditional Chinese/Japanese
 language data lives in `ocr-data/` so nothing is downloaded at runtime.
 In-game chat uses the same green as guild names, so lines that start at the
 left screen edge are skipped. A faded guild green (a soft capture, a short
 green name inside a green skill effect) is caught by its hue too.
+
+Japanese names (とらふ) get a fourth, Japanese-only reader (`ocr-data/jpn`);
+voicing marks (゛゜, a pixel or two on small text) are ignored when matching
+(とらぶ = とらふ). A name drawn in a darker party blue than the rest
+(자본丶Sammyyy) is caught by a dim-blue fallback, which only accepts clear
+matches and doesn't count toward the measured text size.
 
 Chinese names (殺豬小隊ฅ金元寶ฅ, 鬱金香都沒妳的浴巾香) get a third, Chinese-only
 reader on unclear nameplates -- paired with English, the Chinese reader
