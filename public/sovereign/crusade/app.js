@@ -169,7 +169,7 @@ function crusadeIdFromHashSegment(segment) {
 
 // Logged-out visitors only get the boss pages (and the Points/Salary pages
 // linked from them) -- everything else sends them to World Boss.
-const GUEST_HASHES = ['worldboss', 'balthazard', 'aegiss', 'points', 'salary'];
+const GUEST_HASHES = ['worldboss', 'balthazard', 'aegis', 'points', 'salary'];
 
 function route() {
   const hash = window.location.hash.slice(1);
@@ -194,7 +194,7 @@ function route() {
     loadGrowthSubmissions().catch((err) => toast(err.message));
     return;
   }
-  if (hash === 'worldboss' || hash === 'bf4boss' || hash === 'balthazard' || hash === 'aegiss') {
+  if (hash === 'worldboss' || hash === 'bf4boss' || hash === 'balthazard' || hash === 'aegis') {
     sovereignState.mode = null;
     const nextSchedule = hash === 'bf4boss' ? 'bf4' : hash === 'worldboss' ? 'world_boss' : hash;
     if (nextSchedule !== worldBossActiveSchedule) worldBossCalendarMonth = null; // re-anchor to this schedule's own most recent event
@@ -264,7 +264,7 @@ function showPanel(name) {
   // BF4 Boss and Balthazard reuse the same World Boss Attendance panel/markup
   // (see worldBossActiveSchedule) -- each is a separate nav entry, not a
   // separate set of DOM elements, so all three hashes show this one panel.
-  document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss' && name !== 'bf4boss' && name !== 'balthazard' && name !== 'aegiss');
+  document.getElementById('sovereignWorldBossPanel').classList.toggle('hidden', name !== 'worldboss' && name !== 'bf4boss' && name !== 'balthazard' && name !== 'aegis');
   document.getElementById('sovereignPointsPanel').classList.toggle('hidden', name !== 'points');
   document.getElementById('sovereignSalaryPanel').classList.toggle('hidden', name !== 'salary');
   document.getElementById('sovereignActivityLogPanel').classList.toggle('hidden', name !== 'activitylog');
@@ -274,7 +274,7 @@ function showPanel(name) {
   // view-only everywhere else (the server enforces the same split).
   if (isCrusadeEditor()) document.body.classList.toggle('view-only', !['list', 'detail', 'guildSalary', 'team', 'mercenaries'].includes(name));
   // 'detail', 'guildSalary' and 'team' set their own title once their data loads.
-  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'balthazard', 'aegiss', 'points', 'salary', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
+  if (['list', 'raffle', 'growth', 'worldboss', 'bf4boss', 'balthazard', 'aegis', 'points', 'salary', 'activitylog', 'users'].includes(name)) document.title = 'Sovereign — Crusade';
 }
 
 document.getElementById('sovereignBackLink').addEventListener('click', (e) => {
@@ -4034,7 +4034,7 @@ const WORLD_BOSS_SCHEDULES = {
   world_boss: { label: 'World Boss', bossNames: WORLD_BOSS_NAMES },
   bf4: { label: 'BF4 Boss', bossNames: ['BF4 Boss'] },
   balthazard: { label: 'Balthazard', bossNames: ['Balthazard'] },
-  aegiss: { label: 'Aegiss', bossNames: ['Aegiss'] },
+  aegis: { label: 'Aegis', bossNames: ['Aegis'] },
 };
 let worldBossActiveSchedule = 'world_boss';
 
@@ -5981,17 +5981,17 @@ function multiplierForGrowthRate(growthRate) {
   return bracket ? bracket.multiplier : SALARY_GR_MULTIPLIER_BRACKETS[SALARY_GR_MULTIPLIER_BRACKETS.length - 1].multiplier;
 }
 
-// Balthazard and Aegiss: on top of the normal GR-bracket multiplier, the top 10
+// Balthazard and Aegis: on top of the normal GR-bracket multiplier, the top 10
 // attendees ranked by Growth Rate get an extra bump this month, tapering
 // by 0.05 per rank from +0.50 at rank 1 down to +0.05 at rank 10. Index 0
 // = rank 1's bonus.
 const BALTHAZARD_TOP10_RANK_BONUS = [0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1, 0.05];
-// Aegiss is a copy of Balthazard, top-10 bonus included.
-const TOP10_BONUS_SCHEDULES = ['balthazard', 'aegiss'];
+// Aegis is a copy of Balthazard, top-10 bonus included.
+const TOP10_BONUS_SCHEDULES = ['balthazard', 'aegis'];
 
 // A schedule's name in the Excel exports (L = salaryExcelText(...)).
 function salaryScheduleLabel(L, schedule) {
-  return { balthazard: L.balthazard, aegiss: L.aegiss, bf4: L.bf4 }[schedule] || L.worldBoss;
+  return { balthazard: L.balthazard, aegis: L.aegis, bf4: L.bf4 }[schedule] || L.worldBoss;
 }
 
 // Sending diamonds in-game costs the sender a tax on top of what's
@@ -6366,7 +6366,7 @@ const SALARY_EXCEL_TEXT = {
   en: {
     sheetSalary: 'Salary', sheetFees: 'Management Fees', sheetGuilds: 'Guild Totals', sheetPayouts: 'Payouts',
     sheetUnsold: 'Loot', sheetRules: 'Rules', sheetPayout: 'Payout',
-    worldBoss: 'World Boss', balthazard: 'Balthazard', aegiss: 'Aegiss',
+    worldBoss: 'World Boss', balthazard: 'Balthazard', aegis: 'Aegis',
     salaryTitle: (sched, month) => `${sched} Salary — ${month}`,
     payoutTitle: (sched, month, n, date) => `${sched} Salary — ${month} — Payout #${n} (sent ${date})`,
     fileName: (sched, month) => `Salary - ${sched} - ${month}.xlsx`,
@@ -6380,7 +6380,7 @@ const SALARY_EXCEL_TEXT = {
     members: 'Members', taxPct: 'Tax %', diamondTax: 'Guild Tax', totalCost: 'Total Diamonds to Vend',
     payoutNo: 'Payout #', recordedAt: 'Recorded At', recordedBy: 'Recorded By', diamonds: 'Diamonds', crows: 'Crows',
     feeDiamonds: 'Diamonds from Fee', feeCrows: 'Crows from Fee', noFees: 'No management fees this month',
-    bracketsHeading: 'Growth Rate Multiplier Brackets', top10Heading: 'Top 10 Bonus (Balthazard / Aegiss)', minGr: 'Min Growth Rate', extra: 'Extra',
+    bracketsHeading: 'Growth Rate Multiplier Brackets', top10Heading: 'Top 10 Bonus (Balthazard / Aegis)', minGr: 'Min Growth Rate', extra: 'Extra',
     lootTitle: (sched, month, date) => `Loot — ${sched} ${month} (as of ${date})`,
     lootFileName: (sched, month) => `Loot - ${sched} - ${month}.xlsx`,
     bf4: 'BF4 Boss', itemsHeading: 'Items', killsHeading: 'All kills', status: 'Status', partial: 'Partial', noLoot: 'No loot logged this month',
@@ -6394,7 +6394,7 @@ const SALARY_EXCEL_TEXT = {
   zh: {
     sheetSalary: '工资', sheetFees: '管理费', sheetGuilds: '公会总计', sheetPayouts: '发放记录',
     sheetUnsold: '掉落记录', sheetRules: '规则', sheetPayout: '发放',
-    worldBoss: '世界Boss', balthazard: 'Balthazard', aegiss: 'Aegiss',
+    worldBoss: '世界Boss', balthazard: 'Balthazard', aegis: 'Aegis',
     salaryTitle: (sched, month) => `${sched} 工资 — ${month}`,
     payoutTitle: (sched, month, n, date) => `${sched} 工资 — ${month} — 第 ${n} 次发放（${date} 发出）`,
     fileName: (sched, month) => `工资 - ${sched} - ${month}.xlsx`,
@@ -6408,7 +6408,7 @@ const SALARY_EXCEL_TEXT = {
     members: '成员数', taxPct: '税率 %', diamondTax: '公会税', totalCost: '应发钻石总数',
     payoutNo: '发放次数', recordedAt: '记录时间', recordedBy: '记录人', diamonds: '钻石', crows: '乌鸦币',
     feeDiamonds: '管理费钻石', feeCrows: '管理费乌鸦币', noFees: '本月无管理费',
-    bracketsHeading: '成长率倍率档位', top10Heading: '前十加成（Balthazard / Aegiss）', minGr: '最低成长率', extra: '额外加成',
+    bracketsHeading: '成长率倍率档位', top10Heading: '前十加成（Balthazard / Aegis）', minGr: '最低成长率', extra: '额外加成',
     lootTitle: (sched, month, date) => `掉落记录 — ${sched} ${month}（截至 ${date}）`,
     lootFileName: (sched, month) => `掉落记录 - ${sched} - ${month}.xlsx`,
     bf4: 'BF4 Boss', itemsHeading: '物品', killsHeading: '全部击杀记录', status: '状态', partial: '部分售出', noLoot: '本月无掉落记录',
@@ -6683,7 +6683,7 @@ function buildSalaryWorkbook(XLSX, opts = {}) {
       num(r.attendance),
       formula(`VLOOKUP(D${n},${bracketRange},2,1)`, grMult, FMT_MULT),
       formula(`IF(E${n}>0,COUNTIFS(${col('E')},">0",${col('D')},">"&D${n})+COUNTIFS(${col('D')},D${n},${col('E')},">"&E${n})+COUNTIFS($D$${first}:D${n},D${n},$E$${first}:E${n},E${n}),"")`, ranks[i]),
-      formula(`IF(AND(OR($B$2="${L.balthazard}",$B$2="${L.aegiss}"),E${n}>0),IF(G${n}<=${bonusCount},INDEX(${bonusRange},G${n}),0),0)`, r.attendance > 0 ? r.multiplier - grMult : 0, '0.00'),
+      formula(`IF(AND(OR($B$2="${L.balthazard}",$B$2="${L.aegis}"),E${n}>0),IF(G${n}<=${bonusCount},INDEX(${bonusRange},G${n}),0),0)`, r.attendance > 0 ? r.multiplier - grMult : 0, '0.00'),
       num(r.feePercent || 0, '0.00'),
       formula(`IF(E${n}>0,F${n}+H${n},0)`, r.multiplier, FMT_MULT),
       formula(`IF(SUM(${col('E')})=0,0,E${n}/SUM(${col('E')}))`, r.baseShare, FMT_PCT),
