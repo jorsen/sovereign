@@ -153,6 +153,10 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   (by what that boss dropped before) and an admin changed the item on the
   site, the icon is learned as the corrected item. A guess nobody changed
   teaches nothing. Once an item's icon is known, the icon decides.
+  `lib/itemIcons.json` also holds reference icons from in-game pictures (the
+  8 Brilliant / Pitch Black Weapon, Armor, Accessory, Artifact Enhancement
+  Scrolls): color tells the family apart, a 12x12 shape fingerprint the
+  symbol, so a cut-off "Enhancement Scroll" is named from its icon.
 - **Speed**: names are read first; a screenshot with 2+ nameplates skips the
   loot-list check (a whole-screen OCR). A nameplate read clearly at once
   isn't read again with more settings, sizes or zooms -- those are only for
