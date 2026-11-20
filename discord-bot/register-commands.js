@@ -104,9 +104,9 @@ const commands = [
     .addStringOption((opt) =>
       opt
         .setName('boss')
-        .setDescription('Pick the Boss')
+        .setDescription('Pick the Boss (Optional: Read From the Loot List)')
         .setDescriptionLocalizations(ATTENDANCE_TEXT.boss)
-        .setRequired(true)
+        .setRequired(false)
         .addChoices(...SCANNABLE_BOSSES.map((b) => ({ name: b.boss, value: b.boss })))
     )
     // Instead of uploading again: the link of the Discord message(s) that
