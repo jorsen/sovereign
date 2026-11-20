@@ -167,6 +167,12 @@ direct image links (cdn.discordapp.com/attachments/...) work too. Links and
 attachments can be mixed, 10 images in all. The bot must be able to see
 that channel.
 
+**Duplicates**: the same screenshot twice (uploaded/linked again, or re-saved
+as another format or size) is read, posted and counted once; the footer
+says how many were skipped, and a Rescan removes extra copies from an
+older post. A loot list scrolled in two overlapping screenshots (either
+direction) is merged without counting the shared rows twice.
+
 **Big fights**: attach up to 10 screenshots of the same kill from different
 angles; every one is read and all names merge into one list.
 
