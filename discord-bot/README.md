@@ -159,20 +159,6 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   unclear ones. All screenshots are shown on the post and the footer says how
   many were read.
 
-**Review before saving**: nothing is saved straight away. While reading, the
-post shows "⏳ Reading screenshot 2 of 5…"; then it becomes a yellow
-**Review** with the attendees, loot and screenshots, a picker to untick
-anyone who wasn't there (up to 50 names), **Add a missed member** (a form;
-the name must be on the Growth Rate list), **Save** and **Cancel**. Only
-whoever ran the command can use them. **Save** writes the ticked names and
-the loot to the site and turns the post into the record ("Saved ✅ 8 names
-logged to …", with 🔄 Rescan); **Cancel** saves nothing. A 🔄 Rescan also
-opens a review (starting from the names already on the post, incl. ones
-added by hand) and replaces the record on Save; its Cancel puts the post
-back. Unticked names teach the trainer that reading was wrong. Unfinished
-reviews (`attendance_pending`) are dropped after 3 days. **boss** is
-optional: without it the boss comes from the loot list.
-
 **No re-uploading**: instead of attaching, paste the link of the Discord
 message(s) that already have the screenshots in `link:` (right-click the
 message > Copy Message Link; several links separated by spaces). The bot
