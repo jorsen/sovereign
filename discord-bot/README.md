@@ -225,7 +225,11 @@ Reading is free and local: `lib/attendanceOcr.js` keeps only pixels in
 those three exact name colors, cuts out each nameplate, and reads it with
 Tesseract OCR (`tesseract.js`). The English/Korean/Traditional Chinese/Japanese
 language data lives in `ocr-data/` so nothing is downloaded at runtime.
-In-game chat uses the same green as guild names, so lines that start at the
+In-game chat uses the same green as guild names, so chat is skipped: lines
+that start at the left screen edge, and stacks of 3+ name-colored rows in
+the left 12% of the screen that line up on the left (chat lines indented by
+a rank icon or channel tag, "🏆 STORM: eto? 22:33"). Fighting nameplates are
+scattered, not a column like that. Previously only lines starting at the
 left screen edge are skipped. A faded guild green (a soft capture, a short
 green name inside a green skill effect) is caught by its hue too.
 
