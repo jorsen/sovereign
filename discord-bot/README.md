@@ -104,7 +104,8 @@ Growth Rate page's own Edit button (admin-only) instead of touching Discord.
 
 ## /attendance (boss attendance)
 
-`/attendance boss:<pick> screenshot:<image> [screenshot2..10]`
+`/attendance boss:<pick> screenshot:<image> [screenshot2..10]` or
+`/attendance boss:<pick> link:<Discord message link(s)>`
 reads every **blue** (party), **green** (guild) and **light green**
 (alliance) nameplate off the screenshots, saves the attendees on the site's
 World Boss (or Balthazard) page, and posts the result in the attendance
@@ -156,6 +157,14 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   isn't read again with more settings, sizes or zooms -- those are only for
   unclear ones. All screenshots are shown on the post and the footer says how
   many were read.
+
+**No re-uploading**: instead of attaching, paste the link of the Discord
+message(s) that already have the screenshots in `link:` (right-click the
+message > Copy Message Link; several links separated by spaces). The bot
+opens each message and reads its images (attachments and image links);
+direct image links (cdn.discordapp.com/attachments/...) work too. Links and
+attachments can be mixed, 10 images in all. The bot must be able to see
+that channel.
 
 **Big fights**: attach up to 10 screenshots of the same kill from different
 angles; every one is read and all names merge into one list.

@@ -33,6 +33,7 @@ const ATTENDANCE_TEXT = {
   boss: { 'zh-CN': '选择 Boss', ja: 'ボスを選択', th: 'เลือกบอส', vi: 'Chọn boss' },
   screenshot: { 'zh-CN': '战斗截图（能看到名字）或战利品列表截图', ja: '戦闘のスクショ（名前が見える）または戦利品リストのスクショ', th: 'ภาพการต่อสู้ (เห็นชื่อ) หรือภาพรายการของดรอป', vi: 'Ảnh trận đánh (thấy tên) hoặc ảnh danh sách vật phẩm rơi' },
   another: { 'zh-CN': '另一张战斗或战利品列表截图（可选）', ja: '追加の戦闘または戦利品リストのスクショ（任意）', th: 'ภาพการต่อสู้หรือรายการของดรอปเพิ่มเติม (ไม่บังคับ)', vi: 'Ảnh trận đánh hoặc danh sách vật phẩm khác (không bắt buộc)' },
+  link: { 'zh-CN': '或粘贴包含截图的 Discord 消息链接（可多个，用空格分隔）', ja: 'またはスクショのある Discord メッセージのリンク（複数可、スペース区切り）', th: 'หรือวางลิงก์ข้อความ Discord ที่มีภาพ (หลายลิงก์ได้ คั่นด้วยเว้นวรรค)', vi: 'Hoặc dán link tin nhắn Discord có ảnh (nhiều link, cách nhau bằng dấu cách)' },
   rescan: { 'zh-CN': 'True = 用这次扫描替换该次击杀已保存的名字和战利品（修正错误扫描）', ja: 'True = この討伐の保存済みの名前と戦利品を今回のスキャンで置き換える（誤スキャンの修正）', th: 'True = แทนที่ชื่อและของดรอปที่บันทึกไว้ของการล่านี้ด้วยการสแกนนี้ (แก้การสแกนผิด)', vi: 'True = Thay tên và vật phẩm đã lưu của trận này bằng lần quét này (sửa quét sai)' },
 };
 
@@ -108,7 +109,11 @@ const commands = [
         .setRequired(true)
         .addChoices(...SCANNABLE_BOSSES.map((b) => ({ name: b.boss, value: b.boss })))
     )
-    .addAttachmentOption((opt) => opt.setName('screenshot').setDescription('Battle Screenshot (Name Tags) or Loot List Screenshot').setDescriptionLocalizations(ATTENDANCE_TEXT.screenshot).setRequired(true))
+    // Instead of uploading again: the link of the Discord message(s) that
+    // already have the screenshots (right-click the message > Copy Message
+    // Link). Several links, space-separated.
+    .addStringOption((opt) => opt.setName('link').setDescription('Or Paste Discord Message Link(s) With the Screenshots (Space-Separated)').setDescriptionLocalizations(ATTENDANCE_TEXT.link).setRequired(false))
+    .addAttachmentOption((opt) => opt.setName('screenshot').setDescription('Battle Screenshot (Name Tags) or Loot List Screenshot').setDescriptionLocalizations(ATTENDANCE_TEXT.screenshot).setRequired(false))
     .addAttachmentOption((opt) => opt.setName('screenshot2').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
     .addAttachmentOption((opt) => opt.setName('screenshot3').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
     .addAttachmentOption((opt) => opt.setName('screenshot4').setDescription('Another Battle or Loot List Screenshot (Optional)').setDescriptionLocalizations(ATTENDANCE_TEXT.another).setRequired(false))
