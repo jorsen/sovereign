@@ -346,7 +346,7 @@ client.on('messageDelete', async (message) => {
   }
 });
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log(`Logged in as ${client.user.tag} — watching channels ${CHANNEL_ID} (growth rate) and ${ATTENDANCE_CHANNEL_ID} (attendance)`);
   console.log(attendance ? 'Attendance posts are read on this PC.' : 'Attendance posts are handed to the website.');
   catchUpAttendance();
