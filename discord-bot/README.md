@@ -102,6 +102,37 @@ Deleting the bot's confirmation embed removes that entry from the Growth
 Rate page automatically. To fix a typo on an existing submission, use the
 Growth Rate page's own Edit button (admin-only) instead of touching Discord.
 
+## Boss posts: screenshots + boss name → Review → Save
+
+Post screenshots in the attendance channel with the boss's name in the
+message ("Ducas", "dergio 88/96"). The bot reads them and replies with a
+**Review** -- nothing is saved yet:
+
+- the names it is sure of are ticked; "not sure" guesses are listed
+  unticked (with what the screenshot read); untick anyone who wasn't there,
+- **➕ Add a missed member** searches the Growth Rate list (type part of a
+  name, tick the match),
+- with a loot-list screenshot in the post, its loot and exact kill time are
+  used; otherwise the Time of Death is when the message was posted,
+- **Save** logs the ticked names (and loot) to that kill's record and turns
+  the Review into the record, with ➕ Add member / ➖ Remove for later
+  fixes; **Cancel** drops it. Only the poster or an admin can press them.
+
+The post itself is marked 🔍 reading, 📝 review posted, ✅ saved,
+❌ cancelled/unreadable.
+
+**Where it's read:** on the PC running this bot (`npm start`), with the
+app's own reading code (`../lib`). It needs the app's `DATABASE_URL` in the
+root `.env` (next to `package.json`, not this folder) and the root
+`npm install`. On start, the bot also reads this month's boss posts that
+came in while it was off. If it can't load the app's code, it hands posts
+to the website to read instead.
+
+**PC off?** On the website's World Boss page, **⟳ Sync from Discord**
+(admins) reads the posts of the month the calendar shows that have no
+📝/✅/❌ yet and posts their Reviews. Save / Cancel on a Review always work,
+PC on or off (the website answers the buttons).
+
 ## /attendance (boss attendance)
 
 `/attendance boss:<pick> screenshot:<image> [screenshot2..10]` or
@@ -118,8 +149,9 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   Philippines time, the clock the site's records use), so a loot list
   screenshot is required: without one, or with a loot list for a different
   boss than the one picked, the bot refuses and saves nothing.
-- **Saved** (`lib/attendanceRecords.js`): every name matched to the Growth
-  Rate list, ⚠️ guesses included; ❓ names (not on the list) are not saved.
+- **Saved** (`lib/attendanceRecords.js`): only names matched to the Growth
+  Rate list with confidence. Guesses are listed under "Not sure, not saved"
+  with a ➕ button each; ❓ names (not on the list) are not saved.
   New records start as result "pending" -- set Win/Lose on the site. A
   second /attendance for the same boss within 30 minutes is treated as
   another screenshot of the same kill and adds its names to that record.

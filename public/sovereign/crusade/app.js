@@ -4116,6 +4116,34 @@ document.getElementById('worldBossSummaryToggle').addEventListener('click', () =
   document.getElementById('worldBossSummaryChevron').textContent = isHidden ? '▸' : '▾';
 });
 
+// Sync from Discord: the bot on the officer's PC reads boss posts in the
+// attendance channel as they come in; posts made while it was off are read
+// here, for the month the calendar shows. Each gets a Review in Discord
+// (nothing is saved until someone presses Save there). The server reads for
+// a few minutes per call, so this keeps calling until nothing is left.
+document.getElementById('worldBossSyncDiscordBtn').addEventListener('click', async (event) => {
+  const btn = event.currentTarget;
+  const month = worldBossCalendarMonth || new Date();
+  const ym = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+  const label = btn.textContent;
+  btn.disabled = true;
+  let read = 0;
+  try {
+    for (let round = 0; round < 20; round++) {
+      btn.textContent = `⟳ Reading… (${read} done)`;
+      const result = await api('/api/world-boss-attendance/sync-discord', { method: 'POST', body: JSON.stringify({ month: ym }) });
+      read += result.read;
+      if (!result.remaining || !result.read) break;
+    }
+    toast(read ? `Read ${read} Discord post${read === 1 ? '' : 's'} -- check the Reviews in Discord and press Save` : 'Nothing new: every boss post this month was already read');
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+});
+
 // Re-resolves guild names for any attendee row saved before
 // resolveAttendeeGuilds (server-side) pointed at Growth Rate submissions
 // -- the attendance list already shows each IGN's live Growth Rate guild,

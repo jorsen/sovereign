@@ -63,24 +63,61 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel],
 });
 
-// Hands a screenshot post in the attendance channel to the app, which checks
-// it for a boss name, reads the screenshots and posts the thread -- the
-// reading (OCR, Growth Rate matching) lives in the app, not this bot.
+// Boss-name posts in the attendance channel ("Ducas" + screenshots) are
+// read right here on this PC, with the app's own reading code (../lib) and
+// database (DATABASE_URL from the app's root .env): the bot replies with a
+// Review, and Save / Cancel on it are answered by the website. Posts made
+// while this PC was off are caught up when the bot starts (and by the
+// website's "Sync from Discord" button). If the app's code can't be loaded
+// here, the post is handed to the website to read instead.
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }); // DATABASE_URL; doesn't override this folder's .env
+let attendance = null;
+try {
+  if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) throw new Error('DATABASE_URL is not set (put it in the root .env)');
+  attendance = require('../lib/discordInteractions');
+} catch (err) {
+  console.error('Attendance posts will be read by the website, not this PC:', err.message);
+}
+// One post at a time: reading is heavy, and posts arrive in bursts.
+let attendanceQueue = Promise.resolve();
+const queueAttendance = (job) => (attendanceQueue = attendanceQueue.then(job).catch((err) => console.error('Attendance reading failed:', err)));
+
 async function forwardAttendancePost(message) {
   const imageUrls = [...message.attachments.values()].filter((a) => (a.contentType || '').startsWith('image/')).map((a) => a.url);
   if (!imageUrls.length || message.hasThread) return;
+  const post = {
+    channelId: message.channelId,
+    messageId: message.id,
+    content: message.content,
+    imageUrls: imageUrls.slice(0, 10),
+    authorId: message.author.id,
+    authorName: message.member?.displayName || message.author.globalName || message.author.username,
+  };
+  if (attendance) {
+    return queueAttendance(async () => console.log(`attendance post ${message.id}:`, await attendance.reviewAttendancePost(post)));
+  }
   const res = await fetch(`${API_BASE}/api/attendance/bot/scan-message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-bot-secret': BOT_SECRET },
-    body: JSON.stringify({
-      channelId: message.channelId,
-      messageId: message.id,
-      content: message.content,
-      imageUrls: imageUrls.slice(0, 10),
-      authorName: message.member?.displayName || message.author.globalName || message.author.username,
-    }),
+    body: JSON.stringify(post),
   });
   if (!res.ok) console.error('Attendance scan request failed:', res.status, await res.text().catch(() => ''));
+}
+
+// On start: read this month's boss posts that came in while the PC was off
+// (and last month's, in the first days of a month).
+function catchUpAttendance() {
+  if (!attendance) return;
+  const now = new Date();
+  const ym = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const months = [ym(now)];
+  if (now.getDate() <= 3) months.unshift(ym(new Date(now.getFullYear(), now.getMonth() - 1, 1)));
+  for (const month of months) {
+    queueAttendance(async () => {
+      const r = await attendance.syncAttendanceFromDiscord({ month, budgetMs: Infinity });
+      console.log(`Attendance catch-up ${month}: ${r.read} post(s) read`);
+    });
+  }
 }
 
 // Vercel's serverless functions hard-cap the request body around 4.5MB --
@@ -311,6 +348,8 @@ client.on('messageDelete', async (message) => {
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag} — watching channels ${CHANNEL_ID} (growth rate) and ${ATTENDANCE_CHANNEL_ID} (attendance)`);
+  console.log(attendance ? 'Attendance posts are read on this PC.' : 'Attendance posts are handed to the website.');
+  catchUpAttendance();
 });
 
 client.login(DISCORD_TOKEN);
