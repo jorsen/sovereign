@@ -53,7 +53,9 @@ const DIVIDER_FIELD = { name: '​', value: '▬▬▬▬▬▬▬▬▬▬▬�
 // Boss-attendance channel: members post their screenshots there with the
 // boss name ("Kafka", "ducas 88/96") and the app reads the names and starts
 // an attendee thread on that post.
-const ATTENDANCE_CHANNEL_ID = process.env.ATTENDANCE_CHANNEL_ID || '1573000319837806622';
+// Several channels (e.g. a test channel) can be listed, comma-separated. Set
+// the same ATTENDANCE_CHANNEL_ID on the website (Vercel) so Sync reads them too.
+const ATTENDANCE_CHANNEL_IDS = (process.env.ATTENDANCE_CHANNEL_ID || '1573000319837806622').split(',').map((id) => id.trim()).filter(Boolean);
 
 // MessageContent (privileged -- enable "Message Content Intent" under Bot in
 // the Developer Portal) is needed to see the text and screenshots of the
@@ -323,7 +325,7 @@ function scheduleRestick(channel) {
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-  if (message.channelId === ATTENDANCE_CHANNEL_ID) {
+  if (ATTENDANCE_CHANNEL_IDS.includes(message.channelId)) {
     await forwardAttendancePost(message).catch((err) => console.error('Failed to forward an attendance post:', err));
     return;
   }
@@ -354,7 +356,7 @@ client.on('messageDelete', async (message) => {
 });
 
 client.once('clientReady', () => {
-  console.log(`Logged in as ${client.user.tag} — watching channels ${CHANNEL_ID} (growth rate) and ${ATTENDANCE_CHANNEL_ID} (attendance)`);
+  console.log(`Logged in as ${client.user.tag} — watching channels ${CHANNEL_ID} (growth rate) and ${ATTENDANCE_CHANNEL_IDS.join(', ')} (attendance)`);
   console.log(attendance ? 'Attendance posts are read on this PC.' : 'Attendance posts are handed to the website.');
   catchUpAttendance();
 });
