@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Partials, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, EmbedBuilder, ActivityType } = require('discord.js');
 const sharp = require('sharp');
 const { GROWTH_GUIDE, GROWTH_GUIDE_TITLE } = require('./growthGuide');
 
@@ -82,7 +82,43 @@ try {
 }
 // One post at a time: reading is heavy, and posts arrive in bursts.
 let attendanceQueue = Promise.resolve();
-const queueAttendance = (job) => (attendanceQueue = attendanceQueue.then(job).catch((err) => console.error('Attendance reading failed:', err)));
+let attendanceWaiting = 0; // posts queued behind the one being read
+const queueAttendance = (job) => {
+  attendanceWaiting++;
+  showStatus();
+  return (attendanceQueue = attendanceQueue
+    .then(() => { attendanceWaiting--; return job(); })
+    .catch((err) => console.error('Attendance reading failed:', err))
+    .finally(() => { if (!attendanceWaiting) showStatus(null); }));
+};
+
+// Status line: what the bot is doing, as its own status under its name in
+// Discord's member list ("⏳ Reading Ducas · screenshot 2 of 4 · 50%" /
+// "🟢 Ready -- waiting for boss posts") and as a line in this window per
+// step. Discord takes a status change every few seconds at most, so it's
+// sent at most every 4 s (the latest one always lands).
+let statusTimer = null, statusPending = null, statusLast = 0;
+function statusText(step) {
+  const queue = attendanceWaiting ? ` · ${attendanceWaiting} waiting` : '';
+  if (!step) return attendanceWaiting ? `⏳ ${attendanceWaiting} boss post${attendanceWaiting === 1 ? '' : 's'} to read` : '🟢 Ready -- waiting for boss posts';
+  return `⏳ Reading ${step.boss} · ${step.label} · ${Math.round(step.fraction * 100)}%${queue}`;
+}
+function showStatus(step = statusPending?.step ?? null) {
+  statusPending = { step };
+  const send = () => {
+    statusTimer = null;
+    statusLast = Date.now();
+    const text = statusText(statusPending.step);
+    client.user?.setPresence({ activities: [{ name: 'status', type: ActivityType.Custom, state: text.slice(0, 128) }], status: statusPending.step || attendanceWaiting ? 'dnd' : 'online' });
+  };
+  if (!statusTimer) statusTimer = setTimeout(send, Math.max(0, 4000 - (Date.now() - statusLast)));
+}
+// Progress from the reading code: one line in this window per step, and
+// the status above.
+function onReadingStatus(boss, label, fraction) {
+  if (label) console.log(`   ⏳ ${boss.boss} · ${label} (${Math.round(fraction * 100)}%)`);
+  showStatus(label ? { boss: boss.boss, label, fraction } : null);
+}
 
 async function forwardAttendancePost(message) {
   // A forwarded message carries the original inside it (its text and
@@ -105,7 +141,7 @@ async function forwardAttendancePost(message) {
     console.log(`attendance post ${message.id} from ${post.authorName}${parts.length > 1 ? ' (forwarded)' : ''}: "${content.replace(/\s+/g, ' ')}", ${post.imageUrls.length} screenshot(s) -- reading…`);
     return queueAttendance(async () => {
       const started = Date.now();
-      const outcome = await attendance.reviewAttendancePost(post);
+      const outcome = await attendance.reviewAttendancePost({ ...post, onStatus: onReadingStatus });
       console.log(`attendance post ${message.id}: ${outcome} (${Math.round((Date.now() - started) / 1000)}s)`);
     });
   }
@@ -127,7 +163,7 @@ function catchUpAttendance() {
   if (now.getDate() <= 3) months.unshift(ym(new Date(now.getFullYear(), now.getMonth() - 1, 1)));
   for (const month of months) {
     queueAttendance(async () => {
-      const r = await attendance.syncAttendanceFromDiscord({ month, budgetMs: Infinity });
+      const r = await attendance.syncAttendanceFromDiscord({ month, budgetMs: Infinity, onStatus: onReadingStatus });
       console.log(`Attendance catch-up ${month}: ${r.read} post(s) read`);
     });
   }
@@ -362,6 +398,7 @@ client.on('messageDelete', async (message) => {
 client.once('clientReady', () => {
   console.log(`Logged in as ${client.user.tag} — watching channels ${CHANNEL_ID} (growth rate) and ${ATTENDANCE_CHANNEL_IDS.join(', ')} (attendance)`);
   console.log(attendance ? 'Attendance posts are read on this PC.' : 'Attendance posts are handed to the website.');
+  showStatus(null);
   catchUpAttendance();
 });
 
