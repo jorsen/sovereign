@@ -85,20 +85,24 @@ let attendanceQueue = Promise.resolve();
 const queueAttendance = (job) => (attendanceQueue = attendanceQueue.then(job).catch((err) => console.error('Attendance reading failed:', err)));
 
 async function forwardAttendancePost(message) {
-  const imageUrls = [...message.attachments.values()].filter((a) => (a.contentType || '').startsWith('image/')).map((a) => a.url);
+  // A forwarded message carries the original inside it (its text and
+  // screenshots); the forward itself is usually empty. Both count.
+  const parts = [message, ...(message.messageSnapshots?.values() || [])];
+  const imageUrls = parts.flatMap((m) => [...(m.attachments?.values() || [])]).filter((a) => (a.contentType || '').startsWith('image/')).map((a) => a.url);
+  const content = parts.map((m) => m.content || '').filter(Boolean).join('\n');
   // Screenshots attached, or linked in the text (Discord image or message links).
-  const linksShots = /discord(?:app)?\.(?:com|net)\/(?:attachments|channels)\//.test(message.content || '');
+  const linksShots = /discord(?:app)?\.(?:com|net)\/(?:attachments|channels)\//.test(content);
   if ((!imageUrls.length && !linksShots) || message.hasThread) return;
   const post = {
     channelId: message.channelId,
     messageId: message.id,
-    content: message.content,
+    content,
     imageUrls: imageUrls.slice(0, 10),
     authorId: message.author.id,
     authorName: message.member?.displayName || message.author.globalName || message.author.username,
   };
   if (attendance) {
-    console.log(`attendance post ${message.id} from ${post.authorName}: "${message.content}", ${post.imageUrls.length} screenshot(s) -- reading…`);
+    console.log(`attendance post ${message.id} from ${post.authorName}${parts.length > 1 ? ' (forwarded)' : ''}: "${content.replace(/\s+/g, ' ')}", ${post.imageUrls.length} screenshot(s) -- reading…`);
     return queueAttendance(async () => {
       const started = Date.now();
       const outcome = await attendance.reviewAttendancePost(post);
