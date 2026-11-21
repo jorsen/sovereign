@@ -113,7 +113,13 @@ message ("Ducas", "dergio 88/96"). The bot reads them and replies with a
 - **➕ Add a missed member** searches the Growth Rate list (type part of a
   name, tick the match),
 - with a loot-list screenshot in the post, its loot and exact kill time are
-  used; otherwise the Time of Death is when the message was posted,
+  used; otherwise the Time of Death is when the message was posted.
+  Forgot it? **🎁 Add loot** on the Review takes the loot screenshot's
+  link (post it in the channel, Copy Link) and adds its loot and kill time,
+- screenshots can be attached or pasted as Discord image/message links,
+- if that kill is already on the site, the Review says so, lists its saved
+  names ticked, and **Update** replaces the record's names with the ticked
+  ones and its loot with the post's loot list (loot with prices/sales kept),
 - **Save** logs the ticked names (and loot) to that kill's record and turns
   the Review into the record, with ➕ Add member / ➖ Remove for later
   fixes; **Cancel** drops it. Only the poster or an admin can press them.
