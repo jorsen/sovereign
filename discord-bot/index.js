@@ -94,7 +94,12 @@ async function forwardAttendancePost(message) {
     authorName: message.member?.displayName || message.author.globalName || message.author.username,
   };
   if (attendance) {
-    return queueAttendance(async () => console.log(`attendance post ${message.id}:`, await attendance.reviewAttendancePost(post)));
+    console.log(`attendance post ${message.id} from ${post.authorName}: "${message.content}", ${post.imageUrls.length} screenshot(s) -- reading…`);
+    return queueAttendance(async () => {
+      const started = Date.now();
+      const outcome = await attendance.reviewAttendancePost(post);
+      console.log(`attendance post ${message.id}: ${outcome} (${Math.round((Date.now() - started) / 1000)}s)`);
+    });
   }
   const res = await fetch(`${API_BASE}/api/attendance/bot/scan-message`, {
     method: 'POST',
