@@ -84,7 +84,9 @@ const queueAttendance = (job) => (attendanceQueue = attendanceQueue.then(job).ca
 
 async function forwardAttendancePost(message) {
   const imageUrls = [...message.attachments.values()].filter((a) => (a.contentType || '').startsWith('image/')).map((a) => a.url);
-  if (!imageUrls.length || message.hasThread) return;
+  // Screenshots attached, or linked in the text (Discord image or message links).
+  const linksShots = /discord(?:app)?\.(?:com|net)\/(?:attachments|channels)\//.test(message.content || '');
+  if ((!imageUrls.length && !linksShots) || message.hasThread) return;
   const post = {
     channelId: message.channelId,
     messageId: message.id,
