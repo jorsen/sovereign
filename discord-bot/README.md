@@ -313,17 +313,21 @@ scattered, not a column like that. Previously only lines starting at the
 left screen edge are skipped. A faded guild green (a soft capture, a short
 green name inside a green skill effect) is caught by its hue too.
 
-**Thai game (loot lists).** A loot list from a game set to Thai is read too
-(`ocr-data/tha`, Thai + English): when the English reader finds kill times
-but no row it understands, `lib/lootOcr.js` reads the page again as Thai.
-Its dates are day first (`03.11.2026` = 3 November). Thai item names are
-saved under their English names, three ways: the Thai names in
-`lib/itemNamesThai.js`; the item's icon (the same in every language, known
-from the English lists); and the trainer, which remembers a Thai name once
-a row with it is saved under an English item. Thai boss names are in
-`THAI_BOSS_NAMES` (`lib/bosses.js`) and count wherever a boss name is read,
-including typed posts. Add both as they turn up, spelled as the game shows
-them; tone marks don't matter. Player names aren't translated.
+**Thai and Chinese games (loot lists).** A loot list from a game set to
+Thai (`ocr-data/tha`, read with English) or Traditional Chinese
+(`ocr-data/chi_tra`, read alone -- with English added, the item names came
+back empty) is read too: when the English reader finds kill times but no
+row it understands, `lib/lootOcr.js` reads the page again in that language
+(Chinese first if the dates are year first). Dates: Thai is day first
+(`03.11.2026` = 3 November), Chinese year first (`2026.11.03`). Item names
+are saved under their English names, three ways: the names in
+`lib/itemNamesThai.js` / `lib/itemNamesChinese.js`; the item's icon (the
+same in every language, known from the English lists); and the trainer,
+which remembers a Thai or Chinese name once a row with it is saved under an
+English item. Boss names are in `FOREIGN_BOSS_NAMES` (`lib/bosses.js`) and
+count wherever a boss name is read, including typed posts. Add both as they
+turn up, spelled as the game shows them (Thai tone marks don't matter).
+Player names aren't translated.
 
 Japanese names (とらふ) get a fourth, Japanese-only reader (`ocr-data/jpn`);
 voicing marks (゛゜, a pixel or two on small text) are ignored when matching
