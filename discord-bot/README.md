@@ -179,6 +179,16 @@ to the website to read instead.
 📝/✅/❌ yet and posts their Reviews. Save / Cancel on a Review always work,
 PC on or off (the website answers the buttons).
 
+**PC off -- automatic:** an outside timer (cron-job.org, free) calls
+`https://sovereign-nightcrows.vercel.app/api/attendance/bot/watch` every
+minute with the header `x-bot-secret: <GROWTH_BOT_SECRET>`. While this PC's
+bot is running it writes a heartbeat every minute (table `bot_heartbeat`)
+and the website does nothing. Once the heartbeat is 3+ minutes old, the
+website handles posts from the last 24 h that have no bot mark and are 2+
+minutes old: a single screenshot or a missing boss name is refused at once
+(nothing read); a full post is read on Vercel (one per call, billed CPU) and
+refused without a battle shot / this boss's loot list, or gets its Review.
+
 ## Boss attendance scanning
 
 (The old `/attendance` slash command was removed -- screenshots posted in

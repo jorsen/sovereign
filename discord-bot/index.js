@@ -437,7 +437,18 @@ client.on('messageDelete', async (message) => {
   }
 });
 
+// Tells the website this PC is reading the attendance posts, so its
+// every-minute watch (lib/discordInteractions.js, watchAttendanceChannel)
+// leaves them alone. Stops when the PC does -- then the website takes over.
+function startHeartbeat() {
+  if (!attendance) return;
+  const beat = () => attendance.pcHeartbeat().catch((err) => console.error('heartbeat failed:', err.message));
+  beat();
+  setInterval(beat, 60 * 1000);
+}
+
 client.once('clientReady', () => {
+  startHeartbeat();
   console.log(`Logged in as ${client.user.tag} — watching channels ${CHANNEL_ID} (growth rate) and ${ATTENDANCE_CHANNEL_IDS.join(', ')} (attendance)`);
   console.log(attendance ? 'Attendance posts are read on this PC.' : 'Attendance posts are handed to the website.');
   showStatus(null);
