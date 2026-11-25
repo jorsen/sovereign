@@ -160,6 +160,11 @@ message ("Ducas", "dergio 88/96"). The bot reads them and replies with a
 The post itself is marked 🔍 reading, 📝 review posted, ✅ saved,
 ❌ cancelled/unreadable.
 
+After every post it reads, the bot re-posts the **⚔️ How to Log a Boss Kill**
+guide (`lib/attendanceGuide.js`, 5 languages) as the newest message in the
+channel, deleting its previous copy. Screenshots posted without a boss name
+get a short reply asking for it.
+
 **Where it's read:** on the PC running this bot (`npm start`), with the
 app's own reading code (`../lib`). It needs the app's `DATABASE_URL` in the
 root `.env` (next to `package.json`, not this folder) and the root
