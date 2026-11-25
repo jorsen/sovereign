@@ -14,14 +14,16 @@ const GREEN = '#23a55a';
 
 function frame(i) {
   const t = i / FRAMES; // 0..1 through one pulse
-  const ringR = 30 + t * 32; // grows from the dot to the edge
-  // and thins out as it goes (a GIF has no half-transparent pixels to fade with)
-  const ringWidth = (9 * (1 - t)).toFixed(2);
-  const dotR = 28 + Math.sin(t * Math.PI * 2) * 2; // the dot breathes a little
+  // Big moves, so the pulse still shows at emoji size (~22 px in a message):
+  // the dot swells and shrinks, and a thick ring shoots out to the edge,
+  // thinning as it goes (a GIF has no half-transparent pixels to fade with).
+  const ringR = 34 + t * 28;
+  const ringWidth = (16 * (1 - t)).toFixed(2);
+  const dotR = 34 + Math.sin(t * Math.PI * 2) * 12;
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">
-    <circle cx="64" cy="64" r="${ringR}" fill="none" stroke="${GREEN}" stroke-width="${ringWidth}"/>
+    ${t < 0.92 ? `<circle cx="64" cy="64" r="${ringR}" fill="none" stroke="${GREEN}" stroke-width="${ringWidth}"/>` : ''}
     <circle cx="64" cy="64" r="${dotR}" fill="${GREEN}"/>
-    <circle cx="56" cy="56" r="9" fill="#ffffff" fill-opacity="0.35"/>
+    <circle cx="${64 - dotR * 0.3}" cy="${64 - dotR * 0.3}" r="${dotR * 0.28}" fill="#ffffff" fill-opacity="0.35"/>
   </svg>`);
 }
 
