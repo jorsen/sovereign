@@ -368,6 +368,16 @@ Like `/uniongr`, the command is handled by the Vercel app
 (`lib/discordInteractions.js`). After deploying, run
 `node register-commands.js` here once so Discord learns the new command.
 
+The screenshot reading itself (for `/attendance` and 🔄 Rescan) is done on
+this PC when the bot is running: the website hands the job over
+(`lib/pcJobs.js`) and only reads it itself if the bot hasn't taken it within
+~8 seconds (PC off). Vercel bills that reading as CPU time; here it's free.
+On Rescan the website re-reads only names that aren't already a member's
+exact name; the PC re-reads everything.
+Readings are remembered per screenshot (`lib/ocrCache.js`, table
+`ocr_cache`), so the same image is never read twice. `PC_OCR=off` on Vercel
+turns the hand-over off; `OCR_CACHE=off` turns the cache off.
+
 To test the reader on local screenshots without Discord:
 
 ```

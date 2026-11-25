@@ -363,6 +363,52 @@ function scheduleRestick(channel) {
   }, 10 * 1000);
 }
 
+// /attendance and 🔄 Rescan are answered by the website, which hands the
+// reading to this PC (lib/pcJobs.js) -- free here, billed CPU time there.
+// The bot hears of a job through Discord: the command's "thinking…" message
+// (by this bot, carrying the interaction's id) or a Rescan post whose button
+// just turned "Rescanning…". It claims the job; one not claimed within a
+// few seconds (PC off) is read by the website instead.
+const pcJobs = attendance ? require('../lib/pcJobs') : null;
+const jobsInHand = new Set(); // being claimed or read here: don't claim again
+function takePcJob(id) {
+  if (jobsInHand.has(id)) return;
+  jobsInHand.add(id);
+  pcJobs.claimForPc(id)
+    .then((job) => {
+      if (!job) return jobsInHand.delete(id);
+      const what = { boss: job.kind === 'rescan' ? 'Rescan' : '/attendance' };
+      console.log(`${what.boss} ${id}: handed over by the website -- reading…`);
+      return queueAttendance(async () => {
+        const started = Date.now();
+        onReadingStatus(what, 'reading the screenshots', 0.1);
+        try {
+          await attendance.runPcJob(job.kind, job.payload);
+          console.log(`${what.boss} ${id}: done (${Math.round((Date.now() - started) / 1000)}s)`);
+        } finally {
+          await pcJobs.finishJob(id);
+          jobsInHand.delete(id);
+          onReadingStatus(what, null, 0);
+        }
+      });
+    })
+    .catch((err) => {
+      jobsInHand.delete(id);
+      console.error(`Could not take job ${id} (the website will read it):`, err.message);
+    });
+}
+client.on('raw', (packet) => {
+  const d = packet.d;
+  if (!pcJobs || !client.user || d?.author?.id !== client.user.id) return;
+  if (packet.t === 'MESSAGE_CREATE') {
+    const interactionId = d.interaction_metadata?.id || d.interaction?.id;
+    if (interactionId) takePcJob(pcJobs.attendanceJobId(interactionId));
+  } else if (packet.t === 'MESSAGE_UPDATE') {
+    const rescan = (d.components || []).flatMap((row) => row.components || []).find((c) => c.custom_id === attendance.RESCAN_BUTTON_ID);
+    if (rescan?.disabled) takePcJob(pcJobs.rescanJobId(d.id));
+  }
+});
+
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   if (ATTENDANCE_CHANNEL_IDS.includes(message.channelId)) {
