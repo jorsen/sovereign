@@ -13,7 +13,7 @@ const fs = require('fs');
 const sharp = require('sharp');
 
 const W = 1200;
-const H = 1560;
+const H = 2035;
 const OUT = path.join(__dirname, '..', 'public', 'guide', 'attendance-guide.png');
 const BATTLE = path.join(__dirname, 'assets', 'attendance-battle.jpg');
 const LOOT = path.join(__dirname, 'assets', 'attendance-loot.jpg');
@@ -134,6 +134,41 @@ const save = (x, y) =>
   mark(x + 390, y + 280, C.green, 'saved', check(x + 372, y + 262, 0.9, '#fff'));
 
 // Do / Don't.
+// The sample post, sketched at the very bottom: what one message looks like
+// -- the boss name, then the two screenshots side by side.
+const NY = 1550;
+const dashed = (x, y, w, h, color) =>
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="14 10"/>`;
+// A tiny picture icon (mountains + sun) for an image placeholder.
+const pictureIcon = (cx, cy, color) =>
+  `<rect x="${cx - 46}" y="${cy - 34}" width="92" height="68" rx="8" fill="none" stroke="${color}" stroke-width="4"/>` +
+  `<circle cx="${cx + 20}" cy="${cy - 14}" r="8" fill="${color}"/>` +
+  `<path d="M${cx - 38} ${cy + 26} l26 -30 l18 18 l12 -12 l20 24 z" fill="${color}"/>`;
+function sampleNote() {
+  const boxW = 500;
+  const boxH = 230;
+  const y = NY + 190;
+  const ax = 80;
+  const lx = W - 80 - boxW;
+  return (
+    rect(30, NY, W - 60, 455) +
+    text(60, NY + 56, 'Sample post', { size: 36, weight: 800, fill: C.gold }) +
+    text(285, NY + 56, '— one message, like this:', { size: 26, weight: 500, fill: C.muted }) +
+    `<circle cx="${ax + 26}" cy="${NY + 120}" r="26" fill="${C.blurple}"/>` +
+    text(ax + 68, NY + 112, 'You', { size: 24, weight: 800, fill: C.muted }) +
+    text(ax + 68, NY + 150, 'Damiross', { size: 34, weight: 800 }) +
+    dashed(ax, y, boxW, boxH, C.green) +
+    pictureIcon(ax + boxW / 2, y + 80, C.green) +
+    text(ax + boxW / 2, y + 168, 'Screenshot for attendance', { size: 28, weight: 800, fill: C.green, anchor: 'middle' }) +
+    text(ax + boxW / 2, y + 204, 'battle · name tags visible', { size: 22, weight: 500, fill: C.muted, anchor: 'middle' }) +
+    text(W / 2, y + boxH / 2 + 18, '|', { size: 60, weight: 300, fill: C.border, anchor: 'middle' }) +
+    dashed(lx, y, boxW, boxH, C.gold) +
+    pictureIcon(lx + boxW / 2, y + 80, C.gold) +
+    text(lx + boxW / 2, y + 168, 'Screenshot for loots', { size: 28, weight: 800, fill: C.gold, anchor: 'middle' }) +
+    text(lx + boxW / 2, y + 204, 'loot list · with the time', { size: 22, weight: 500, fill: C.muted, anchor: 'middle' })
+  );
+}
+
 const DY = 1190;
 function dosAndDonts() {
   const dos = ['1 battle + 1 loot list screenshot', 'Boss name in the same message', 'Full screen — name tags readable', 'One kill per message'];
@@ -156,6 +191,7 @@ function dosAndDonts() {
   ${card(30, '2', 'Check the Review', review)}
   ${card(610, '3', 'Press Save', save)}
   ${dosAndDonts()}
+  ${sampleNote()}
 </svg>`;
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   await sharp(Buffer.from(svg)).png().toFile(OUT);
