@@ -76,7 +76,7 @@ async function postSection() {
   return (
     rect(30, PY, W - 60, 620) +
     badge(82, PY + 54, '1') +
-    text(130, PY + 66, 'Post the screenshots with the boss name', { size: 36, weight: 800 }) +
+    text(130, PY + 66, 'Post 1 battle + 1 loot list screenshot', { size: 36, weight: 800 }) +
     // the message itself
     `<circle cx="${left + 26}" cy="${PY + 140}" r="26" fill="${C.blurple}"/>` +
     text(left + 68, PY + 132, 'You', { size: 26, weight: 800 }) +
@@ -92,9 +92,9 @@ async function postSection() {
     check(lx, y + lh + 20, 0.8) +
     text(lx + 40, y + lh + 44, 'Loot list: its Obtainment Time', { size: 23, weight: 700, fill: C.green }) +
     text(lx + 40, y + lh + 74, 'becomes the Time of Death', { size: 23, weight: 700, fill: C.green }) +
-    text(lx, y + lh + 124, 'All in one message', { size: 22, weight: 500, fill: C.muted }) +
-    text(lx, y + lh + 156, 'Up to 10 screenshots', { size: 22, weight: 500, fill: C.muted }) +
-    text(lx, y + lh + 188, 'Big fights: add more angles', { size: 22, weight: 500, fill: C.muted })
+    rect(lx, y + lh + 100, lw, 96, { fill: 'none', stroke: C.red, sw: 3, r: 10 }) +
+    text(lx + 20, y + lh + 138, 'BOTH are required', { size: 26, weight: 800, fill: C.red }) +
+    text(lx + 20, y + lh + 174, 'Only one screenshot = refused', { size: 22, weight: 600, fill: C.text })
   );
 }
 
@@ -136,8 +136,8 @@ const save = (x, y) =>
 // Do / Don't.
 const DY = 1190;
 function dosAndDonts() {
-  const dos = ['Full screen — name tags readable', 'Boss name in the same message', 'Loot list included', 'One kill per message'];
-  const donts = ['Cropped or blurry screenshots', 'Screenshots without a boss name', 'Two bosses in one message', 'Boss name in a separate message'];
+  const dos = ['1 battle + 1 loot list screenshot', 'Boss name in the same message', 'Full screen — name tags readable', 'One kill per message'];
+  const donts = ['Only one screenshot', 'Screenshots without a boss name', 'Cropped or blurry screenshots', 'Boss name in a separate message'];
   let s = rect(30, DY, W - 60, 340) + text(60, DY + 56, 'Do', { size: 36, weight: 800, fill: C.green }) + text(630, DY + 56, "Don't", { size: 36, weight: 800, fill: C.red });
   dos.forEach((t, i) => {
     s += check(60, DY + 92 + i * 62, 0.85) + text(106, DY + 118 + i * 62, t, { size: 26, weight: 600 });

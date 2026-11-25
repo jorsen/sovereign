@@ -138,10 +138,12 @@ message ("Ducas", "dergio 88/96"). The bot reads them and replies with a
   unticked (with what the screenshot read); untick anyone who wasn't there,
 - **➕ Add a missed member** searches the Growth Rate list (type part of a
   name, tick the match),
-- with a loot-list screenshot in the post, its loot and exact kill time are
-  used; otherwise the Time of Death is when the message was posted.
-  Forgot it? **🎁 Add loot** on the Review takes the loot screenshot's
-  link (post it in the channel, Copy Link) and adds its loot and kill time,
+- **required: at least 1 battle screenshot + 1 loot list screenshot** (of
+  the named boss). A single image is refused at once (❌ + a reply, nothing
+  read); a post with no battle shot, no loot list, or another boss's loot
+  list is refused after reading. The loot list gives the loot and the exact
+  Time of Death. (**🎁 Add loot** on a Review still takes a loot
+  screenshot's link and adds its loot and kill time.)
 - screenshots can be attached or pasted as Discord image/message links,
 - if that kill is already on the site, the Review says so, lists its saved
   names ticked, and **Update** replaces the record's names with the ticked
