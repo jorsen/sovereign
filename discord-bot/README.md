@@ -73,7 +73,9 @@ Someone who changed their IGN uses `/uniongr switched-ign`, which also asks for
 the old IGN (it suggests every name on our lists as they type). That post is
 not saved straight away: it waits under **IGN change requests** on the Growth
 Rate page until an admin approves it, and approving renames the old IGN
-everywhere.
+everywhere. From then on, a boss screenshot taken before the change (still
+showing the old name) is saved under the new name too -- the same for an
+admin renaming an entry on the site (`member_renames`).
 
 ### Pinned how-to guide
 
