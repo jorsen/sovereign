@@ -147,6 +147,13 @@ message ("Ducas", "dergio 88/96"). The bot reads them and replies with a
 - **Save** logs the ticked names (and loot) to that kill's record and turns
   the Review into the record, with ➕ Add member / ➖ Remove for later
   fixes; **Cancel** drops it. Only the poster or an admin can press them.
+- **🎁 Loot** on a saved post opens a private loot editor for that kill:
+  pick an item to change how many dropped (0 removes it), or **➕ Add item**
+  -- type the name or part of it ("golden cape") and how many; if several
+  items fit you pick one, and a name the site doesn't know can be saved as
+  typed (🆕). Each change saves at once and rewrites the post's Loots list.
+  Items with a price or sale on the website are 🔒 and only change there.
+  Older saved posts get the button the next time any of their buttons is used.
 
 The post itself is marked 🔍 reading, 📝 review posted, ✅ saved,
 ❌ cancelled/unreadable.
@@ -305,6 +312,18 @@ a rank icon or channel tag, "🏆 STORM: eto? 22:33"). Fighting nameplates are
 scattered, not a column like that. Previously only lines starting at the
 left screen edge are skipped. A faded guild green (a soft capture, a short
 green name inside a green skill effect) is caught by its hue too.
+
+**Thai game (loot lists).** A loot list from a game set to Thai is read too
+(`ocr-data/tha`, Thai + English): when the English reader finds kill times
+but no row it understands, `lib/lootOcr.js` reads the page again as Thai.
+Its dates are day first (`03.11.2026` = 3 November). Thai item names are
+saved under their English names, three ways: the Thai names in
+`lib/itemNamesThai.js`; the item's icon (the same in every language, known
+from the English lists); and the trainer, which remembers a Thai name once
+a row with it is saved under an English item. Thai boss names are in
+`THAI_BOSS_NAMES` (`lib/bosses.js`) and count wherever a boss name is read,
+including typed posts. Add both as they turn up, spelled as the game shows
+them; tone marks don't matter. Player names aren't translated.
 
 Japanese names (とらふ) get a fourth, Japanese-only reader (`ocr-data/jpn`);
 voicing marks (゛゜, a pixel or two on small text) are ignored when matching
