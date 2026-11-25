@@ -13,8 +13,12 @@ const fs = require('fs');
 const sharp = require('sharp');
 
 const W = 1200;
-const H = 2035;
+const H = 1560;
 const OUT = path.join(__dirname, '..', 'public', 'guide', 'attendance-guide.png');
+// The sample post, as its own small image: shown at the very bottom of the
+// guide (under the translations).
+const SAMPLE_OUT = path.join(__dirname, '..', 'public', 'guide', 'attendance-sample.png');
+const SAMPLE_H = 515;
 const BATTLE = path.join(__dirname, 'assets', 'attendance-battle.jpg');
 const LOOT = path.join(__dirname, 'assets', 'attendance-loot.jpg');
 // Where to point, as fractions of each image: the name tags on the battle
@@ -133,10 +137,9 @@ const save = (x, y) =>
   text(x + 315, y + 290, '→', { size: 34, weight: 800, fill: C.muted, anchor: 'middle' }) +
   mark(x + 390, y + 280, C.green, 'saved', check(x + 372, y + 262, 0.9, '#fff'));
 
-// Do / Don't.
-// The sample post, sketched at the very bottom: what one message looks like
+// The sample post (its own image, SAMPLE_OUT): what one message looks like
 // -- the boss name, then the two screenshots side by side.
-const NY = 1550;
+const NY = 30;
 const dashed = (x, y, w, h, color) =>
   `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="14 10"/>`;
 // A tiny picture icon (mountains + sun) for an image placeholder.
@@ -169,6 +172,7 @@ function sampleNote() {
   );
 }
 
+// Do / Don't.
 const DY = 1190;
 function dosAndDonts() {
   const dos = ['1 battle + 1 loot list screenshot', 'Boss name in the same message', 'Full screen — name tags readable', 'One kill per message'];
@@ -191,11 +195,16 @@ function dosAndDonts() {
   ${card(30, '2', 'Check the Review', review)}
   ${card(610, '3', 'Press Save', save)}
   ${dosAndDonts()}
-  ${sampleNote()}
 </svg>`;
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   await sharp(Buffer.from(svg)).png().toFile(OUT);
   console.log(`Saved ${OUT}`);
+  const sample = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${SAMPLE_H}" viewBox="0 0 ${W} ${SAMPLE_H}">
+  ${rect(0, 0, W, SAMPLE_H, { fill: C.bg, r: 0 })}
+  ${sampleNote()}
+</svg>`;
+  await sharp(Buffer.from(sample)).png().toFile(SAMPLE_OUT);
+  console.log(`Saved ${SAMPLE_OUT}`);
 })().catch((err) => {
   console.error(err);
   process.exit(1);
