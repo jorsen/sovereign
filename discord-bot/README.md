@@ -172,27 +172,24 @@ to the website to read instead.
 📝/✅/❌ yet and posts their Reviews. Save / Cancel on a Review always work,
 PC on or off (the website answers the buttons).
 
-## /attendance (boss attendance)
+## Boss attendance scanning
 
-`/attendance boss:<pick> screenshot:<image> [screenshot2..10]` or
-`/attendance boss:<pick> link:<Discord message link(s)>`
+(The old `/attendance` slash command was removed -- screenshots posted in
+the attendance channel are scanned automatically, see above.) The scan
 reads every **blue** (party), **green** (guild) and **light green**
 (alliance) nameplate off the screenshots, saves the attendees on the site's
 World Boss (or Balthazard) page, and posts the result in the attendance
 channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
 
-- **boss** is a dropdown of the site's boss list (`lib/bosses.js`), so only
-  a real boss can be picked. After adding a boss there, run
-  `node register-commands.js` again so the dropdown picks it up.
 - **Time of Death comes from the loot list** ("11.20.2026 00:55", already
   Philippines time, the clock the site's records use), so a loot list
   screenshot is required: without one, or with a loot list for a different
-  boss than the one picked, the bot refuses and saves nothing.
+  boss than the one named, the bot refuses and saves nothing.
 - **Saved** (`lib/attendanceRecords.js`): only names matched to the Growth
   Rate list with confidence. Guesses are listed under "Not sure, not saved"
   with a ➕ button each; ❓ names (not on the list) are not saved.
   New records start as result "pending" -- set Win/Lose on the site. A
-  second /attendance for the same boss within 30 minutes is treated as
+  second scan for the same boss within 30 minutes is treated as
   another screenshot of the same kill and adds its names to that record.
   Each save shows on the site's Activity Log as "<name> (Discord)".
 - **Loot**: a screenshot of the in-game loot distribution list can be
@@ -216,7 +213,7 @@ channel (`1573000319837806622`, override with `ATTENDANCE_CHANNEL_ID`).
   through ("EaeencelniEurses") still counts as the item it is far closest to
   (55%+ alike and 15+ points ahead of any other item). Scraps under 5 letters are
   dropped. Overlapping screenshots of one scrolled list (attached in the same
-  /attendance) are merged without double-counting.
+  post) are merged without double-counting.
 - **Loot icons**: a cut-off name can fit several items ("Enhancement Scroll":
   Brilliant Armor, Pitch Black Accessory, ...). Each row's icon is kept as a
   tiny 6x6 color picture (`attendance_ocr_icons`), learned from rows whose
@@ -280,17 +277,15 @@ the footer). The button shows "Rescanning…" and can't be pressed again
 while it runs; if the rescan fails, only the presser sees the error and the
 post stays as it was. Posts made before the button existed don't have it.
 
-Only names read off the screenshots are listed: whoever runs /attendance is
+Only names read off the screenshots are listed: whoever posts the screenshots is
 not added automatically (`ADD_SUBMITTER` in `lib/discordInteractions.js`,
 off for now).
 
-Or run `/attendance` again for that kill (same boss + its loot list) with
-**rescan: True**. Instead of adding to the record, it
-replaces the saved attendees with the new scan (bonus points, if the kill
+A rescan replaces the saved attendees with the new scan (bonus points, if the kill
 has any, are recomputed for the new names) and replaces the loot -- unless
 some of it already has a price or sale entered on the site, in which case
 the loot is kept and the post says to fix it there. Without rescan, a
-second /attendance only adds names (a second screenshot of the same fight).
+second scan only adds names (a second screenshot of the same fight).
 Single wrong names can also just be edited on the site.
 
 The result is one post: **Boss**, **Time of Death** (Discord shows it in
@@ -364,11 +359,7 @@ OCR is not perfect: names partly covered by spell effects or another
 nameplate, and some Korean/Chinese characters, can come out wrong. Those
 are marked ⚠️ in the post so someone can check the spelling.
 
-Like `/uniongr`, the command is handled by the Vercel app
-(`lib/discordInteractions.js`). After deploying, run
-`node register-commands.js` here once so Discord learns the new command.
-
-The screenshot reading itself (for `/attendance` and 🔄 Rescan) is done on
+The screenshot reading itself (for 🔄 Rescan) is done on
 this PC when the bot is running: the website hands the job over
 (`lib/pcJobs.js`) and only reads it itself if the bot hasn't taken it within
 ~8 seconds (PC off). Vercel bills that reading as CPU time; here it's free.
