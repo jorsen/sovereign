@@ -875,6 +875,16 @@ select:focus, input:focus, textarea:focus {
 /* Loot Details table only -- the merged summary above has no single
    Boss/Date per row, so these only show up in the un-merged detail list. */
 .crusade-loot-table .crusade-loot-boss { font-weight: 600; white-space: nowrap; }
+/* Boss name in an item's breakdown: opens that kill's record above. */
+.crusade-loot-boss-link { color: inherit; text-decoration: none; border-bottom: 1px dashed var(--text-muted); cursor: pointer; }
+.crusade-loot-boss-link:hover { color: var(--gold); border-bottom-color: var(--gold); }
+/* The kill (and its loot line) just opened from there, glowing for a moment. */
+.crusade-world-boss-day-row.is-flash,
+.crusade-loot-highlight-row.is-flash { animation: crusade-kill-flash 2.4s ease-out; border-radius: 8px; }
+@keyframes crusade-kill-flash {
+  0%, 30% { box-shadow: 0 0 0 3px var(--gold); background: var(--gold-soft); }
+  100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
+}
 .crusade-loot-table .crusade-loot-date { color: var(--text-muted); white-space: nowrap; }
 .crusade-loot-sold-toggle {
   border: 1px solid var(--border);

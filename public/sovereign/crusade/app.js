@@ -4694,7 +4694,7 @@ function renderWorldBossMonthlyLoot() {
           .map(
             (s) => `
           <tr>
-            <td class="crusade-loot-boss">⚔️ ${escapeHtml(s.bossName)}</td>
+            <td class="crusade-loot-boss"><a href="#" class="crusade-loot-boss-link" data-open-kill="${s.eventId}" data-open-kill-item="${escapeHtml(r.itemName)}" title="Open this kill's record">⚔️ ${escapeHtml(s.bossName)}</a></td>
             <td class="crusade-loot-date">${formatWorldBossEventDateTime(s.eventDate)}</td>
             <td class="crusade-loot-num"><input type="number" min="1" step="1" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="quantity" value="${s.quantity}"></td>
             <td class="crusade-loot-num">🪙 <input type="number" min="0" step="0.01" class="crusade-loot-source-edit-input admin-disable" data-source-event="${s.eventId}" data-source-item="${s.itemId}" data-source-field="crowsValue" value="${s.crowsValue !== null ? roundLootValue(s.crowsValue) : ''}" placeholder="—"></td>
@@ -4802,6 +4802,14 @@ function renderWorldBossMonthlyLoot() {
   });
   body.querySelectorAll('[data-loot-source-row]').forEach((select) => {
     select.addEventListener('change', () => saveLootItemSource(select, rows[Number(select.getAttribute('data-loot-source-row'))]));
+  });
+  // The boss name in the breakdown: jump to that kill's record in the
+  // calendar above, with its loot open and this item highlighted.
+  body.querySelectorAll('[data-open-kill]').forEach((link) => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      openWorldBossKill(link.getAttribute('data-open-kill'), link.getAttribute('data-open-kill-item'));
+    });
   });
   body.querySelectorAll('.crusade-loot-source-edit-input').forEach((input) => {
     input.addEventListener('change', () => saveLootSourceField(input));
@@ -5641,6 +5649,37 @@ function renderWorldBossDayDetail(byDate) {
         toast(err.message);
       }
     });
+  });
+}
+
+// Opens one kill's record in the calendar: shows its month, selects its day,
+// expands that boss (attendees + loot), scrolls to it and briefly
+// highlights it -- and, if given, the loot line of that item.
+function openWorldBossKill(eventId, itemName) {
+  const ev = getScheduleEvents().find((x) => String(x.id) === String(eventId));
+  if (!ev) return toast('That kill record could not be found');
+  const dateKey = String(ev.eventDate).slice(0, 10);
+  const [y, m] = dateKey.split('-').map(Number);
+  worldBossCalendarMonth = new Date(y, m - 1, 1);
+  worldBossSelectedDate = dateKey;
+  renderWorldBossLog();
+  const panel = document.getElementById(`worldBossAttendees-${ev.id}`);
+  if (!panel) return;
+  panel.classList.remove('hidden');
+  const row = panel.closest('.crusade-world-boss-day-row');
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const flash = (el) => {
+    el.classList.remove('is-flash');
+    void el.offsetWidth; // restart the animation if it's clicked again
+    el.classList.add('is-flash');
+    setTimeout(() => el.classList.remove('is-flash'), 2400);
+  };
+  flash(row);
+  const wanted = canonicalizeItemName(String(itemName || '')).toLowerCase();
+  panel.querySelectorAll('.crusade-loot-highlight-row').forEach((line) => {
+    const badge = line.querySelector('.crusade-loot-item-badge');
+    const name = (badge?.textContent || '').replace(/\s*×\d+\s*$/, '').trim().toLowerCase();
+    if (wanted && name === wanted) flash(line);
   });
 }
 
