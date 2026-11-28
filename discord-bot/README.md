@@ -186,8 +186,10 @@ bot is running it writes a heartbeat every minute (table `bot_heartbeat`)
 and the website does nothing. Once the heartbeat is 3+ minutes old, the
 website handles posts from the last 24 h that have no bot mark and are 2+
 minutes old: a single screenshot or a missing boss name is refused at once
-(nothing read); a full post is read on Vercel (one per call, billed CPU) and
-refused without a battle shot / this boss's loot list, or gets its Review.
+(nothing read). Full posts are NOT read on Vercel (it would eat the free
+plan's ~4 h of CPU a month); they wait, and this bot reads them when it
+starts (catch-up). `WATCH_FULL_READS=on` in Vercel's env brings back reading
+one full post per call.
 
 ## Boss attendance scanning
 
