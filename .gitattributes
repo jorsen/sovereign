@@ -1,1 +1,5 @@
+# Windows scripts must keep CRLF line endings on every PC, or cmd.exe
+# can misread labels and goto in them.
 *.bat text eol=crlf
+*.vbs text eol=crlf
+*.ps1 text eol=crlf

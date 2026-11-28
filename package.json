@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
+    "dev": "node --env-file-if-exists=.env server.js",
     "read-names": "node scripts/read-names.js"
   },
   "dependencies": {

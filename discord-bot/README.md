@@ -94,21 +94,19 @@ so it can't run on Vercel's serverless functions the way the main app does.
 The bot keeps no data on the PC -- everything is saved through the Sovereign
 app -- so moving it to another PC only needs the code and the `.env` file.
 
-1. Install **Node.js 18+** and **Git**, then
-   `git clone https://github.com/jorsen/sovereign.git`.
-2. Copy `discord-bot\.env` over from the old host PC (privately -- it holds
-   the bot token and `GROWTH_BOT_SECRET`; it's not in git on purpose).
-3. Double-click **`start-bot.bat`**. It pulls the latest code, installs
-   packages and starts the bot, and restarts it by itself if it crashes or
-   drops its connection. Close the window to stop it.
-4. Optional: double-click **`install-autostart.bat`** so the bot starts
-   (minimized) every time you sign in to Windows on that PC.
-   **`remove-autostart.bat`** undoes it.
+Run **`install.bat`** (or `Install Sovereign.exe`) in the repo root -- see
+the main [README](../README.md). It sets up the website and this bot to run
+hidden in the background, start with Windows and restart themselves; the
+bot's output goes to `logsot.log`. Give it the bot token only on the one
+PC that should run the bot.
+
+To run the bot in a visible window instead, double-click **`start-bot.bat`**
+(it pulls the latest code, installs packages, and restarts the bot if it
+crashes). Stop the hidden copy first with `stop-all.bat`.
 
 **Only one PC at a time.** Two copies of the bot running at once both answer
-every post (duplicate replies / double saves). Stop it on the old PC -- and
-run `remove-autostart.bat` there if you'd set it up -- before starting it on
-the new one.
+every post (duplicate replies / double saves). On the old PC, run
+`uninstall.bat` before installing the bot on the new one.
 
 ### Always-on hosting
 
